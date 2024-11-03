@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "393709127499",
+    "firebase_url": "https://heliocam-dad8f-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "heliocam-dad8f",
+    "storage_bucket": "heliocam-dad8f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:393709127499:android:178b48113d8c99b9738ace",
+        "android_client_info": {
+          "package_name": "com.summersoft.heliocam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5IBiji1ZVN5Sx3ae7xj_3xY0WNLTW7gg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

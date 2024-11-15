@@ -5,7 +5,22 @@
       <config />
     </shared>
     <layouts>
-      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_main.xml">
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_home.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_login.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_signup.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_start.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
         </config>
@@ -17,7 +32,27 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/MainActivity.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/assetWizardSettings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/Home.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/Signup.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/start.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/drawable/baseline_account_box_24.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/drawable/baseline_person_24.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/drawable/change_user.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/drawable/logo.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_home.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_signup.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_start.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_login.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_login.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/values/colors.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/values/colors.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/values/strings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/values/strings.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,7 +62,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\Windows 10\.android\avd\Medium_Phone_API_35.avd)]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$/HelioCam">
       <ProjectState />
@@ -36,12 +71,33 @@
   <component name="ExternalProjectsManager">
     <system id="GRADLE">
       <state>
+        <task path="$PROJECT_DIR$/HelioCam/app">
+          <activation />
+        </task>
         <projects_view>
           <tree_state>
             <expand>
               <path>
                 <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
                 <item name="HelioCam" type="f1a62948:ProjectNode" />
+              </path>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="HelioCam" type="f1a62948:ProjectNode" />
+                <item name="app" type="2d1252cf:ModuleNode" />
+              </path>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="HelioCam" type="f1a62948:ProjectNode" />
+                <item name="app" type="2d1252cf:ModuleNode" />
+                <item name="Tasks" type="e4a08cd1:TasksNode" />
+              </path>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="HelioCam" type="f1a62948:ProjectNode" />
+                <item name="app" type="2d1252cf:ModuleNode" />
+                <item name="Tasks" type="e4a08cd1:TasksNode" />
+                <item name="other" type="c8890929:TasksNode$1" />
               </path>
             </expand>
             <select />
@@ -53,6 +109,7 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
+        <option value="resourceFile" />
         <option value="Class" />
       </list>
     </option>
@@ -66,12 +123,12 @@
     &quot;assignee&quot;: &quot;Yoof44&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings">{
-  &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/Rymdsylt/HelioCam.git&quot;,
-    &quot;accountId&quot;: &quot;c7379880-bb4f-4854-bfb5-55159713aed8&quot;
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/Rymdsylt/HelioCam.git",
+    "accountId": "02dc8b3c-d959-45e2-8e6b-b582d4e4bc01"
   }
-}</component>
+}]]></component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="_Designer_Tab" />
   </component>
@@ -88,13 +145,15 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.cidr.known.project.marker": "true",
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "com.google.services.firebase.aqiPopupShown": "true",
     "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
     "last_directory_selection": "E:/Computer Programming/HelioCam/HelioCam/HelioCam/app/src/main/java",
-    "last_opened_file_path": "E:/Computer Programming/HelioCam/HelioCam/HelioCam/settings.gradle.kts",
+    "last_opened_file_path": "D:/Windows 10/Documents/GitHub/HelioCam/HelioCam/HelioCam/app/src/main/res/drawable",
     "project.structure.last.edited": "Global Libraries",
     "project.structure.proportion": "0.0",
     "project.structure.side.proportion": "0.2",
@@ -103,6 +162,15 @@
     "settings.editor.selected.configurable": "reference.settingsdialog.project.gradle"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="D:\Windows 10\Documents\GitHub\HelioCam\HelioCam\HelioCam\app\src\main\res\drawable" />
+      <recent name="D:\Windows 10\Documents\GitHub\HelioCam\HelioCam\HelioCam\app\src\main\res" />
+    </key>
+    <key name="android.template.1504126726">
+      <recent name="com.summersoft.heliocam" />
+    </key>
+  </component>
   <component name="RunManager">
     <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
       <module name="HelioCam.app.main" />

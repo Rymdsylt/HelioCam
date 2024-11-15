@@ -30,38 +30,37 @@ public class FirebaseClient {
         });
     }
 
-    public void sendMessageToOtherUser(DataModel dataModel, ErrorCallback errorCallback){
-       dbRef.addListenerForSingleValueEvent(new ValueEventListener() {
-           @Override
-           public void onDataChange(@NonNull DataSnapshot snapshot) {
-               if (snapshot.child(dataModel.getTarget()).exists()){
-                   //send the signal to other user;
-                   dbRef.child(dataModel.getTarget()).child(LATEST_EVENT_FIELD_NAME).setValue(gson.toJson(dataModel));
+    public void sendMessageToOtherUser(DataModel dataModel, ErrorCallback errorCallBack){
+        dbRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.child(dataModel.getTarget()).exists()){
+                    //send the signal to other user
+                    dbRef.child(dataModel.getTarget()).child(LATEST_EVENT_FIELD_NAME)
+                            .setValue(gson.toJson(dataModel));
 
-               }
-               else{
-                   errorCallback.onError();
-               }
-           }
+                }else {
+                    errorCallBack.onError();
+                }
+            }
 
-           @Override
-           public void onCancelled(@NonNull DatabaseError error) {
-                  errorCallback.onError();
-           }
-       });
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                errorCallBack.onError();
+            }
+        });
     }
 
     public void observeIncomingLatestEvent(NewEventCallback callBack){
-        dbRef.child(currentUsername).child(LATEST_EVENT_FIELD_NAME).addListenerForSingleValueEvent(
+        dbRef.child(currentUsername).child(LATEST_EVENT_FIELD_NAME).addValueEventListener(
                 new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
                         try{
-                            String data = Objects.requireNonNull(snapshot.getValue()).toString();
-                            DataModel dataModel = gson.fromJson(data, DataModel.class);
+                            String data= Objects.requireNonNull(snapshot.getValue()).toString();
+                            DataModel dataModel = gson.fromJson(data,DataModel.class);
                             callBack.onNewEventReceived(dataModel);
-                        }
-                        catch (Exception e){
+                        }catch (Exception e){
                             e.printStackTrace();
                         }
                     }
@@ -71,11 +70,10 @@ public class FirebaseClient {
 
                     }
                 }
-
-
         );
-    }
 
+
+    }
 
 
 

@@ -6,7 +6,12 @@ public class DataModel {
     private String data;
     private DataModelType type;
 
-
+    public DataModel(String target, String sender, String data, DataModelType type) {
+        this.target = target;
+        this.sender = sender;
+        this.data = data;
+        this.type = type;
+    }
 
     public String getTarget() {
         return target;

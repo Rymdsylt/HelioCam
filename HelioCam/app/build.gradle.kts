@@ -41,7 +41,6 @@ dependencies {
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
-    implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.10.0")
     implementation("androidx.activity:activity:1.8.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
@@ -55,6 +54,8 @@ dependencies {
     // Firebase services
     implementation("com.google.firebase:firebase-database")
     implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth")
+
 
     // Other dependencies
     implementation("com.google.code.gson:gson:2.10.1")

@@ -1,4 +1,4 @@
-package com.summersoft.heliocam;
+package com.summersoft.heliocam.ui;
 
 import android.os.Bundle;
 
@@ -8,7 +8,9 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-public class Home extends AppCompatActivity {
+import com.summersoft.heliocam.R;
+
+public class HomeActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

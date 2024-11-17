@@ -1,9 +1,6 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-<<<<<<< HEAD
     xmlns:tools="http://schemas.android.com/tools"
-=======
->>>>>>> main
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -20,7 +17,6 @@
 
     <ImageView
         android:id="@+id/keyImageView"
-<<<<<<< HEAD
         android:layout_width="137dp"
         android:layout_height="117dp"
         android:layout_marginTop="16dp"
@@ -30,15 +26,6 @@
         app:layout_constraintTop_toBottomOf="@id/titleTextView"
         app:srcCompat="@drawable/ic_trash"
         tools:srcCompat="@drawable/ic_trash" />
-=======
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/key_icon"
-        app:layout_constraintTop_toBottomOf="@id/titleTextView"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="16dp"/>
->>>>>>> main
 
     <TextView
         android:id="@+id/infoTextView"
@@ -87,64 +74,47 @@
         android:textSize="16sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-<<<<<<< HEAD
         app:layout_constraintHorizontal_bias="0.96"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.426" />
 
     <Button
-        android:id="@+id/addButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="32dp"
-        android:layout_marginTop="28dp"
-        android:layout_marginEnd="32dp"
-        android:backgroundTint="@color/orange"
-        android:text="Add"
-        android:textColor="@android:color/black"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/generateButton" />
-=======
-        app:layout_constraintHorizontal_bias="0.938"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.251" />
->>>>>>> main
-
-    <Button
         android:id="@+id/generateButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="32dp"
-<<<<<<< HEAD
-        android:layout_marginTop="28dp"
-=======
-        android:layout_marginTop="140dp"
->>>>>>> main
+        android:layout_marginTop="88dp"
         android:layout_marginEnd="32dp"
         android:backgroundTint="@color/orange"
         android:text="Generate"
         android:textColor="@android:color/black"
         app:layout_constraintEnd_toEndOf="parent"
-<<<<<<< HEAD
-        app:layout_constraintHorizontal_bias="0.0"
-=======
         app:layout_constraintHorizontal_bias="1.0"
->>>>>>> main
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/newPasskeyEditText" />
 
     <Button
-<<<<<<< HEAD
-=======
+        android:id="@+id/cancelButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="32dp"
+        android:backgroundTint="@color/orange"
+        android:text="Cancel"
+        android:textColor="@android:color/black"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/addButton" />
+
+    <Button
         android:id="@+id/addButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="32dp"
-        android:layout_marginTop="36dp"
+        android:layout_marginTop="40dp"
         android:layout_marginEnd="32dp"
         android:backgroundTint="@color/orange"
         android:text="Add"
@@ -153,30 +123,6 @@
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/generateButton" />
-
-    <Button
->>>>>>> main
-        android:id="@+id/cancelButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="32dp"
-<<<<<<< HEAD
-        android:layout_marginTop="4dp"
-=======
-        android:layout_marginTop="8dp"
->>>>>>> main
-        android:layout_marginEnd="32dp"
-        android:backgroundTint="@color/orange"
-        android:text="Cancel"
-        android:textColor="@android:color/black"
-        app:layout_constraintEnd_toEndOf="parent"
-<<<<<<< HEAD
-        app:layout_constraintHorizontal_bias="0.0"
-=======
-        app:layout_constraintHorizontal_bias="1.0"
->>>>>>> main
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/addButton" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

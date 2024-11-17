@@ -40,7 +40,8 @@
         android:hint="Email:"
         android:padding="12dp"
         android:textColorHint="@color/black"
-        android:textSize="18sp" />
+        android:textSize="18sp"
+        android:gravity="center_horizontal" />  <!-- This centers the hint -->
 
     <EditText
         android:id="@+id/password"
@@ -53,7 +54,9 @@
         android:padding="12dp"
         android:textColorHint="@color/black"
         android:textSize="18sp"
-        android:inputType="textPassword" />
+        android:inputType="textPassword"
+        android:gravity="center_horizontal" />  <!-- This centers the hint -->
+
 
 
 

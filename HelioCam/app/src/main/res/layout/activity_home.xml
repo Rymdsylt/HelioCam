@@ -1,36 +1,239 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="top"
-    android:orientation="vertical"
     tools:context=".ui.HomeActivity">
 
+    <!-- Horizontal Line -->
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="4dp"
+        android:background="@color/material_dynamic_neutral30"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.22" />
+
     <FrameLayout
-        android:layout_width="match_parent"
+        android:id="@+id/BottomBar"
+        android:layout_width="0dp"
         android:layout_height="96dp"
         android:background="@color/orange"
-        android:padding="18dp">
+        android:padding="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="1.0">
 
-       <TextView
-           android:layout_width="150dp"
-           android:layout_height="wrap_content"
-           android:text="Session Manager"
-           android:layout_gravity="left|center"
-           android:textSize="24sp"
-           android:textStyle="bold"
-           android:paddingLeft="32dp"/>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:weightSum="6">
 
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
 
+                <ImageButton
+                    android:id="@+id/homeButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Home"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
 
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
 
+                <ImageButton
+                    android:id="@+id/notifButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Notification"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/historyButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="History"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/helpButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Help"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/settingButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Settings"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/profileButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Profile"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
+
+        </LinearLayout>
 
     </FrameLayout>
 
 
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="96dp"
+        android:background="@color/orange"
+        android:padding="18dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
 
-</LinearLayout>
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="253dp"
+        android:layout_height="30dp"
+        android:layout_gravity="left|center"
+        android:paddingLeft="32dp"
+        android:text="All Sessions"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.101"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.164" />
+
+    <FrameLayout
+        android:id="@+id/TopBar"
+        android:layout_width="0dp"
+        android:layout_height="96dp"
+        android:background="@color/orange"
+        android:padding="18dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:layout_width="150dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="left|center"
+            android:paddingLeft="32dp"
+            android:text="Home"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/addSession"
+            android:layout_width="36dp"
+            android:layout_height="28dp"
+            android:layout_gravity="right|center"
+            android:background="@drawable/ic_add_button"
+            app:srcCompat="@drawable/ic_add_session" />
+    </FrameLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,141 +1,312 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/white"
-    android:padding="16dp">
+    tools:context="ui.SettingsActivity">
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="60dp" />
-    <!-- Title Section -->
-    <TextView
-        android:id="@+id/tvSettingsTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Settings"
-        android:textSize="48dp"
-        android:textStyle="bold"
-        android:textColor="@color/black"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="16dp" />
+    <!-- Main Content Layout -->
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#BDBDBD"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="8dp" />
-    <!-- Notification Button -->
-    <Button
-        android:id="@+id/btnNotification"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:drawableStart=""
-        android:drawablePadding="16dp"
-        android:padding="12dp"
-        android:background="?attr/selectableItemBackground"
-        android:text="Notification"
-        android:textColor="@color/black"
-        android:textSize="20sp"
-        android:gravity="center_vertical|start"
-        android:layout_marginBottom="8dp"
-        android:contentDescription="Notification Row" />
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#BDBDBD"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="8dp" />
+    <!-- Bottom Navigation Bar -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:padding="16dp"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="1.0">
 
-    <!-- Devices Logged In Button -->
-    <Button
-        android:id="@+id/btDevicesLogin"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:drawableStart=""
-        android:drawablePadding="16dp"
-        android:padding="12dp"
-        android:background="?attr/selectableItemBackground"
-        android:text="Devices Log-In"
-        android:textColor="@color/black"
-        android:textSize="20sp"
-        android:gravity="center_vertical|start"
-        android:layout_marginBottom="8dp"
-        android:contentDescription="Devices Log In Row" />
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#BDBDBD"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="8dp" />
+        <!-- Title Section -->
+        <TextView
+            android:id="@+id/tvSettingsTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="16dp"
+            android:text="Settings"
+            android:textColor="@color/black"
+            android:textSize="48dp"
+            android:textStyle="bold" />
 
-    <!-- Account Setting Button -->
-    <Button
-        android:id="@+id/btnAccountSetting"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:drawableEnd=""
-        android:drawablePadding="16dp"
-        android:padding="12dp"
-        android:background="?attr/selectableItemBackground"
-        android:text="Account Settings"
-        android:textColor="@color/black"
-        android:textSize="20sp"
-        android:gravity="center_vertical|start"
-        android:layout_marginBottom="8dp"
-        android:contentDescription="Account Settings Row" />
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#BDBDBD"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="8dp" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="8dp"
+            android:background="#BDBDBD" />
 
-    <!-- Session Setting Button -->
-    <Button
-        android:id="@+id/btnSessionSetting"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:drawableStart=""
-        android:drawablePadding="16dp"
-        android:padding="12dp"
-        android:background="?attr/selectableItemBackground"
-        android:text="Session Settings"
-        android:textColor="@color/black"
-        android:textSize="20sp"
-        android:gravity="center_vertical|start"
-        android:layout_marginBottom="8dp"
-        android:contentDescription="Session Settings Row" />
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#BDBDBD"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="8dp" />
+        <!-- Notification Button -->
+        <Button
+            android:id="@+id/btnNotification"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:contentDescription="Notification Row"
+            android:drawablePadding="16dp"
+            android:gravity="center_vertical|start"
+            android:padding="12dp"
+            android:text="Notification"
+            android:textColor="@color/black"
+            android:textSize="20sp" />
 
-    <!-- About Button -->
-    <Button
-        android:id="@+id/btnAbout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:drawableStart=""
-        android:drawablePadding="16dp"
-        android:padding="12dp"
-        android:background="?attr/selectableItemBackground"
-        android:text="About"
-        android:textColor="@color/black"
-        android:textSize="20sp"
-        android:gravity="center_vertical|start"
-        android:layout_marginBottom="8dp"
-        android:contentDescription="About Row" />
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#BDBDBD"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="8dp" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="8dp"
+            android:background="#BDBDBD" />
 
-</LinearLayout>
+        <!-- Devices Logged In Button -->
+        <Button
+            android:id="@+id/btDevicesLogin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:contentDescription="Devices Log In Row"
+            android:drawablePadding="16dp"
+            android:gravity="center_vertical|start"
+            android:padding="12dp"
+            android:text="Devices Log-In"
+            android:textColor="@color/black"
+            android:textSize="20sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="8dp"
+            android:background="#BDBDBD" />
+
+        <!-- Account Setting Button -->
+        <Button
+            android:id="@+id/btnAccountSetting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:contentDescription="Account Settings Row"
+            android:drawablePadding="16dp"
+            android:gravity="center_vertical|start"
+            android:padding="12dp"
+            android:text="Account Settings"
+            android:textColor="@color/black"
+            android:textSize="20sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="8dp"
+            android:background="#BDBDBD" />
+
+        <!-- Session Setting Button -->
+        <Button
+            android:id="@+id/btnSessionSetting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:contentDescription="Session Settings Row"
+            android:drawablePadding="16dp"
+            android:gravity="center_vertical|start"
+            android:padding="12dp"
+            android:text="Session Settings"
+            android:textColor="@color/black"
+            android:textSize="20sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="8dp"
+            android:background="#BDBDBD" />
+
+        <!-- About Button -->
+        <Button
+            android:id="@+id/btnAbout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:contentDescription="About Row"
+            android:drawablePadding="16dp"
+            android:gravity="center_vertical|start"
+            android:padding="12dp"
+            android:text="About"
+            android:textColor="@color/black"
+            android:textSize="20sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="0dp"
+        android:layout_height="96dp"
+        android:background="@color/orange"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+
+
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:weightSum="6">
+
+            <!-- Home Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/homeButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Home"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
+
+            <!-- Notification Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/notifButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Notification"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
+
+            <!-- History Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/historyButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="History"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
+
+            <!-- Profile -->
+
+            <!-- Help Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/helpButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Help"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
+
+            <!-- Settings Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/settingButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Settings"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+            </LinearLayout>
+
+            <!-- Profile Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/profileButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Profile"
+                    android:textSize="12sp"
+                    android:textColor="@color/black" />
+
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

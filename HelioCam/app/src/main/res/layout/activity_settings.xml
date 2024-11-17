@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/white"
+    android:padding="16dp">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="60dp" />
+    <!-- Title Section -->
+    <TextView
+        android:id="@+id/tvSettingsTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Settings"
+        android:textSize="48dp"
+        android:textStyle="bold"
+        android:textColor="@color/black"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#BDBDBD"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp" />
+    <!-- Notification Button -->
+    <Button
+        android:id="@+id/btnNotification"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:drawableStart=""
+        android:drawablePadding="16dp"
+        android:padding="12dp"
+        android:background="?attr/selectableItemBackground"
+        android:text="Notification"
+        android:textColor="@color/black"
+        android:textSize="20sp"
+        android:gravity="center_vertical|start"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="Notification Row" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#BDBDBD"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Devices Logged In Button -->
+    <Button
+        android:id="@+id/btDevicesLogin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:drawableStart=""
+        android:drawablePadding="16dp"
+        android:padding="12dp"
+        android:background="?attr/selectableItemBackground"
+        android:text="Devices Log-In"
+        android:textColor="@color/black"
+        android:textSize="20sp"
+        android:gravity="center_vertical|start"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="Devices Log In Row" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#BDBDBD"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Account Setting Button -->
+    <Button
+        android:id="@+id/btnAccountSetting"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:drawableEnd=""
+        android:drawablePadding="16dp"
+        android:padding="12dp"
+        android:background="?attr/selectableItemBackground"
+        android:text="Account Settings"
+        android:textColor="@color/black"
+        android:textSize="20sp"
+        android:gravity="center_vertical|start"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="Account Settings Row" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#BDBDBD"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Session Setting Button -->
+    <Button
+        android:id="@+id/btnSessionSetting"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:drawableStart=""
+        android:drawablePadding="16dp"
+        android:padding="12dp"
+        android:background="?attr/selectableItemBackground"
+        android:text="Session Settings"
+        android:textColor="@color/black"
+        android:textSize="20sp"
+        android:gravity="center_vertical|start"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="Session Settings Row" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#BDBDBD"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- About Button -->
+    <Button
+        android:id="@+id/btnAbout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:drawableStart=""
+        android:drawablePadding="16dp"
+        android:padding="12dp"
+        android:background="?attr/selectableItemBackground"
+        android:text="About"
+        android:textColor="@color/black"
+        android:textSize="20sp"
+        android:gravity="center_vertical|start"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="About Row" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#BDBDBD"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp" />
+
+</LinearLayout>

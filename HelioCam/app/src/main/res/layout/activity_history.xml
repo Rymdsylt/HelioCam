@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/white"
+    android:padding="16dp">
+    <!-- Spacer to push the content lower -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="60dp" />
+
+    <!-- Title -->
+    <TextView
+        android:id="@+id/tvHistoryTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="History"
+        android:textSize="48dp"
+        android:textStyle="bold"
+        android:textColor="@color/black"
+        android:layout_marginBottom="16dp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="20dp" />
+    <!-- Search Bar -->
+    <LinearLayout
+        android:id="@+id/searchBarContainer"
+        android:layout_width="350dp"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:background="@drawable/bg_orange_squircle1"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp"
+        android:layout_gravity="center_horizontal"
+    >
+        <EditText
+            android:id="@+id/etSearch"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:hint="Search"
+            android:background="@android:color/transparent"
+            android:textColor="@color/black"
+            android:textSize="16sp"
+            android:padding="0dp" />
+
+        <ImageView
+            android:id="@+id/ivSearchIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src=""
+            android:contentDescription="Search Icon" />
+    </LinearLayout>
+
+    <!-- Date Section -->
+    <TextView
+        android:id="@+id/tvToday"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Today :"
+        android:textStyle="bold"
+        android:textSize="22sp"
+        android:textColor="@color/black"
+        android:layout_marginTop="24dp" />
+
+    <TextView
+        android:id="@+id/tvDate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="DATE : -/--/----"
+        android:textStyle="bold"
+        android:textSize="22sp"
+        android:textColor="@color/black"
+        android:layout_marginBottom="16dp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#BDBDBD"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp" />
+    <!-- Time Placeholders -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginTop="16dp"
+        android:weightSum="2">
+
+        <!-- First Placeholder -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="100dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@drawable/bg_orange_squircle"
+            android:gravity="center"
+            android:layout_marginEnd="8dp">
+
+        </LinearLayout>
+
+        <!-- Second Placeholder -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="100dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@drawable/bg_orange_squircle"
+            android:gravity="center"
+            android:layout_marginStart="8dp">
+
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Time Labels -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:weightSum="2"
+        android:layout_marginTop="8dp">
+
+        <!-- Time for First Placeholder -->
+        <TextView
+            android:id="@+id/tvTime1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="TIME: 12:00 AM"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:gravity="center"
+            android:layout_marginEnd="8dp" />
+
+        <!-- Time for Second Placeholder -->
+        <TextView
+            android:id="@+id/tvTime2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="TIME: 01:00 PM"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:gravity="center"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+</LinearLayout>

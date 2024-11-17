@@ -14,4 +14,6 @@
     <color name="red">#FF0A0A</color>
     <color name="neon_green">#0AF21A</color>
     <color name="blue">#007AFF</color>
+    <color name="thumb_color">#ede9e4</color>
+    <color name="track_color">#996c18</color>
 </resources>

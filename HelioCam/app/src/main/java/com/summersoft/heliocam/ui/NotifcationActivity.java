@@ -10,14 +10,14 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.summersoft.heliocam.R;
 
-public class HistoryActivity extends AppCompatActivity {
+public class NotifcationActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_history);
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.History), (v, insets) -> {
+        setContentView(R.layout.activity_notifcation);
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.Notification), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;

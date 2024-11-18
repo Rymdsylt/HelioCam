@@ -5,7 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context="">
 
     <!-- Main Content Layout -->
     <ScrollView
@@ -53,7 +53,6 @@
                 android:textSize="32sp"
                 android:textStyle="bold"
                 app:layout_constraintBottom_toTopOf="@+id/divider"
-                app:layout_constraintMarginTop="16dp"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/notification_title"
                 app:layout_constraintVertical_bias="0.5" />
@@ -84,7 +83,7 @@
                     android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
                     android:contentDescription="Notification Icon"
-                    android:src="" />
+                    android:src="@drawable/ic_trash" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -140,7 +139,7 @@
                     android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
                     android:contentDescription="Notification Icon"
-                    android:src="" />
+                    android:src="@drawable/ic_trash" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -197,7 +196,7 @@
                     android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
                     android:contentDescription="Notification Icon"
-                    android:src="@drawable/ic_notification_icon" />
+                    android:src="@drawable/ic_trash" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"

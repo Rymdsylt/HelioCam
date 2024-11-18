@@ -63,7 +63,7 @@
                 android:id="@+id/ivSearchIcon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src=""
+                android:src="@drawable/ic_trash"
                 android:contentDescription="Search Icon" />
         </LinearLayout>
 

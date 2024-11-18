@@ -40,16 +40,6 @@
           <theme>@style/Theme.HelioCam</theme>
         </config>
       </layout>
-      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notifcation_settings.xml">
-        <config>
-          <theme>@style/Theme.HelioCam</theme>
-        </config>
-      </layout>
-      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notification.xml">
-        <config>
-          <theme>@style/Theme.HelioCam</theme>
-        </config>
-      </layout>
       <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notification_settings.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
@@ -77,18 +67,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/NotifcationActivity.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/NotificationSettingsActivity.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/SettingsActivity.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notifcation.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notification_settings.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/HistoryActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/HistoryActivity.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_history.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_history.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notifcation_settings.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notification.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_settings.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_devices_log_in.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_devices_log_in.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

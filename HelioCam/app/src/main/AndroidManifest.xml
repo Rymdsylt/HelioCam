@@ -27,7 +27,7 @@
         android:theme="@style/Theme.HelioCam"
         android:forceDarkAllowed="false"
     tools:targetApi="31">
-
+        <!--android name para sa layout testing, format .ui.(name ng activity) -->
     <activity
         android:name=".ui.StartActivity"
         android:exported="true">
@@ -37,7 +37,7 @@
         </intent-filter>
     </activity>
 
-    <!-- Other activities, not exported, won't be accessed directly -->
+
     <activity
         android:name=".ui.LoginActivity"
         android:exported="false" />

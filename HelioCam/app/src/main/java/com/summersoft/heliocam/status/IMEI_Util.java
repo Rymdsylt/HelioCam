@@ -6,7 +6,7 @@ import android.os.Build;
 import android.widget.Toast;
 import android.util.Log;
 
-public class IMEIUtil {
+public class IMEI_Util {
 
    public static final String TAG = "IMEIUtil"; // Log tag for easy identification in Logcat
 

@@ -3,13 +3,13 @@ package com.summersoft.heliocam.ui;
 import android.os.Bundle;
 import android.widget.Toast;
 import android.view.View;
-import android.view.ViewStub;
 
 import javax.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.summersoft.heliocam.databinding.ActivityCameraBinding;
 import com.summersoft.heliocam.repository.MainRepository;
+import com.summersoft.heliocam.status.LoginStatus;
 import com.summersoft.heliocam.utils.DataModelType;
 
 
@@ -24,6 +24,8 @@ public class CameraActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         views = ActivityCameraBinding.inflate(getLayoutInflater());
         setContentView(views.getRoot());
+
+        LoginStatus.checkLoginStatus(this);
 
         init();
     }

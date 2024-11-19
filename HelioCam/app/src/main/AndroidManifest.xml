@@ -5,9 +5,16 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
-
+   <!-- PERMS -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+
+    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:allowBackup="true"
@@ -20,9 +27,9 @@
         android:theme="@style/Theme.HelioCam"
         tools:targetApi="31">
 
-        <!-- Ensure that StartActivity is the main launcher -->
+
         <activity
-            android:name=".ui.StartActivity"
+            android:name=".ui.DevicesLoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

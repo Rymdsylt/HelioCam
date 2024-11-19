@@ -9,6 +9,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.status.LoginStatus;
 
 public class SessionSettingsActivity extends AppCompatActivity {
 
@@ -17,7 +18,7 @@ public class SessionSettingsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_session_settings);
-        loginstatus.checkLoginStatus(this);
+        LoginStatus.checkLoginStatus(this);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);

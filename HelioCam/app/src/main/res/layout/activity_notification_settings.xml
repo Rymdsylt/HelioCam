@@ -94,7 +94,7 @@
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/content_divider" />
-    ...
+
 
     <androidx.cardview.widget.CardView
         android:id="@+id/notification_card"

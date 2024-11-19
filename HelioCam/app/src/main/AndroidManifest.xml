@@ -5,7 +5,7 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
-   <!-- PERMS -->
+    <!-- PERMS -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -25,37 +25,37 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.HelioCam"
-        tools:targetApi="31">
+        android:forceDarkAllowed="false"
+    tools:targetApi="31">
 
+    <activity
+        android:name=".ui.StartActivity"
+        android:exported="true">
+        <intent-filter>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+    </activity>
 
-        <activity
-            android:name=".ui.StartActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+    <!-- Other activities, not exported, won't be accessed directly -->
+    <activity
+        android:name=".ui.LoginActivity"
+        android:exported="false" />
+    <activity
+        android:name=".ui.CameraActivity"
+        android:exported="false" />
+    <activity
+        android:name=".ui.HomeActivity"
+        android:exported="false" />
+    <activity
+        android:name=".ui.SignupActivity"
+        android:exported="false" />
+    <activity
+        android:name=".ui.AddSessionActivity"
+        android:exported="false" />
+    <activity
+        android:name=".UsePhoneActivity"
+        android:exported="false" />
+</application>
 
-        <!-- Other activities, not exported, won't be accessed directly -->
-        <activity
-            android:name=".ui.LoginActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ui.CameraActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ui.HomeActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ui.SignupActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ui.AddSessionActivity"
-            android:exported="false" />
-        <activity
-            android:name=".UsePhoneActivity"
-            android:exported="false" />
-    </application>
-
-</manifest>
+    </manifest>

@@ -1,181 +1,285 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context="ui.SessionSettingsActivity">
+<androidx.constraintlayout.widget.ConstraintLayout
+xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+xmlns:tools="http://schemas.android.com/tools"
+android:id="@+id/History"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:background="@color/white"
+tools:context=".ui.HistoryActivity">
 
-    <!-- Back Button -->
-    <ImageView
-        android:id="@+id/backButton"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:contentDescription="Back"
-        android:src="@drawable/ic_trash"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+<!-- Main Content Layout -->
+<LinearLayout
+    android:layout_width="0dp"
+    android:layout_height="0dp"
+    android:orientation="vertical"
+    android:padding="16dp"
+    app:layout_constraintBottom_toTopOf="@id/bottomBar"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent">
+
+    <!-- Spacer to push the content lower -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="60dp" />
 
     <!-- Title -->
     <TextView
-        android:id="@+id/sessionSettingTitle"
+        android:id="@+id/tvSessionSettingsTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
+        android:layout_marginBottom="16dp"
         android:text="Session Setting"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="@id/backButton"
-        app:layout_constraintStart_toEndOf="@id/backButton"
-        app:layout_constraintTop_toTopOf="@id/backButton" />
+        android:textColor="@color/black"
+        android:textSize="38dp"
+        android:textStyle="bold" />
 
-    <!-- Quality Expandable Section -->
-    <LinearLayout
-        android:id="@+id/qualitySection"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:clickable="true"
-        android:focusable="true"
-        android:orientation="vertical"
-        android:padding="12dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/sessionSettingTitle">
-
-        <!-- Quality Header -->
-        <TextView
-            android:id="@+id/qualityTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Quality"
-            android:textSize="18sp" />
-
-        <!-- Expandable Options -->
-        <LinearLayout
-            android:id="@+id/qualityOptions"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingTop="8dp"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/quality1080p"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="8dp"
-                android:text="1080p" />
-
-            <TextView
-                android:id="@+id/quality720p"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="8dp"
-                android:text="720p" />
-
-            <TextView
-                android:id="@+id/quality480p"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="8dp"
-                android:text="480p" />
-
-            <TextView
-                android:id="@+id/qualityAuto"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="8dp"
-                android:text="Auto" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Save Location -->
-    <LinearLayout
-        android:id="@+id/saveLocation"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/qualitySection">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Save Location"
-            android:textSize="18sp" />
-    </LinearLayout>
-
-    <!-- Camera Setting -->
-    <LinearLayout
-        android:id="@+id/cameraSetting"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/saveLocation">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Camera Setting"
-            android:textSize="18sp" />
-    </LinearLayout>
-
-    <!-- Bottom Navigation Bar -->
-    <androidx.appcompat.widget.LinearLayoutCompat
-        android:id="@+id/bottomNavBar"
+    <View
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="#FFA500"
+        android:layout_height="1dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp"
+        android:background="#BDBDBD" />
+
+             <!-- Quality -->
+    <Button
+        android:id="@+id/quality_btn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/rounded_grey_button"
+        android:text="Quality"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ListView
+        android:id="@+id/qualityOptions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:background="@color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/quality_button" />
+
+    <!-- Save Location  -->
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp"
+      />
+    <Button
+        android:id="@+id/saveLocation_btn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/rounded_grey_button"
+        android:text="Save Location"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ListView
+        android:id="@+id/sLocationOptions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:background="@color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/saveLocation_btn" />
+
+    <!-- Camera Settings  -->
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp"
+        />
+    <Button
+        android:id="@+id/cameraSettings_btn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/rounded_grey_button"
+        android:text="Camera Settings"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ListView
+        android:id="@+id/cSettingsOptions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:background="@color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/cameraSettings_btn" />
+</LinearLayout>
+
+<!-- Bottom Navigation Bar -->
+<!-- Bottom Bar -->
+<FrameLayout
+    android:id="@+id/bottomBar"
+    android:layout_width="0dp"
+    android:layout_height="96dp"
+    android:background="@color/orange"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
         android:orientation="horizontal"
-        app:layout_constraintBottom_toBottomOf="parent">
+        android:weightSum="6">
 
-        <ImageView
-            android:id="@+id/navHome"
+        <!-- Home Button -->
+        <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:contentDescription="Home"
-            android:src="@drawable/ic_trash" />
+            android:gravity="center"
+            android:orientation="vertical">
 
-        <ImageView
-            android:id="@+id/navNotification"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:contentDescription="Notification"
-            android:src="@drawable/ic_trash" />
+            <ImageButton
+                android:id="@+id/homeButton"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/ic_trash"
+                app:srcCompat="@drawable/ic_trash" />
 
-        <ImageView
-            android:id="@+id/navHistory"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:contentDescription="History"
-            android:src="@drawable/ic_trash" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Home"
+                android:textColor="@color/black"
+                android:textSize="12sp" />
+        </LinearLayout>
 
-        <ImageView
-            android:id="@+id/navHelp"
+        <!-- Notification Button -->
+        <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:contentDescription="Help"
-            android:src="@drawable/ic_trash" />
+            android:gravity="center"
+            android:orientation="vertical">
 
-        <ImageView
-            android:id="@+id/navSetting"
+            <ImageButton
+                android:id="@+id/notifButton"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/ic_trash"
+                app:srcCompat="@drawable/ic_trash" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Notification"
+                android:textColor="@color/black"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- History Button -->
+        <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:contentDescription="Settings"
-            android:src="@drawable/ic_trash" />
-    </androidx.appcompat.widget.LinearLayoutCompat>
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/historyButton"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/ic_trash"
+                app:srcCompat="@drawable/ic_trash" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="History"
+                android:textColor="@color/black"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Help Button -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/helpButton"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/ic_trash"
+                app:srcCompat="@drawable/ic_trash" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Help"
+                android:textColor="@color/black"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Settings Button -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/settingButton"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/ic_trash"
+                app:srcCompat="@drawable/ic_trash" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Settings"
+                android:textColor="@color/black"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Profile Button -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/profileButton"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/ic_trash"
+                app:srcCompat="@drawable/ic_trash" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Profile"
+                android:textColor="@color/black"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+
+    </LinearLayout>
+
+</FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

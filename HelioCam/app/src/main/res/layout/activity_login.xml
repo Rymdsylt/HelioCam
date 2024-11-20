@@ -6,8 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="center"
-    android:orientation="vertical"
-    tools:context=".ui.LoginActivity">
+    android:orientation="vertical">
 
 
     <TextView
@@ -76,21 +75,21 @@
         android:text="Don't have an account?"
         android:textAlignment="center"
         android:textColor="@color/black"
-        android:textSize="18sp" />
+        android:textSize="24sp" />
 
     <TextView
         android:id="@+id/signupLink"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
+        android:clickable="true"
+        android:focusable="true"
         android:text="Signup here"
         android:textAlignment="center"
         android:textColor="@color/black"
-        android:textSize="18sp"
+        android:textSize="24sp"
         android:textStyle="bold"
-        android:clickable="true"
-        android:focusable="true"
-        tools:ignore="HardcodedText" />
+        tools:ignore="TouchTargetSizeCheck" />
 
 
 

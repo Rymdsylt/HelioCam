@@ -6,7 +6,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.HomeActivity">
+    >
 
     <!-- Horizontal Line -->
 
@@ -22,18 +22,16 @@
         app:layout_constraintVertical_bias="0.22" />
 
 
+    <!-- Bottom Navigation Bar -->
     <FrameLayout
-        android:id="@+id/BottomBar"
+        android:id="@+id/bottomBar"
         android:layout_width="0dp"
         android:layout_height="96dp"
         android:background="@color/orange"
         android:padding="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="1.0">
+        app:layout_constraintStart_toStartOf="parent">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -42,21 +40,20 @@
             android:orientation="horizontal"
             android:weightSum="6">
 
+            <!-- Home Button -->
             <LinearLayout
-
-
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:gravity="center"
                 android:orientation="vertical">
 
-
                 <ImageButton
                     android:id="@+id/homeButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Home"
+                    android:background="@drawable/baseline_home_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -65,9 +62,11 @@
                     android:layout_marginTop="4dp"
                     android:text="Home"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
+            <!-- Notification Button -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -77,9 +76,10 @@
 
                 <ImageButton
                     android:id="@+id/notifButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Notification"
+                    android:background="@drawable/baseline_notifications_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -88,9 +88,11 @@
                     android:layout_marginTop="4dp"
                     android:text="Notification"
                     android:textColor="@color/black"
+                    android:textStyle="bold"
                     android:textSize="12sp" />
             </LinearLayout>
 
+            <!-- History Button -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -100,9 +102,10 @@
 
                 <ImageButton
                     android:id="@+id/historyButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="History"
+                    android:background="@drawable/baseline_history_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -111,9 +114,11 @@
                     android:layout_marginTop="4dp"
                     android:text="History"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
+            <!-- Help Button -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -123,10 +128,12 @@
 
                 <ImageButton
                     android:id="@+id/helpButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
-                    app:srcCompat="@drawable/ic_trash" />
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Help"
+                    android:background="@drawable/baseline_help_24"
+                    app:srcCompat="@drawable/ic_trash"
+                    tools:ignore="TouchTargetSizeCheck" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -134,9 +141,11 @@
                     android:layout_marginTop="4dp"
                     android:text="Help"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
+            <!-- Settings Button -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -146,10 +155,12 @@
 
                 <ImageButton
                     android:id="@+id/settingButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
-                    app:srcCompat="@drawable/ic_trash" />
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Setting"
+                    android:background="@drawable/baseline_settings_24"
+                    app:srcCompat="@drawable/ic_trash"
+                    />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -157,9 +168,11 @@
                     android:layout_marginTop="4dp"
                     android:text="Settings"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
+            <!-- Profile Button -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -169,10 +182,12 @@
 
                 <ImageButton
                     android:id="@+id/profileButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
-                    app:srcCompat="@drawable/ic_trash" />
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Profile"
+                    android:background="@drawable/baseline_person_24"
+                    app:srcCompat="@drawable/ic_trash"
+                    />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -180,12 +195,13 @@
                     android:layout_marginTop="4dp"
                     android:text="Profile"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
         </LinearLayout>
-
     </FrameLayout>
+
 
     <FrameLayout
         android:layout_width="0dp"
@@ -224,9 +240,10 @@
 
         <ImageButton
             android:id="@+id/hamburgerButton"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_gravity="left|center"
+            android:contentDescription="Hamburger"
             android:background="@drawable/ic_trash"
             app:srcCompat="@drawable/ic_trash"
             app:layout_constraintStart_toStartOf="parent" />
@@ -244,9 +261,10 @@
 
         <ImageButton
             android:id="@+id/addSession"
-            android:layout_width="36dp"
-            android:layout_height="28dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_gravity="right|center"
+            android:contentDescription="Add Session"
             android:background="@drawable/ic_add_button"
             app:srcCompat="@drawable/ic_add_session" />
     </FrameLayout>

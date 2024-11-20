@@ -6,8 +6,7 @@
     android:id="@+id/NotificationSettings"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
-    tools:context=".ui.NotificationSettingsActivity">
+    >
 
     <View
         android:id="@+id/top_spacer"
@@ -24,6 +23,7 @@
         android:text="Notification"
         android:textSize="48dp"
         android:textStyle="bold"
+        android:textColor="@color/black"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
@@ -43,6 +43,7 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
+        android:padding="10dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/title_divider">
@@ -53,6 +54,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Notification"
+            android:textColor="@color/black"
             android:textSize="24sp"
             android:textStyle="bold"
             app:layout_constraintTop_toBottomOf="@+id/title_divider" />
@@ -63,6 +65,7 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="10dp"
             android:text="Off"
+            android:textColor="@color/black"
             android:textSize="20sp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/title_divider" />
@@ -70,8 +73,8 @@
         <Switch
             android:id="@+id/notification_switch"
             style="@style/CustomSwitchStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/title_divider" />
 
@@ -91,7 +94,9 @@
         android:layout_height="wrap_content"
         android:text="Manage all Notification:"
         android:textSize="22sp"
+        android:textColor="@color/black"
         android:textStyle="bold"
+        android:layout_marginLeft="10dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/content_divider" />
 
@@ -134,8 +139,8 @@
             <Switch
                 android:id="@+id/email_notification_switch"
                 style="@style/CustomSwitchStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_width="48dp"
+                android:layout_height="48dp" />
 
         </LinearLayout>
 
@@ -178,21 +183,22 @@
             <Switch
                 android:id="@+id/my_switch"
                 style="@style/CustomSwitchStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_width="48dp"
+                android:layout_height="48dp" />
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
+    <!-- Bottom Navigation Bar -->
     <FrameLayout
         android:id="@+id/bottomBar"
         android:layout_width="0dp"
         android:layout_height="96dp"
         android:background="@color/orange"
+        android:padding="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
-
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -211,9 +217,10 @@
 
                 <ImageButton
                     android:id="@+id/homeButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Home"
+                    android:background="@drawable/baseline_home_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -222,7 +229,8 @@
                     android:layout_marginTop="4dp"
                     android:text="Home"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
             <!-- Notification Button -->
@@ -235,9 +243,10 @@
 
                 <ImageButton
                     android:id="@+id/notifButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Notification"
+                    android:background="@drawable/baseline_notifications_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -246,6 +255,7 @@
                     android:layout_marginTop="4dp"
                     android:text="Notification"
                     android:textColor="@color/black"
+                    android:textStyle="bold"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -259,9 +269,10 @@
 
                 <ImageButton
                     android:id="@+id/historyButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="History"
+                    android:background="@drawable/baseline_history_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -270,7 +281,8 @@
                     android:layout_marginTop="4dp"
                     android:text="History"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
             <!-- Help Button -->
@@ -283,10 +295,12 @@
 
                 <ImageButton
                     android:id="@+id/helpButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
-                    app:srcCompat="@drawable/ic_trash" />
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Help"
+                    android:background="@drawable/baseline_help_24"
+                    app:srcCompat="@drawable/ic_trash"
+                    tools:ignore="TouchTargetSizeCheck" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -294,7 +308,8 @@
                     android:layout_marginTop="4dp"
                     android:text="Help"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
             <!-- Settings Button -->
@@ -307,10 +322,12 @@
 
                 <ImageButton
                     android:id="@+id/settingButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
-                    app:srcCompat="@drawable/ic_trash" />
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Setting"
+                    android:background="@drawable/baseline_settings_24"
+                    app:srcCompat="@drawable/ic_trash"
+                    />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -318,7 +335,8 @@
                     android:layout_marginTop="4dp"
                     android:text="Settings"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
             <!-- Profile Button -->
@@ -331,10 +349,12 @@
 
                 <ImageButton
                     android:id="@+id/profileButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
-                    app:srcCompat="@drawable/ic_trash" />
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Profile"
+                    android:background="@drawable/baseline_person_24"
+                    app:srcCompat="@drawable/ic_trash"
+                    />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -342,9 +362,12 @@
                     android:layout_marginTop="4dp"
                     android:text="Profile"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
+
         </LinearLayout>
     </FrameLayout>
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

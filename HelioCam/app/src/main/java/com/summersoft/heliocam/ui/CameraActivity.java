@@ -4,8 +4,11 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -19,31 +22,84 @@ import org.webrtc.VideoTrack;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SurfaceTextureHelper;
 
+import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.databinding.ActivityCameraBinding;  // Import the generated binding class
+import com.summersoft.heliocam.status.LoginStatus;
 
 public class CameraActivity extends AppCompatActivity {
 
-    private ActivityCameraBinding binding;  // Use the generated ViewBinding class
     private SurfaceViewRenderer cameraView;
     private PeerConnectionFactory peerConnectionFactory;
     private CameraVideoCapturer videoCapturer;
     private VideoTrack videoTrack;
     private EglBase rootEglBase;
+    private boolean isUsingFrontCamera = true; // Track the current camera
+
+    private boolean isCameraOn = true; // Track camera on/off state
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        binding = ActivityCameraBinding.inflate(getLayoutInflater());  // Inflate the layout using ViewBinding
-        setContentView(binding.getRoot());  // Set the root view
+        setContentView(R.layout.activity_camera);
 
-        cameraView = binding.cameraView;  // Access views directly through ViewBinding
+        cameraView = findViewById(R.id.camera_view);
+        ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
+        ImageButton videoButton = findViewById(R.id.video_button);
 
-        // Initialize WebRTC
+        // Initialize WebRTC and check permissions
         initializePeerConnectionFactory();
-
-        // Check for camera permissions
         checkCameraPermission();
+
+        // Handle switch camera button click
+        switchCameraButton.setOnClickListener(v -> switchCamera());
+
+        // Handle video button click
+        videoButton.setOnClickListener(v -> toggleCamera(videoButton));
+
+        LoginStatus.checkLoginStatus(this);
     }
+
+    private void toggleCamera(ImageButton videoButton) {
+        if (videoCapturer == null) {
+            Toast.makeText(this, "Camera is not initialized.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Get the camera disabled text view
+        TextView cameraDisabledText = findViewById(R.id.camera_disabled_text);
+
+        if (isCameraOn) {
+            // Stop video feed
+            try {
+                videoCapturer.stopCapture();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            videoTrack.setEnabled(false); // Disable video track
+            videoButton.setImageResource(R.drawable.ic_baseline_videocam_off_24); // Update button icon
+
+            // Show "Camera Disabled" message
+            cameraDisabledText.setVisibility(View.VISIBLE);
+            cameraView.setVisibility(View.INVISIBLE); // Hide the camera view
+        } else {
+            // Restart video feed
+            try {
+                videoCapturer.startCapture(1280, 720, 30);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            videoTrack.setEnabled(true); // Enable video track
+            videoButton.setImageResource(R.drawable.ic_baseline_videocam_24); // Update button icon
+
+            // Hide "Camera Disabled" message
+            cameraDisabledText.setVisibility(View.GONE);
+            cameraView.setVisibility(View.VISIBLE); // Show the camera view
+        }
+
+        isCameraOn = !isCameraOn; // Toggle state
+    }
+
+
 
     private void initializePeerConnectionFactory() {
         PeerConnectionFactory.InitializationOptions options =
@@ -52,9 +108,9 @@ public class CameraActivity extends AppCompatActivity {
         PeerConnectionFactory.initialize(options);
         peerConnectionFactory = PeerConnectionFactory.builder().createPeerConnectionFactory();
 
-        // Set up the EglBase (OpenGL context)
         rootEglBase = EglBase.create();
-        cameraView.init(rootEglBase.getEglBaseContext(), null);  // Initialize SurfaceViewRenderer
+        cameraView.init(rootEglBase.getEglBaseContext(), null);
+        cameraView.setMirror(true); // Enable mirroring for front camera
     }
 
     private void checkCameraPermission() {
@@ -64,37 +120,70 @@ public class CameraActivity extends AppCompatActivity {
                     new String[]{Manifest.permission.CAMERA},
                     100);
         } else {
-            // If permission is granted, proceed with camera setup
             initializeCamera();
         }
     }
 
-    private void initializeCamera() {
-        // Use Camera2Enumerator for API level >= 21
-        Camera2Enumerator cameraEnumerator = new Camera2Enumerator(this);
-        String cameraName = cameraEnumerator.getDeviceNames()[0]; // Choose the first camera
-
-        // Create a camera capturer
-        videoCapturer = createCameraCapturer(cameraEnumerator, cameraName);
-        if (videoCapturer != null) {
-            // Initialize the video source and video track
-            VideoSource videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
-            videoCapturer.initialize(SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext()), getApplicationContext(), videoSource.getCapturerObserver());
-            videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", videoSource);
-
-            // Bind the video track to the SurfaceViewRenderer
-            videoTrack.addSink(cameraView);
-
-            // Start capturing video
-            videoCapturer.startCapture(1280, 720, 30);  // Capture at 1280x720 resolution, 30 fps
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 100) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                initializeCamera();
+            } else {
+                Toast.makeText(this, "Camera permission is required to use this feature.", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
-    private CameraVideoCapturer createCameraCapturer(Camera2Enumerator cameraEnumerator, String cameraName) {
-        if (cameraEnumerator.isFrontFacing(cameraName)) {
-            return cameraEnumerator.createCapturer(cameraName, null);
+    private void initializeCamera() {
+        Camera2Enumerator cameraEnumerator = new Camera2Enumerator(this);
+
+        videoCapturer = createCameraCapturer(cameraEnumerator, isUsingFrontCamera);
+        if (videoCapturer == null) {
+            Toast.makeText(this, "Camera initialization failed.", Toast.LENGTH_LONG).show();
+            return;
         }
-        return null;  // Return null for now, can handle back camera similarly
+
+        VideoSource videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
+        videoCapturer.initialize(SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext()),
+                getApplicationContext(), videoSource.getCapturerObserver());
+        videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", videoSource);
+
+        cameraView.post(() -> {
+            videoTrack.addSink(cameraView);
+            try {
+                videoCapturer.startCapture(1280, 720, 30);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    private CameraVideoCapturer createCameraCapturer(Camera2Enumerator cameraEnumerator, boolean useFrontCamera) {
+        for (String deviceName : cameraEnumerator.getDeviceNames()) {
+            if (useFrontCamera && cameraEnumerator.isFrontFacing(deviceName)) {
+                return cameraEnumerator.createCapturer(deviceName, null);
+            } else if (!useFrontCamera && cameraEnumerator.isBackFacing(deviceName)) {
+                return cameraEnumerator.createCapturer(deviceName, null);
+            }
+        }
+        return null;
+    }
+
+    private void switchCamera() {
+        if (videoCapturer != null) {
+            try {
+                videoCapturer.stopCapture();
+                videoCapturer.dispose();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            // Switch the camera
+            isUsingFrontCamera = !isUsingFrontCamera;
+            initializeCamera();
+        }
     }
 
     @Override
@@ -102,18 +191,16 @@ public class CameraActivity extends AppCompatActivity {
         super.onStop();
         if (videoCapturer != null) {
             try {
-                // Attempt to stop the capture
                 videoCapturer.stopCapture();
             } catch (InterruptedException e) {
-                // Handle the exception (maybe log it or show a message)
-                e.printStackTrace();  // You could log this to your logcat or handle it differently
-            } finally {
-                // Cleanup resources even if an exception occurs
-                videoCapturer.dispose();
+                e.printStackTrace();
             }
+            videoCapturer.dispose();
         }
         peerConnectionFactory.dispose();
         rootEglBase.release();
     }
-
 }
+
+
+

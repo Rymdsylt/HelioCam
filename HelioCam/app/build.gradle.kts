@@ -43,7 +43,7 @@ dependencies {
     implementation(libs.constraintlayout)
     implementation("com.google.android.material:material:1.10.0")
     implementation("androidx.activity:activity:1.8.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

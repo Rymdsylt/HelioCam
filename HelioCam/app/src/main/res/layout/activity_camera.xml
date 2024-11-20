@@ -1,62 +1,42 @@
-<?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:keepScreenOn="true">
+    android:keepScreenOn="true"
+    android:background="#808080">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="80dp"
-        android:id="@+id/incomingCallLayout"
-        android:visibility="gone"
-        android:orientation="horizontal"
-        android:layout_alignParentTop="true">
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:layout_weight="6"
-            android:textSize="20sp"
-            android:textColor="@color/black"
-            android:text="someone is calling"
-            android:id="@+id/incomingNameTV"/>
-
-        <ImageView
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1.5"
-            android:src="@drawable/ic_accept"
-            android:padding="15dp"
-            android:id="@+id/acceptButton"/>
-        <ImageView
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1.5"
-            android:src="@drawable/ic_reject"
-            android:padding="15dp"
-            android:id="@+id/rejectButton"/>
-
-    </LinearLayout>
+    <!-- Camera View Layout -->
     <RelativeLayout
+        android:id="@+id/surveillanceLayout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_below="@+id/incomingCallLayout"
-        android:id="@+id/whoToCallLayout">
+        android:layout_height="match_parent">
 
         <org.webrtc.SurfaceViewRenderer
             android:id="@+id/camera_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
-    </RelativeLayout>
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:id="@+id/callLayout"
-        android:visibility="gone"
-        tools:visibility="visible"
-        android:layout_height="match_parent">
 
+        <!-- Camera Disabled Text -->
+        <TextView
+            android:id="@+id/camera_disabled_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Camera Disabled"
+            android:textSize="24sp"
+            android:textColor="@android:color/white"
+            android:layout_centerInParent="true"
+            android:visibility="gone" /> <!-- Initially hidden -->
+    </RelativeLayout>
+
+    <!-- Control Layout for Surveillance -->
+    <RelativeLayout
+        android:id="@+id/surveillanceControlLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible">
+
+        <!-- Bottom Control Bar -->
         <LinearLayout
             android:id="@+id/controls"
             android:layout_width="match_parent"
@@ -68,6 +48,7 @@
             android:gravity="center"
             android:orientation="horizontal">
 
+            <!-- Mic Button -->
             <ImageView
                 android:id="@+id/mic_button"
                 android:layout_width="wrap_content"
@@ -75,53 +56,53 @@
                 android:layout_margin="16dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
-                android:contentDescription="Mic"
+                android:contentDescription="Microphone"
                 android:focusable="true"
                 android:padding="12dp"
                 app:backgroundTint="@color/cardview_dark_background"
                 app:srcCompat="@drawable/ic_baseline_mic_24" />
 
+            <!-- End Surveillance Button -->
             <ImageView
-                android:id="@+id/end_call_button"
+                android:id="@+id/end_surveillance_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="16dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
-                android:contentDescription="End Call"
+                android:contentDescription="Stop Surveillance"
                 android:focusable="true"
                 android:padding="12dp"
                 app:backgroundTint="@android:color/holo_red_dark"
                 app:srcCompat="@drawable/ic_baseline_call_end_24" />
 
-            <ImageView
+            <!-- Video Button -->
+            <ImageButton
                 android:id="@+id/video_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="16dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
-                android:contentDescription="Video"
+                android:contentDescription="Toggle Video"
                 android:focusable="true"
                 android:padding="12dp"
                 app:backgroundTint="@color/cardview_dark_background"
                 app:srcCompat="@drawable/ic_baseline_videocam_24" />
 
-            <ImageView
-                android:id="@+id/settings_button"
+            <!-- Switch Camera Button -->
+            <ImageButton
+                android:id="@+id/switch_camera_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="16dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
-                android:contentDescription="Add Camera"
+                android:contentDescription="Switch Camera"
                 android:focusable="true"
                 android:padding="12dp"
                 app:backgroundTint="@color/cardview_dark_background"
-                app:srcCompat="@drawable/baseline_settings_24" />
+                tools:src="@drawable/baseline_settings_24" />
         </LinearLayout>
-
     </RelativeLayout>
-
-
 </RelativeLayout>

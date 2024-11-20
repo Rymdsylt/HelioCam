@@ -1,4 +1,4 @@
-package com.summersoft.heliocam;
+package com.summersoft.heliocam.ui;
 
 import android.os.Bundle;
 
@@ -8,6 +8,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.summersoft.heliocam.R;
+
 public class UsePhoneActivity extends AppCompatActivity {
 
     @Override
@@ -15,7 +17,7 @@ public class UsePhoneActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_use_phone);
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.mainpage), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;

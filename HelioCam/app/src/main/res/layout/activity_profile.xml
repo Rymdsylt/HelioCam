@@ -3,132 +3,139 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".SessionSettingsActivity">
+    android:gravity="center"
+    android:orientation="vertical"
+    tools:context=".profile">
 
-    <!-- Back Button -->
-    <ImageView
-        android:id="@+id/backButton"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:src="@drawable/ic_back_arrow"
-        android:contentDescription="Back"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Title -->
-    <TextView
-        android:id="@+id/sessionSettingTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Session Setting"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:layout_marginStart="8dp"
-        app:layout_constraintStart_toEndOf="@id/backButton"
-        app:layout_constraintTop_toTopOf="@id/backButton"
-        app:layout_constraintBottom_toBottomOf="@id/backButton" />
-
-    <!-- Quality Expandable Section -->
     <LinearLayout
-        android:id="@+id/qualitySection"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:background="@drawable/item_background"
-        android:padding="12dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/sessionSettingTitle"
-        android:clickable="true"
-        android:focusable="true">
+        tools:ignore="MissingConstraints">
 
-        <!-- Quality Header -->
-        <TextView
-            android:id="@+id/qualityTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Quality"
-            android:textSize="18sp" />
 
-        <!-- Expandable Options -->
-        <LinearLayout
-            android:id="@+id/qualityOptions"
+        <!-- Profile Header -->
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone"
-            android:paddingTop="8dp">
+            android:layout_height="280dp"
+            android:background="@color/orange"
+            android:layout_gravity="top"
+            android:padding="20dp">
 
             <TextView
-                android:id="@+id/quality1080p"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="1080p"
-                android:padding="8dp" />
+                android:layout_width="140dp"
+                android:layout_height="50dp"
+                android:text="Profile"
+                android:textSize="42sp"
+                android:textStyle="bold"
+                android:textColor="@color/black"
+                android:layout_marginTop="20dp"/>
+
+
+            <Button
+                android:layout_width="55dp"
+                android:layout_height="55dp"
+                android:text="Edit"
+                android:textSize="18sp"
+                android:textColor="@color/black"
+                android:textStyle="bold"
+                android:textAlignment="center"
+                android:background="@drawable/roundbutton"
+                android:layout_gravity="top|right"
+                android:layout_marginTop="55dp"/>
+
+
+            <ImageView
+                android:layout_width="150dp"
+                android:layout_height="150dp"
+                android:background="@drawable/boy"
+                android:layout_gravity="center"
+                android:layout_marginTop="25dp"/>
+
 
             <TextView
-                android:id="@+id/quality720p"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="720p"
-                android:padding="8dp" />
+                android:layout_width="120dp"
+                android:layout_height="50dp"
+                android:text="Username"
+                android:textColor="@color/black"
+                android:textSize="24sp"
+                android:textAlignment="center"
+                android:textStyle="bold"
+                android:layout_gravity="center"
+                android:layout_marginTop="120dp"/>
 
-            <TextView
-                android:id="@+id/quality480p"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="480p"
-                android:padding="8dp" />
+        </FrameLayout>
 
-            <TextView
-                android:id="@+id/qualityAuto"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Auto"
-                android:padding="8dp" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Save Location -->
-    <LinearLayout
-        android:id="@+id/saveLocation"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="@drawable/item_background"
-        android:padding="12dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/qualitySection">
-
-        <TextView
+        <!-- Main Content Details -->
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Save Location"
-            android:textSize="18sp" />
-    </LinearLayout>
+            android:layout_gravity="center"
+            android:padding="20dp">
 
-    <!-- Camera Setting -->
-    <LinearLayout
-        android:id="@+id/cameraSetting"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="@drawable/item_background"
-        android:padding="12dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/saveLocation">
+            <TextView
+                android:layout_width="100dp"
+                android:layout_height="50dp"
+                android:text="Details"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:textColor="@color/black"
+                />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Camera Setting"
-            android:textSize="18sp" />
+            <EditText
+                android:id="@+id/fullname"
+                android:layout_width="360dp"
+                android:layout_height="55dp"
+                android:layout_marginTop="52dp"
+                android:background="@drawable/custom_edittext"
+                android:drawablePadding="8dp"
+                android:hint="Full Name:"
+                android:padding="12dp"
+                android:textColorHint="@color/black"
+                android:textSize="18sp"/>
+
+            <EditText
+                android:id="@+id/username"
+                android:layout_width="360dp"
+                android:layout_height="55dp"
+                android:layout_marginTop="119dp"
+                android:background="@drawable/custom_edittext"
+                android:drawablePadding="8dp"
+                android:hint="Username:"
+                android:padding="12dp"
+                android:textColorHint="@color/black"
+                android:textSize="18sp"/>
+
+            <EditText
+                android:id="@+id/contact"
+                android:layout_width="360dp"
+                android:layout_height="55dp"
+                android:layout_marginTop="186dp"
+                android:background="@drawable/custom_edittext"
+                android:drawablePadding="8dp"
+                android:hint="Contact #:"
+                android:padding="12dp"
+                android:textColorHint="@color/black"
+                android:textSize="18sp"/>
+
+            <EditText
+                android:id="@+id/email"
+                android:layout_width="360dp"
+                android:layout_height="55dp"
+                android:layout_marginTop="253dp"
+                android:background="@drawable/custom_edittext"
+                android:drawablePadding="8dp"
+                android:hint="Email:"
+                android:padding="12dp"
+                android:textColorHint="@color/black"
+                android:textSize="18sp"/>
+
+        </FrameLayout>
+
     </LinearLayout>
 
     <!-- Bottom Navigation Bar -->
@@ -295,5 +302,9 @@
 
         </LinearLayout>
     </FrameLayout>
+
+
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

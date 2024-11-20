@@ -13,7 +13,7 @@
         android:id="@+id/mainContent"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@id/BottomBar"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -242,7 +242,7 @@
 
     <!-- Bottom Navigation Bar -->
     <FrameLayout
-        android:id="@+id/BottomBar"
+        android:id="@+id/bottomBar"
         android:layout_width="0dp"
         android:layout_height="96dp"
         android:background="@color/orange"
@@ -270,7 +270,7 @@
                     android:id="@+id/homeButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_home_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -294,7 +294,7 @@
                     android:id="@+id/notifButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_notifications_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -318,7 +318,7 @@
                     android:id="@+id/historyButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_history_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -342,7 +342,7 @@
                     android:id="@+id/helpButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_help_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -366,7 +366,7 @@
                     android:id="@+id/settingButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_settings_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -390,7 +390,7 @@
                     android:id="@+id/profileButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_person_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView

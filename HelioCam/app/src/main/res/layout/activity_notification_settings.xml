@@ -6,7 +6,6 @@
     android:id="@+id/NotificationSettings"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
     tools:context=".ui.NotificationSettingsActivity">
 
     <View
@@ -43,6 +42,7 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
+        android:padding="10dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/title_divider">
@@ -92,9 +92,10 @@
         android:text="Manage all Notification:"
         android:textSize="22sp"
         android:textStyle="bold"
+        android:layout_marginLeft="10dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/content_divider" />
-    ...
+
 
     <androidx.cardview.widget.CardView
         android:id="@+id/notification_card"
@@ -184,15 +185,16 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
+    <!-- Bottom Navigation Bar -->
     <FrameLayout
         android:id="@+id/bottomBar"
         android:layout_width="0dp"
         android:layout_height="96dp"
         android:background="@color/orange"
+        android:padding="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
-
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -213,7 +215,7 @@
                     android:id="@+id/homeButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_home_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -237,7 +239,7 @@
                     android:id="@+id/notifButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_notifications_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -261,7 +263,7 @@
                     android:id="@+id/historyButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_history_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -285,7 +287,7 @@
                     android:id="@+id/helpButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_help_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -309,7 +311,7 @@
                     android:id="@+id/settingButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_settings_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -333,7 +335,7 @@
                     android:id="@+id/profileButton"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:background="@drawable/ic_trash"
+                    android:background="@drawable/baseline_person_24"
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -344,6 +346,7 @@
                     android:textColor="@color/black"
                     android:textSize="12sp" />
             </LinearLayout>
+
         </LinearLayout>
     </FrameLayout>
 

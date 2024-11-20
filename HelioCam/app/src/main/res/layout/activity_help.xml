@@ -1,134 +1,92 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/help"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".SessionSettingsActivity">
+    tools:context=".Help">
 
-    <!-- Back Button -->
-    <ImageView
-        android:id="@+id/backButton"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:src="@drawable/ic_back_arrow"
-        android:contentDescription="Back"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <!-- Title -->
-    <TextView
-        android:id="@+id/sessionSettingTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Session Setting"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:layout_marginStart="8dp"
-        app:layout_constraintStart_toEndOf="@id/backButton"
-        app:layout_constraintTop_toTopOf="@id/backButton"
-        app:layout_constraintBottom_toBottomOf="@id/backButton" />
-
-    <!-- Quality Expandable Section -->
     <LinearLayout
-        android:id="@+id/qualitySection"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="@drawable/item_background"
-        android:padding="12dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/sessionSettingTitle"
-        android:clickable="true"
-        android:focusable="true">
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="top|center">
 
-        <!-- Quality Header -->
-        <TextView
-            android:id="@+id/qualityTitle"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Quality"
-            android:textSize="18sp" />
-
-        <!-- Expandable Options -->
-        <LinearLayout
-            android:id="@+id/qualityOptions"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone"
-            android:paddingTop="8dp">
+            android:layout_height="match_parent"
+            android:padding="10dp">
 
             <TextView
-                android:id="@+id/quality1080p"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="1080p"
-                android:padding="8dp" />
+                android:text="Help"
+                android:textSize="48sp"
+                android:textAlignment="center"
+                android:textStyle="bold"
+                android:textColor="@color/black"
+                android:layout_marginTop="60dp"/>
 
-            <TextView
-                android:id="@+id/quality720p"
+            <SearchView
+                android:id="@+id/searchView"
+                android:layout_width="380dp"
+                android:layout_height="55dp"
+                android:background="@drawable/searchbar"
+                android:layout_marginTop="150dp"
+                android:queryHint="Search"
+                android:iconifiedByDefault="false"
+                android:padding="8dp"
+                />
+
+
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="720p"
-                android:padding="8dp" />
+                android:padding="10dp"
+                android:layout_marginTop="220dp">
 
-            <TextView
-                android:id="@+id/quality480p"
+                <ImageView
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:background="@drawable/baseline_chat_24"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Chat with us!"
+                    android:textColor="@color/black"
+                    android:textStyle="bold"
+                    android:textSize="36sp"
+                    android:layout_gravity="center"
+                    android:layout_marginLeft="20dp"/>
+
+            </FrameLayout>
+
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="480p"
-                android:padding="8dp" />
+                android:padding="10dp"
+                android:layout_marginTop="320dp">
 
-            <TextView
-                android:id="@+id/qualityAuto"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Auto"
-                android:padding="8dp" />
-        </LinearLayout>
-    </LinearLayout>
+                <ImageView
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:background="@drawable/faq"/>
 
-    <!-- Save Location -->
-    <LinearLayout
-        android:id="@+id/saveLocation"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="@drawable/item_background"
-        android:padding="12dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/qualitySection">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="FAQ"
+                    android:textColor="@color/black"
+                    android:textStyle="bold"
+                    android:textSize="36sp"
+                    android:layout_gravity="center|left"
+                    android:layout_marginLeft="100dp"/>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Save Location"
-            android:textSize="18sp" />
-    </LinearLayout>
+            </FrameLayout>
 
-    <!-- Camera Setting -->
-    <LinearLayout
-        android:id="@+id/cameraSetting"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="@drawable/item_background"
-        android:padding="12dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/saveLocation">
+        </FrameLayout>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Camera Setting"
-            android:textSize="18sp" />
     </LinearLayout>
 
     <!-- Bottom Navigation Bar -->
@@ -295,5 +253,8 @@
 
         </LinearLayout>
     </FrameLayout>
+
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -3,6 +3,11 @@
   <component name="WizardSettings">
     <option name="children">
       <map>
+        <entry key="imageWizard">
+          <value>
+            <PersistentState />
+          </value>
+        </entry>
         <entry key="vectorWizard">
           <value>
             <PersistentState>
@@ -18,7 +23,7 @@
                                 <PersistentState>
                                   <option name="values">
                                     <map>
-                                      <entry key="url" value="file:/C:/Users/Windows%2010/AppData/Local/Android/Sdk/icons/material/materialicons/account_box/baseline_account_box_24.xml" />
+                                      <entry key="url" value="file:/C:/Users/Windows%2010/AppData/Local/Android/Sdk/icons/material/materialicons/chat/baseline_chat_24.xml" />
                                     </map>
                                   </option>
                                 </PersistentState>
@@ -28,7 +33,7 @@
                         </option>
                         <option name="values">
                           <map>
-                            <entry key="outputName" value="baseline_account_box_24" />
+                            <entry key="outputName" value="baseline_chat_24" />
                             <entry key="sourceFile" value="D:\Windows 10\Documents\GitHub\HelioCam\HelioCam" />
                           </map>
                         </option>

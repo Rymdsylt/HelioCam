@@ -42,7 +42,7 @@
 
         <!-- Search Bar -->
 
-            <SearchView
+        <androidx.appcompat.widget.SearchView
                 android:id="@+id/searchView"
                 android:layout_width="380dp"
                 android:layout_height="55dp"

@@ -23,7 +23,7 @@
                                 <PersistentState>
                                   <option name="values">
                                     <map>
-                                      <entry key="url" value="file:/C:/Users/Windows%2010/AppData/Local/Android/Sdk/icons/material/materialicons/chat/baseline_chat_24.xml" />
+                                      <entry key="url" value="file:/C:/Users/Windows%2010/AppData/Local/Android/Sdk/icons/material/materialicons/arrow_back/baseline_arrow_back_24.xml" />
                                     </map>
                                   </option>
                                 </PersistentState>
@@ -33,7 +33,7 @@
                         </option>
                         <option name="values">
                           <map>
-                            <entry key="outputName" value="baseline_chat_24" />
+                            <entry key="outputName" value="ic_back_arrow" />
                             <entry key="sourceFile" value="D:\Windows 10\Documents\GitHub\HelioCam\HelioCam" />
                           </map>
                         </option>

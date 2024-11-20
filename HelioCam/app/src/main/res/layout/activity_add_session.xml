@@ -75,7 +75,7 @@
         android:layout_height="101dp"
         android:layout_marginTop="60dp"
         android:background="@android:drawable/ic_menu_camera"
-
+        android:contentDescription="Camera"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"

@@ -6,8 +6,7 @@
     android:id="@+id/Settings"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
-    tools:context="ui.SettingsActivity">
+    android:background="@color/white">
 
     <!-- Main Content Layout -->
 
@@ -165,170 +164,181 @@
 
 
 
-        <!-- Bottom Navigation Bar -->
-        <FrameLayout
-            android:id="@+id/bottomBar"
-            android:layout_width="0dp"
-            android:layout_height="96dp"
-            android:background="@color/orange"
-            android:padding="8dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent">
+    <!-- Bottom Navigation Bar -->
+    <FrameLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="0dp"
+        android:layout_height="96dp"
+        android:background="@color/orange"
+        android:padding="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:weightSum="6">
+
+            <!-- Home Button -->
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:gravity="center"
-                android:orientation="horizontal"
-                android:weightSum="6">
+                android:orientation="vertical">
 
-                <!-- Home Button -->
-                <LinearLayout
-                    android:layout_width="0dp"
+                <ImageButton
+                    android:id="@+id/homeButton"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Home"
+                    android:background="@drawable/baseline_home_24"
+                    app:srcCompat="@drawable/ic_trash"
+                    tools:ignore="HardcodedText" />
+
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <ImageButton
-                        android:id="@+id/homeButton"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:background="@drawable/baseline_home_24"
-                        app:srcCompat="@drawable/ic_trash" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Home"
-                        android:textColor="@color/black"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <!-- Notification Button -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <ImageButton
-                        android:id="@+id/notifButton"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:background="@drawable/baseline_notifications_24"
-                        app:srcCompat="@drawable/ic_trash" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Notification"
-                        android:textColor="@color/black"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <!-- History Button -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <ImageButton
-                        android:id="@+id/historyButton"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:background="@drawable/baseline_history_24"
-                        app:srcCompat="@drawable/ic_trash" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="History"
-                        android:textColor="@color/black"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <!-- Help Button -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <ImageButton
-                        android:id="@+id/helpButton"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:background="@drawable/baseline_help_24"
-                        app:srcCompat="@drawable/ic_trash" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Help"
-                        android:textColor="@color/black"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <!-- Settings Button -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <ImageButton
-                        android:id="@+id/settingButton"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:background="@drawable/baseline_settings_24"
-                        app:srcCompat="@drawable/ic_trash" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Settings"
-                        android:textColor="@color/black"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <!-- Profile Button -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <ImageButton
-                        android:id="@+id/profileButton"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:background="@drawable/baseline_person_24"
-                        app:srcCompat="@drawable/ic_trash" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Profile"
-                        android:textColor="@color/black"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
+                    android:layout_marginTop="4dp"
+                    android:text="Home"
+                    android:textColor="@color/black"
+                    android:textSize="12sp" />
             </LinearLayout>
-        </FrameLayout>
+
+            <!-- Notification Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/notifButton"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Notification"
+                    android:background="@drawable/baseline_notifications_24"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Notification"
+                    android:textColor="@color/black"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- History Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/historyButton"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="History"
+                    android:background="@drawable/baseline_history_24"
+                    app:srcCompat="@drawable/ic_trash" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="History"
+                    android:textColor="@color/black"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Help Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/helpButton"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Help"
+                    android:background="@drawable/baseline_help_24"
+                    app:srcCompat="@drawable/ic_trash"
+                    tools:ignore="TouchTargetSizeCheck" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Help"
+                    android:textColor="@color/black"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Settings Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/settingButton"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Setting"
+                    android:background="@drawable/baseline_settings_24"
+                    app:srcCompat="@drawable/ic_trash"
+                    />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Settings"
+                    android:textColor="@color/black"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Profile Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/profileButton"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Profile"
+                    android:background="@drawable/baseline_person_24"
+                    app:srcCompat="@drawable/ic_trash"
+                    />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Profile"
+                    android:textColor="@color/black"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </FrameLayout>
+
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

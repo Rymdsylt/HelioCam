@@ -6,7 +6,7 @@
     android:id="@+id/Notification"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="ui.NotifcationActivity">
+    >
 
     <!-- Main Content Layout -->
     <ScrollView
@@ -268,8 +268,9 @@
 
                 <ImageButton
                     android:id="@+id/homeButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Home"
                     android:background="@drawable/baseline_home_24"
                     app:srcCompat="@drawable/ic_trash" />
 
@@ -292,8 +293,9 @@
 
                 <ImageButton
                     android:id="@+id/notifButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Notification"
                     android:background="@drawable/baseline_notifications_24"
                     app:srcCompat="@drawable/ic_trash" />
 
@@ -316,8 +318,9 @@
 
                 <ImageButton
                     android:id="@+id/historyButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="History"
                     android:background="@drawable/baseline_history_24"
                     app:srcCompat="@drawable/ic_trash" />
 
@@ -340,10 +343,12 @@
 
                 <ImageButton
                     android:id="@+id/helpButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Help"
                     android:background="@drawable/baseline_help_24"
-                    app:srcCompat="@drawable/ic_trash" />
+                    app:srcCompat="@drawable/ic_trash"
+                    tools:ignore="TouchTargetSizeCheck" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -364,10 +369,12 @@
 
                 <ImageButton
                     android:id="@+id/settingButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Setting"
                     android:background="@drawable/baseline_settings_24"
-                    app:srcCompat="@drawable/ic_trash" />
+                    app:srcCompat="@drawable/ic_trash"
+                    />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -388,10 +395,12 @@
 
                 <ImageButton
                     android:id="@+id/profileButton"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:contentDescription="Profile"
                     android:background="@drawable/baseline_person_24"
-                    app:srcCompat="@drawable/ic_trash" />
+                    app:srcCompat="@drawable/ic_trash"
+                    />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -404,4 +413,5 @@
 
         </LinearLayout>
     </FrameLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

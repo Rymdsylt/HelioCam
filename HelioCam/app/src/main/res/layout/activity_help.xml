@@ -128,7 +128,8 @@
                     android:layout_marginTop="4dp"
                     android:text="Home"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
             <!-- Notification Button -->
@@ -153,6 +154,7 @@
                     android:layout_marginTop="4dp"
                     android:text="Notification"
                     android:textColor="@color/black"
+                    android:textStyle="bold"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -178,7 +180,8 @@
                     android:layout_marginTop="4dp"
                     android:text="History"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
             <!-- Help Button -->
@@ -204,7 +207,8 @@
                     android:layout_marginTop="4dp"
                     android:text="Help"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
             <!-- Settings Button -->
@@ -230,7 +234,8 @@
                     android:layout_marginTop="4dp"
                     android:text="Settings"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
             <!-- Profile Button -->
@@ -256,7 +261,8 @@
                     android:layout_marginTop="4dp"
                     android:text="Profile"
                     android:textColor="@color/black"
-                    android:textSize="12sp" />
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
             </LinearLayout>
 
         </LinearLayout>

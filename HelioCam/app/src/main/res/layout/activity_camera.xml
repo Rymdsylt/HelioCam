@@ -46,15 +46,15 @@
         android:id="@+id/whoToCallLayout">
         <EditText
             android:layout_width="match_parent"
-            android:layout_height="40dp"
+            android:layout_height="48dp"
             android:hint="who to call ?"
             android:layout_margin="30dp"
             android:id="@+id/targetUserNameEt"/>
         <androidx.appcompat.widget.AppCompatButton
             android:layout_width="match_parent"
-            android:layout_height="40dp"
+            android:layout_height="48dp"
             android:background="@drawable/rounded_button"
-
+            android:contentDescription="Call"
             android:layout_below="@id/targetUserNameEt"
             android:layout_marginHorizontal="30dp"
             android:text="call"
@@ -100,6 +100,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:padding="12dp"
+                android:contentDescription="Mic"
                 android:background="@drawable/circle_background"
                 app:backgroundTint="@color/cardview_dark_background"
                 app:srcCompat="@drawable/ic_baseline_mic_off_24" />
@@ -111,6 +112,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:padding="12dp"
+                android:contentDescription="Video"
                 android:background="@drawable/circle_background"
                 app:backgroundTint="@color/cardview_dark_background"
                 app:srcCompat="@drawable/ic_baseline_videocam_off_24" />
@@ -124,7 +126,8 @@
                 android:padding="12dp"
                 android:background="@drawable/circle_background"
                 app:backgroundTint="@android:color/holo_red_dark"
-                app:srcCompat="@drawable/ic_baseline_call_end_24" />
+                app:srcCompat="@drawable/ic_baseline_call_end_24"
+                android:contentDescription="End Call"/>
             <ImageView
                 android:id="@+id/switch_camera_button"
                 android:layout_width="wrap_content"
@@ -133,6 +136,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:padding="12dp"
+                android:contentDescription="Add Camera"
                 android:background="@drawable/circle_background"
                 app:backgroundTint="@color/cardview_dark_background"
                 app:srcCompat="@drawable/ic_baseline_cameraswitch_24" />

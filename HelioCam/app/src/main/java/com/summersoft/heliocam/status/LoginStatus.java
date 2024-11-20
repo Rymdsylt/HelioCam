@@ -92,11 +92,13 @@ public class LoginStatus {
         String deviceName = Build.MANUFACTURER + " " + Build.DEVICE;
         String deviceOS = "Android " + Build.VERSION.RELEASE;
 
+        // Prepare device data to be updated
         Map<String, Object> deviceData = new HashMap<>();
         deviceData.put("deviceName", deviceName);
         deviceData.put("deviceOS", deviceOS);
         deviceData.put("location", deviceLocation);
         deviceData.put("lastActive", System.currentTimeMillis());
+        deviceData.put("login_status", 1);  // Assuming the status should be 1 when logging in.
 
         DatabaseReference emailRef = usersRef.child(emailKey);
 
@@ -118,9 +120,17 @@ public class LoginStatus {
 
                             // Check if this entry matches the current device name
                             String savedDeviceName = snapshot.child("deviceName").getValue(String.class);
+                            Integer savedLoginStatus = snapshot.child("login_status").getValue(Integer.class);
+
                             if (deviceName.equals(savedDeviceName)) {
                                 isExistingDevice = true;
                                 matchingKey = key;
+
+                                // Check if login_status is 0 and log out the user if it is
+                                if (savedLoginStatus != null && savedLoginStatus == 0) {
+                                    // Logout user if status is 0
+                                    LogoutUser.logoutUser();
+                                }
                             }
                         } catch (NumberFormatException e) {
                             e.printStackTrace(); // Ignore invalid keys
@@ -129,8 +139,8 @@ public class LoginStatus {
                 }
 
                 if (isExistingDevice && matchingKey != null) {
-                    // Update the existing logininfo_<n> entry
-                    emailRef.child(matchingKey).setValue(deviceData)
+                    // Update the existing logininfo_<n> entry without overwriting existing fields
+                    emailRef.child(matchingKey).updateChildren(deviceData)
                             .addOnSuccessListener(aVoid -> {
                                 System.out.println("Existing device info updated in Realtime Database.");
                             })
@@ -153,6 +163,10 @@ public class LoginStatus {
             }
         });
     }
+
+
+
+
 
 
 

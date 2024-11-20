@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -13,21 +14,21 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
 import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.status.LoginStatus;
+import com.summersoft.heliocam.status.LoginUser;
 
 public class LoginActivity extends AppCompatActivity {
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
-    private FirebaseAuth mAuth;
     private EditText mUsername, mPassword;
+    private Handler handler = new Handler();
+    private Runnable loginStatusRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
-
-        mAuth = FirebaseAuth.getInstance();
 
         mUsername = findViewById(R.id.username);
         mPassword = findViewById(R.id.password);
@@ -92,24 +93,26 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        mAuth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(this, task -> {
-                    if (task.isSuccessful()) {
-                        FirebaseUser user = mAuth.getCurrentUser();
+        // Use LoginUser class to handle Firebase login
+        new LoginUser(this).loginUser(email, password);
 
-                        // Check if email is verified
-                        if (user != null && user.isEmailVerified()) {
-                            // Proceed to home activity if email is verified
-                            Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
-                            startActivity(intent);
-                            finish();
-                        } else {
-                            // Show a message if email is not verified
-                            Toast.makeText(LoginActivity.this, "Please verify your email before logging in.", Toast.LENGTH_SHORT).show();
-                        }
-                    } else {
-                        Toast.makeText(LoginActivity.this, "Authentication failed. Check your credentials.", Toast.LENGTH_SHORT).show();
-                    }
-                });
+        // Start checking login status every second after a successful login attempt
+        loginStatusRunnable = new Runnable() {
+            @Override
+            public void run() {
+                LoginStatus.checkLoginStatus(LoginActivity.this);
+                handler.postDelayed(this, 1000); // Re-run this task every second
+            }
+        };
+        handler.postDelayed(loginStatusRunnable, 0); // Start the periodic check immediately
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Remove the periodic task when the activity is no longer visible
+        if (loginStatusRunnable != null) {
+            handler.removeCallbacks(loginStatusRunnable);
+        }
     }
 }

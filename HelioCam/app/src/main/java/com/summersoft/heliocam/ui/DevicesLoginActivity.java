@@ -32,7 +32,7 @@ import java.util.Locale;
 import android.location.Address;
 import android.location.Geocoder;
 
-import com.summersoft.heliocam.status.IMEIUtil;
+import com.summersoft.heliocam.status.IMEI_Util;
 
 public class DevicesLoginActivity extends AppCompatActivity {
 
@@ -47,7 +47,7 @@ public class DevicesLoginActivity extends AppCompatActivity {
         setContentView(R.layout.activity_devices_log_in);
 
         LoginStatus.checkLoginStatus(this);
-        String imei = IMEIUtil.getIMEI(this);
+        String imei = IMEI_Util.getIMEI(this);
 
         // Initialize Firebase Database reference
         databaseReference = FirebaseDatabase.getInstance().getReference("users");
@@ -81,11 +81,16 @@ public class DevicesLoginActivity extends AppCompatActivity {
     }
 
     private void fetchDevicesForUser(String sanitizedEmail) {
-        databaseReference.child(sanitizedEmail).addListenerForSingleValueEvent(new ValueEventListener() {
+        databaseReference.child(sanitizedEmail).addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot userSnapshot) {
                 if (userSnapshot.exists()) {
                     String expectedDeviceName = null;
+
+                    // Clear the container to avoid duplicate cards
+                    currentlyLoggedInContainer.removeAllViews();
+
+                    // Retrieve the expected device name if necessary
                     for (DataSnapshot childSnapshot : userSnapshot.getChildren()) {
                         if (childSnapshot.getKey().startsWith("logininfo_")) {
                             expectedDeviceName = childSnapshot.child("deviceName").getValue(String.class);
@@ -93,8 +98,16 @@ public class DevicesLoginActivity extends AppCompatActivity {
                         }
                     }
 
+                    // Loop through all logininfo_<n> entries
                     for (DataSnapshot childSnapshot : userSnapshot.getChildren()) {
                         if (childSnapshot.getKey() != null && childSnapshot.getKey().startsWith("logininfo_")) {
+                            Integer loginStatus = childSnapshot.child("login_status").getValue(Integer.class);
+
+                            // Skip devices where login_status is 0
+                            if (loginStatus != null && loginStatus == 0) {
+                                continue;
+                            }
+
                             String deviceName = childSnapshot.child("deviceName").getValue(String.class);
                             String location = childSnapshot.child("location").getValue(String.class);
                             Long lastActiveTimestamp = childSnapshot.child("lastActive").getValue(Long.class);
@@ -117,6 +130,7 @@ public class DevicesLoginActivity extends AppCompatActivity {
             }
         });
     }
+
 
     private void addDeviceCard(String deviceName, String location, Long lastActiveTimestamp, String expectedDeviceName) {
         // Inflate the device_info_card layout

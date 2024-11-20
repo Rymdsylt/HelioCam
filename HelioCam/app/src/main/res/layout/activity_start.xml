@@ -28,26 +28,6 @@
             android:textStyle="bold"/>
 
 
-        <Button
-            android:id="@+id/startBtn"
-            android:layout_width="380dp"
-            android:layout_height="55dp"
-            android:background="@drawable/custom_edittext"
-            android:text="Start"
-            android:textStyle="bold"
-            android:textSize="28dp"
-            android:layout_marginTop="40dp"/>
-
-        <Button
-            android:id="@+id/exitBtn"
-            android:layout_width="380dp"
-            android:layout_height="55dp"
-            android:background="@drawable/custom_edittext"
-            android:text="Exit"
-            android:textStyle="bold"
-            android:textSize="28dp"
-            android:layout_marginTop="16dp"/>
-
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

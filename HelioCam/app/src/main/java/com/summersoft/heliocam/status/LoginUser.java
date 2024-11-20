@@ -17,6 +17,9 @@ import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.ui.HomeActivity;
 
 import android.util.Log; // Import for logging
+import java.util.Map;
+import java.util.HashMap;
+
 
 public class LoginUser {
 
@@ -60,9 +63,9 @@ public class LoginUser {
 
                             userRef.addListenerForSingleValueEvent(new ValueEventListener() {
                                 @Override
-
                                 public void onDataChange(DataSnapshot dataSnapshot) {
                                     boolean deviceFound = false;
+                                    long maxIndex = 0;
 
                                     // Loop through all logininfo_(n) entries
                                     for (DataSnapshot loginInfoSnapshot : dataSnapshot.getChildren()) {
@@ -93,15 +96,41 @@ public class LoginUser {
                                                 break; // Stop checking further login info once found and updated
                                             }
                                         }
+
+                                        // Find the maximum index of logininfo_(n) entries
+                                        if (loginInfoSnapshot.getKey().startsWith("logininfo_")) {
+                                            String key = loginInfoSnapshot.getKey();
+                                            try {
+                                                long index = Long.parseLong(key.substring("logininfo_".length()));
+                                                maxIndex = Math.max(maxIndex, index);
+                                            } catch (NumberFormatException e) {
+                                                e.printStackTrace(); // Ignore invalid keys
+                                            }
+                                        }
                                     }
 
-                                    // If device not found, log a message
+                                    // If device not found, create a new logininfo_(n) entry
                                     if (!deviceFound) {
-                                        Toast.makeText(context, "Device not found in login info.", Toast.LENGTH_SHORT).show();
+                                        // Create new logininfo entry with incremented index
+                                        String newKey = "logininfo_" + (maxIndex + 1);
+                                        Map<String, Object> deviceData = new HashMap<>();
+                                        deviceData.put("deviceName", deviceName);
+                                        deviceData.put("deviceOS", "Android " + Build.VERSION.RELEASE);
+                                        deviceData.put("location", "Unknown Location"); // Add appropriate location
+                                        deviceData.put("lastActive", System.currentTimeMillis());
+                                        deviceData.put("login_status", 1);
+
+                                        // Save new device info to Firebase
+                                        userRef.child(newKey).setValue(deviceData)
+                                                .addOnSuccessListener(aVoid -> {
+                                                    Toast.makeText(context, "New device info saved to Realtime Database.", Toast.LENGTH_SHORT).show();
+                                                })
+                                                .addOnFailureListener(e -> {
+                                                    Log.e(TAG, "Failed to save new device info.", e);
+                                                    Toast.makeText(context, "Failed to save new device info.", Toast.LENGTH_SHORT).show();
+                                                });
                                     }
                                 }
-
-
 
                                 @Override
                                 public void onCancelled(DatabaseError databaseError) {

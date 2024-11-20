@@ -20,11 +20,6 @@
           <theme>@style/Theme.HelioCam</theme>
         </config>
       </layout>
-      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_help.xml">
-        <config>
-          <theme>@style/Theme.HelioCam</theme>
-        </config>
-      </layout>
       <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_history.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
@@ -50,16 +45,6 @@
           <theme>@style/Theme.HelioCam</theme>
         </config>
       </layout>
-      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_profile.xml">
-        <config>
-          <theme>@style/Theme.HelioCam</theme>
-        </config>
-      </layout>
-      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_session_settings.xml">
-        <config>
-          <theme>@style/Theme.HelioCam</theme>
-        </config>
-      </layout>
       <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_settings.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
@@ -75,39 +60,15 @@
           <theme>@style/Theme.HelioCam</theme>
         </config>
       </layout>
-      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_use_phone.xml">
-        <config>
-          <theme>@style/Theme.HelioCam</theme>
-        </config>
-      </layout>
-      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/device_info_card.xml">
-        <config>
-          <theme>@style/Theme.HelioCam</theme>
-        </config>
-      </layout>
     </layouts>
   </component>
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="New Changes:&#10;- Sorry I deleted some tools cause my ide is having a error&#10;- Navigation Bar for every pages&#10;- enhance other pages&#10;- icons(60%)&#10;&#10;New:&#10;- Profile page&#10;- Help Page">
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_add_session.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_add_session.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_camera.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_camera.xml" afterDir="false" />
+    <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_devices_log_in.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_devices_log_in.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_help.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_help.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_history.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_history.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_home.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_home.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_login.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_login.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notifcation.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notifcation.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notification_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notification_settings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_profile.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_profile.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_session_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_session_settings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_settings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_signup.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_signup.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_start.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_start.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_use_phone.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_use_phone.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/device_info_card.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/device_info_card.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -117,7 +78,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\Windows 10\.android\avd\Medium_Phone_API_35.avd)]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\Daniel\.android\avd\Medium_Phone_API_35.avd)]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$/HelioCam">
       <ProjectState />
@@ -165,9 +126,8 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="resourceFile" />
-        <option value="layoutResourceFile" />
         <option value="Class" />
-        <option value="valueResourceFile" />
+        <option value="layoutResourceFile" />
       </list>
     </option>
   </component>
@@ -187,7 +147,7 @@
   }
 }</component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="_Designer_Tab" />
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 1
@@ -310,47 +270,6 @@
       <option name="presentableId" value="Default" />
       <updated>1731125296410</updated>
     </task>
-    <task id="LOCAL-00001" summary="Changes:&#10;- Navigation Bar for every pages&#10;- enhance other pages&#10;- icons(60%)&#10;&#10;New:&#10;- Profile page&#10;- Help Page">
-      <option name="closed" value="true" />
-      <created>1732075970307</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1732075970307</updated>
-    </task>
-    <task id="LOCAL-00002" summary="Changes:&#10;- Navigation Bar for every pages&#10;- enhance other pages&#10;- icons(60%)&#10;&#10;New:&#10;- Profile page&#10;- Help Page">
-      <option name="closed" value="true" />
-      <created>1732076081844</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1732076081844</updated>
-    </task>
-    <task id="LOCAL-00003" summary="Changes:&#10;- Navigation Bar for every pages&#10;- enhance other pages&#10;- icons(60%)&#10;&#10;New:&#10;- Profile page&#10;- Help Page">
-      <option name="closed" value="true" />
-      <created>1732078792623</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1732078792623</updated>
-    </task>
-    <task id="LOCAL-00004" summary="Changes:&#10;- Navigation Bar for every pages&#10;- enhance other pages&#10;- icons(60%)&#10;&#10;New:&#10;- Profile page&#10;- Help Page">
-      <option name="closed" value="true" />
-      <created>1732078802601</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1732078802601</updated>
-    </task>
-    <task id="LOCAL-00005" summary="New Changes:&#10;- Sorry I deleted some tools cause my ide is having a error&#10;- Navigation Bar for every pages&#10;- enhance other pages&#10;- icons(60%)&#10;&#10;New:&#10;- Profile page&#10;- Help Page">
-      <option name="closed" value="true" />
-      <created>1732079022314</created>
-      <option name="number" value="00005" />
-      <option name="presentableId" value="LOCAL-00005" />
-      <option name="project" value="LOCAL" />
-      <updated>1732079022314</updated>
-    </task>
-    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -363,10 +282,5 @@
         </entry>
       </map>
     </option>
-  </component>
-  <component name="VcsManagerConfiguration">
-    <MESSAGE value="Changes:&#10;- Navigation Bar for every pages&#10;- enhance other pages&#10;- icons(60%)&#10;&#10;New:&#10;- Profile page&#10;- Help Page" />
-    <MESSAGE value="New Changes:&#10;- Sorry I deleted some tools cause my ide is having a error&#10;- Navigation Bar for every pages&#10;- enhance other pages&#10;- icons(60%)&#10;&#10;New:&#10;- Profile page&#10;- Help Page" />
-    <option name="LAST_COMMIT_MESSAGE" value="New Changes:&#10;- Sorry I deleted some tools cause my ide is having a error&#10;- Navigation Bar for every pages&#10;- enhance other pages&#10;- icons(60%)&#10;&#10;New:&#10;- Profile page&#10;- Help Page" />
   </component>
 </project>

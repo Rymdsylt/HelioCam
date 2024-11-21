@@ -1,5 +1,6 @@
 package com.summersoft.heliocam.ui;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -7,7 +8,7 @@ import android.view.ContextMenu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.content.Context;
+
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -35,7 +36,7 @@ public class HomeActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
 
         // Apply system bars padding
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.mainpage), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
@@ -48,6 +49,13 @@ public class HomeActivity extends AppCompatActivity {
         hamburgerButton.setOnClickListener(v -> {
             Log.d(TAG, "Hamburger button clicked!");
             v.showContextMenu();
+        });
+
+        // Set OnClickListener for the "addSession" button
+        View addSessionButton = findViewById(R.id.addSession); // Replace with your actual button ID
+        addSessionButton.setOnClickListener(v -> {
+            Intent intent = new Intent(HomeActivity.this, AddSessionActivity.class); // Navigate to AddSessionActivity
+            startActivity(intent);
         });
 
         // Runnable to call LoginStatus.checkLoginStatus() every 1.5 seconds
@@ -63,7 +71,6 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        // Start the periodic check
         handler.postDelayed(checkLoginStatusRunnable, 1500); // Start after 1.5 seconds
     }
 

@@ -1,61 +1,206 @@
 package com.summersoft.heliocam.ui;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.widget.Toast;
 import android.view.View;
+import android.widget.ImageButton;
+import android.widget.TextView;
+import android.widget.Toast;
 
-import javax.annotation.Nullable;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
-import com.summersoft.heliocam.databinding.ActivityCameraBinding;
-import com.summersoft.heliocam.repository.MainRepository;
+import org.webrtc.Camera2Enumerator;
+import org.webrtc.CameraVideoCapturer;
+import org.webrtc.EglBase;
+import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoSource;
+import org.webrtc.VideoTrack;
+import org.webrtc.PeerConnectionFactory;
+import org.webrtc.SurfaceTextureHelper;
+
+import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.databinding.ActivityCameraBinding;  // Import the generated binding class
 import com.summersoft.heliocam.status.LoginStatus;
-import com.summersoft.heliocam.utils.DataModelType;
-
 
 public class CameraActivity extends AppCompatActivity {
 
-    private ActivityCameraBinding views;
-    private MainRepository mainRepository;
+    private SurfaceViewRenderer cameraView;
+    private PeerConnectionFactory peerConnectionFactory;
+    private CameraVideoCapturer videoCapturer;
+    private VideoTrack videoTrack;
+    private EglBase rootEglBase;
+    private boolean isUsingFrontCamera = true; // Track the current camera
 
+    private boolean isCameraOn = true; // Track camera on/off state
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState){
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        views = ActivityCameraBinding.inflate(getLayoutInflater());
-        setContentView(views.getRoot());
+        setContentView(R.layout.activity_camera);
+
+        cameraView = findViewById(R.id.camera_view);
+        ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
+        ImageButton videoButton = findViewById(R.id.video_button);
+
+        // Initialize WebRTC and check permissions
+        initializePeerConnectionFactory();
+        checkCameraPermission();
+
+        // Handle switch camera button click
+        switchCameraButton.setOnClickListener(v -> switchCamera());
+
+        // Handle video button click
+        videoButton.setOnClickListener(v -> toggleCamera(videoButton));
 
         LoginStatus.checkLoginStatus(this);
-
-        init();
     }
 
-    private void init(){
-        mainRepository = MainRepository.getInstance();
-        views.callBtn.setOnClickListener(v->{
-            //start a call a request
-            mainRepository.sendCallRequest(views.targetUserNameEt.getText().toString(),()->{
-                Toast.makeText(this,"couldn't find target", Toast.LENGTH_SHORT);
-            });
-        });
+    private void toggleCamera(ImageButton videoButton) {
+        if (videoCapturer == null) {
+            Toast.makeText(this, "Camera is not initialized.", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        mainRepository.subscribeForLatestEvent(data->{
-            if (data.getType()== DataModelType.StartCall){
-                runOnUiThread(()->{
-                    views.incomingNameTV.setText(data.getSender()+" is Calling you");
-                    views.incomingCallLayout.setVisibility(View.VISIBLE);
-                    views.acceptButton.setOnClickListener(v->{
-                        //star the call here
+        // Get the camera disabled text view
+        TextView cameraDisabledText = findViewById(R.id.camera_disabled_text);
 
-                        views.incomingCallLayout.setVisibility(View.GONE);
-                    });
-                    views.rejectButton.setOnClickListener(v->{
-                        views.incomingCallLayout.setVisibility(View.GONE);
-                    });
-                });
+        if (isCameraOn) {
+            // Stop video feed
+            try {
+                videoCapturer.stopCapture();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            videoTrack.setEnabled(false); // Disable video track
+            videoButton.setImageResource(R.drawable.ic_baseline_videocam_off_24); // Update button icon
+
+            // Show "Camera Disabled" message
+            cameraDisabledText.setVisibility(View.VISIBLE);
+            cameraView.setVisibility(View.INVISIBLE); // Hide the camera view
+        } else {
+            // Restart video feed
+            try {
+                videoCapturer.startCapture(1280, 720, 30);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            videoTrack.setEnabled(true); // Enable video track
+            videoButton.setImageResource(R.drawable.ic_baseline_videocam_24); // Update button icon
+
+            // Hide "Camera Disabled" message
+            cameraDisabledText.setVisibility(View.GONE);
+            cameraView.setVisibility(View.VISIBLE); // Show the camera view
+        }
+
+        isCameraOn = !isCameraOn; // Toggle state
+    }
+
+
+
+    private void initializePeerConnectionFactory() {
+        PeerConnectionFactory.InitializationOptions options =
+                PeerConnectionFactory.InitializationOptions.builder(this)
+                        .createInitializationOptions();
+        PeerConnectionFactory.initialize(options);
+        peerConnectionFactory = PeerConnectionFactory.builder().createPeerConnectionFactory();
+
+        rootEglBase = EglBase.create();
+        cameraView.init(rootEglBase.getEglBaseContext(), null);
+        cameraView.setMirror(true); // Enable mirroring for front camera
+    }
+
+    private void checkCameraPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA},
+                    100);
+        } else {
+            initializeCamera();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 100) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                initializeCamera();
+            } else {
+                Toast.makeText(this, "Camera permission is required to use this feature.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void initializeCamera() {
+        Camera2Enumerator cameraEnumerator = new Camera2Enumerator(this);
+
+        videoCapturer = createCameraCapturer(cameraEnumerator, isUsingFrontCamera);
+        if (videoCapturer == null) {
+            Toast.makeText(this, "Camera initialization failed.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        VideoSource videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
+        videoCapturer.initialize(SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext()),
+                getApplicationContext(), videoSource.getCapturerObserver());
+        videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", videoSource);
+
+        cameraView.post(() -> {
+            videoTrack.addSink(cameraView);
+            try {
+                videoCapturer.startCapture(1280, 720, 30);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
+    }
 
+    private CameraVideoCapturer createCameraCapturer(Camera2Enumerator cameraEnumerator, boolean useFrontCamera) {
+        for (String deviceName : cameraEnumerator.getDeviceNames()) {
+            if (useFrontCamera && cameraEnumerator.isFrontFacing(deviceName)) {
+                return cameraEnumerator.createCapturer(deviceName, null);
+            } else if (!useFrontCamera && cameraEnumerator.isBackFacing(deviceName)) {
+                return cameraEnumerator.createCapturer(deviceName, null);
+            }
+        }
+        return null;
+    }
 
+    private void switchCamera() {
+        if (videoCapturer != null) {
+            try {
+                videoCapturer.stopCapture();
+                videoCapturer.dispose();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            // Switch the camera
+            isUsingFrontCamera = !isUsingFrontCamera;
+            initializeCamera();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (videoCapturer != null) {
+            try {
+                videoCapturer.stopCapture();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            videoCapturer.dispose();
+        }
+        peerConnectionFactory.dispose();
+        rootEglBase.release();
     }
 }
+
+
+

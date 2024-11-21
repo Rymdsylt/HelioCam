@@ -3,6 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+<<<<<<< HEAD
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     >
@@ -132,12 +133,131 @@
     </LinearLayout>
 
     <!-- Bottom Navigation Bar -->
+=======
+    android:id="@+id/History"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    tools:context=".ui.HistoryActivity">
+
+    <!-- Main Content Layout -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:padding="16dp"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Spacer to push the content lower -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="60dp" />
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/tvSessionSettingsTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="Session Setting"
+            android:textColor="@color/black"
+            android:textSize="38dp"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp"
+            android:background="#BDBDBD" />
+
+        <!-- Quality -->
+        <Button
+            android:id="@+id/quality_btn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/rounded_grey_button"
+            android:text="Quality"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <ListView
+            android:id="@+id/qualityOptions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:background="@color/white"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/quality_button" />
+
+        <!-- Save Location  -->
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp"
+            />
+        <Button
+            android:id="@+id/saveLocation_btn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/rounded_grey_button"
+            android:text="Save Location"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <ListView
+            android:id="@+id/sLocationOptions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:background="@color/white"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/saveLocation_btn" />
+
+        <!-- Camera Settings  -->
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp"
+            />
+        <Button
+            android:id="@+id/cameraSettings_btn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/rounded_grey_button"
+            android:text="Camera Settings"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <ListView
+            android:id="@+id/cSettingsOptions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:background="@color/white"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/cameraSettings_btn" />
+    </LinearLayout>
+
+    <!-- Bottom Navigation Bar -->
+    <!-- Bottom Bar -->
+>>>>>>> new-branch
     <FrameLayout
         android:id="@+id/bottomBar"
         android:layout_width="0dp"
         android:layout_height="96dp"
         android:background="@color/orange"
+<<<<<<< HEAD
         android:padding="8dp"
+=======
+>>>>>>> new-branch
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
@@ -159,10 +279,16 @@
 
                 <ImageButton
                     android:id="@+id/homeButton"
+<<<<<<< HEAD
                     android:layout_width="55dp"
                     android:layout_height="55dp"
                     android:contentDescription="Home"
                     android:background="@drawable/baseline_home_24"
+=======
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+>>>>>>> new-branch
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -171,8 +297,12 @@
                     android:layout_marginTop="4dp"
                     android:text="Home"
                     android:textColor="@color/black"
+<<<<<<< HEAD
                     android:textStyle="bold"
                     android:textSize="15sp" />
+=======
+                    android:textSize="12sp" />
+>>>>>>> new-branch
             </LinearLayout>
 
             <!-- Notification Button -->
@@ -185,10 +315,16 @@
 
                 <ImageButton
                     android:id="@+id/notifButton"
+<<<<<<< HEAD
                     android:layout_width="55dp"
                     android:layout_height="55dp"
                     android:contentDescription="Notification"
                     android:background="@drawable/baseline_notifications_24"
+=======
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+>>>>>>> new-branch
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -197,7 +333,10 @@
                     android:layout_marginTop="4dp"
                     android:text="Notification"
                     android:textColor="@color/black"
+<<<<<<< HEAD
                     android:textStyle="bold"
+=======
+>>>>>>> new-branch
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -211,10 +350,16 @@
 
                 <ImageButton
                     android:id="@+id/historyButton"
+<<<<<<< HEAD
                     android:layout_width="55dp"
                     android:layout_height="55dp"
                     android:contentDescription="History"
                     android:background="@drawable/baseline_history_24"
+=======
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+>>>>>>> new-branch
                     app:srcCompat="@drawable/ic_trash" />
 
                 <TextView
@@ -223,8 +368,12 @@
                     android:layout_marginTop="4dp"
                     android:text="History"
                     android:textColor="@color/black"
+<<<<<<< HEAD
                     android:textStyle="bold"
                     android:textSize="15sp" />
+=======
+                    android:textSize="12sp" />
+>>>>>>> new-branch
             </LinearLayout>
 
             <!-- Help Button -->
@@ -237,12 +386,19 @@
 
                 <ImageButton
                     android:id="@+id/helpButton"
+<<<<<<< HEAD
                     android:layout_width="55dp"
                     android:layout_height="55dp"
                     android:contentDescription="Help"
                     android:background="@drawable/baseline_help_24"
                     app:srcCompat="@drawable/ic_trash"
                     tools:ignore="TouchTargetSizeCheck" />
+=======
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+>>>>>>> new-branch
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -250,8 +406,12 @@
                     android:layout_marginTop="4dp"
                     android:text="Help"
                     android:textColor="@color/black"
+<<<<<<< HEAD
                     android:textStyle="bold"
                     android:textSize="15sp" />
+=======
+                    android:textSize="12sp" />
+>>>>>>> new-branch
             </LinearLayout>
 
             <!-- Settings Button -->
@@ -264,12 +424,19 @@
 
                 <ImageButton
                     android:id="@+id/settingButton"
+<<<<<<< HEAD
                     android:layout_width="55dp"
                     android:layout_height="55dp"
                     android:contentDescription="Setting"
                     android:background="@drawable/baseline_settings_24"
                     app:srcCompat="@drawable/ic_trash"
                     />
+=======
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+>>>>>>> new-branch
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -277,8 +444,12 @@
                     android:layout_marginTop="4dp"
                     android:text="Settings"
                     android:textColor="@color/black"
+<<<<<<< HEAD
                     android:textStyle="bold"
                     android:textSize="15sp" />
+=======
+                    android:textSize="12sp" />
+>>>>>>> new-branch
             </LinearLayout>
 
             <!-- Profile Button -->
@@ -291,12 +462,19 @@
 
                 <ImageButton
                     android:id="@+id/profileButton"
+<<<<<<< HEAD
                     android:layout_width="55dp"
                     android:layout_height="55dp"
                     android:contentDescription="Profile"
                     android:background="@drawable/baseline_person_24"
                     app:srcCompat="@drawable/ic_trash"
                     />
+=======
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/ic_trash"
+                    app:srcCompat="@drawable/ic_trash" />
+>>>>>>> new-branch
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -304,6 +482,7 @@
                     android:layout_marginTop="4dp"
                     android:text="Profile"
                     android:textColor="@color/black"
+<<<<<<< HEAD
                     android:textStyle="bold"
                     android:textSize="15sp" />
             </LinearLayout>
@@ -311,5 +490,14 @@
         </LinearLayout>
     </FrameLayout>
 
+=======
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+
+        </LinearLayout>
+
+    </FrameLayout>
+>>>>>>> new-branch
 
 </androidx.constraintlayout.widget.ConstraintLayout>

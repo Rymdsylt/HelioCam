@@ -12,7 +12,11 @@
         android:gravity="top|center">
 
         <FrameLayout
+<<<<<<< HEAD
             android:id="@+id/main"
+=======
+            android:id="@+id/mainpage"
+>>>>>>> new-branch
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:padding="10dp">

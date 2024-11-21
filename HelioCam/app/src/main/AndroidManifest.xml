@@ -4,27 +4,27 @@
 
     <uses-feature
         android:name="android.hardware.camera"
-        android:required="false" />
-    <!-- PERMS -->
+        android:required="false" /> <!-- PERMS -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-
-
-    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
+    <uses-permission
+        android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
         tools:ignore="ProtectedPermissions" />
 
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:forceDarkAllowed="false"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/logo"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@drawable/logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.HelioCam"
+<<<<<<< HEAD
         android:forceDarkAllowed="false"
     tools:targetApi="31">
 
@@ -57,5 +57,45 @@
         android:name=".UsePhoneActivity"
         android:exported="false" />
 </application>
+=======
+        tools:targetApi="31">
+        <!-- android name para sa layout testing, format .ui.(name ng activity) -->
+        <activity
+            android:name=".ui.StartActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
 
-    </manifest>
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+        <activity
+            android:name=".ui.LoginActivity"
+            android:exported="false" />
+            -->
+        <!--
+<activity
+ android:name=".ui.CameraActivity"
+ android:exported="false" />
+        -->
+>>>>>>> new-branch
+
+<activity
+ android:name=".ui.HomeActivity"
+ android:exported="false" />
+        -->
+        <activity
+            android:name=".ui.SignupActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.AddSessionActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.UsePhoneActivity"
+            android:exported="false" />
+
+    </application>
+
+</manifest>

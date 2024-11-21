@@ -1,11 +1,13 @@
 package com.summersoft.heliocam.status;
 
+import android.app.AlertDialog;
 import android.os.Build;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -29,48 +31,33 @@ public class SessionLoader {
     }
 
     public void loadUserSessions() {
-        // Get the logged-in user's email, replace dots with underscores for Firebase compatibility
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-
-        Log.d("SessionLoader", "User email formatted for Firebase path: " + userEmail);
-
-        // Get the current device information (Build.MANUFACTURER + " " + Build.DEVICE)
         String deviceIdentifier = Build.MANUFACTURER + " " + Build.DEVICE;
-        Log.d("SessionLoader", "Device identifier: " + deviceIdentifier);
 
-        // Reference to the user's login info in the Firebase database
         DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(userEmail);
 
-        Log.d("SessionLoader", "Firebase path: " + userRef.toString());
-
-        // Fetch login information for the user
         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 sessionCardContainer.removeAllViews();
 
-                Log.d("SessionLoader", "DataSnapshot: " + dataSnapshot.toString());
-
                 if (dataSnapshot.exists()) {
-                    // Look for the logininfo corresponding to the device identifier
                     for (DataSnapshot loginInfoSnapshot : dataSnapshot.getChildren()) {
                         if (loginInfoSnapshot.getKey().startsWith("logininfo_")) {
                             String deviceName = loginInfoSnapshot.child("deviceName").getValue(String.class);
                             if (deviceName != null && deviceName.equals(deviceIdentifier)) {
-                                // Found the correct device, now fetch the sessions_added
                                 DataSnapshot sessionsAddedSnapshot = loginInfoSnapshot.child("sessions_added");
 
                                 if (sessionsAddedSnapshot.exists()) {
                                     int sessionNumber = 1;
 
-                                    // Iterate over the sessions added for this device
                                     for (DataSnapshot sessionSnapshot : sessionsAddedSnapshot.getChildren()) {
+                                        String sessionKey = sessionSnapshot.getKey(); // Firebase key for this session
                                         String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
-                                        Log.d("SessionLoader", "Session name: " + sessionName);
 
                                         if (sessionName != null && !sessionName.isEmpty()) {
-                                            // Inflate the session card and populate it
-                                            View sessionCard = LayoutInflater.from(sessionCardContainer.getContext()).inflate(R.layout.session_card, null);
+                                            View sessionCard = LayoutInflater.from(sessionCardContainer.getContext())
+                                                    .inflate(R.layout.session_card, null);
 
                                             TextView sessionNumberTextView = sessionCard.findViewById(R.id.session_number);
                                             sessionNumberTextView.setText("Session " + sessionNumber);
@@ -78,20 +65,18 @@ public class SessionLoader {
                                             TextView sessionNameTextView = sessionCard.findViewById(R.id.session_name);
                                             sessionNameTextView.setText(sessionName);
 
-                                            sessionCardContainer.addView(sessionCard);
+                                            View deleteButton = sessionCard.findViewById(R.id.delete_button);
+                                            deleteButton.setOnClickListener(v -> deleteSession(userRef, loginInfoSnapshot.getKey(), sessionKey, sessionCard));
 
+                                            sessionCardContainer.addView(sessionCard);
                                             sessionNumber++;
                                         }
                                     }
-                                } else {
-                                    Log.d("SessionLoader", "No sessions added for this device.");
                                 }
                                 break;
                             }
                         }
                     }
-                } else {
-                    Log.d("SessionLoader", "No user data found.");
                 }
             }
 
@@ -101,4 +86,31 @@ public class SessionLoader {
             }
         });
     }
+
+    private void deleteSession(DatabaseReference userRef, String loginInfoKey, String sessionKey, View sessionCard) {
+        // Create a confirmation dialog
+        new AlertDialog.Builder(sessionCardContainer.getContext())
+                .setTitle("Confirm Delete")
+                .setMessage("Are you sure you want to delete this session?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    // Proceed with deletion if the user confirms
+                    DatabaseReference sessionRef = userRef.child(loginInfoKey).child("sessions_added").child(sessionKey);
+
+                    sessionRef.removeValue().addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            sessionCardContainer.removeView(sessionCard); // Remove the card from the UI
+                            Toast.makeText(sessionCardContainer.getContext(), "Session deleted successfully" , Toast.LENGTH_SHORT).show();
+                        } else {
+                            Log.e("SessionLoader", "Failed to delete session: " + task.getException().getMessage());
+                        }
+                    });
+
+                })
+                .setNegativeButton("No", (dialog, which) -> {
+                    // Dismiss the dialog if the user cancels
+                    dialog.dismiss();
+                })
+                .show();
+    }
+
 }

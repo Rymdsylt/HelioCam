@@ -17,6 +17,8 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
 
+import java.util.Map;
+
 public class AddSessionActivity extends AppCompatActivity {
 
     private static final String TAG = "AddSession";
@@ -124,9 +126,10 @@ public class AddSessionActivity extends AppCompatActivity {
         }
     }
 
+
     private String getSessionPasskey(DataSnapshot sessionSnapshot) {
         Object sessionPasskeyObject = sessionSnapshot.child("passkey").getValue();
-        return (sessionPasskeyObject instanceof Long) ? String.valueOf(sessionPasskeyObject) : (String) sessionPasskeyObject;
+        return sessionPasskeyObject != null ? String.valueOf(sessionPasskeyObject) : "";
     }
 
     private void handleLoginInfo(String userEmail, String deviceIdentifier, DataSnapshot sessionSnapshot) {
@@ -143,13 +146,16 @@ public class AddSessionActivity extends AppCompatActivity {
                     String deviceName = loginInfo.child("deviceName").getValue(String.class);
                     if (deviceName != null && deviceName.equals(deviceIdentifier)) {
                         addSessionToUser(loginInfo, sessionSnapshot);
+
+                        // Call cleanUpSessionFields after adding the session
+                        cleanUpSessionFields(userEmail, loginInfo.getKey());  // Pass the login info key as the device key
                         deviceFound = true;
                         break;
                     }
                 }
 
                 if (!deviceFound) {
-                    Log.d(TAG, "Device not found in logininfo.");
+                    Log.d(TAG, "Device not found in login info.");
                     showToast("Device not found in login info.");
                 }
             } else {
@@ -159,23 +165,89 @@ public class AddSessionActivity extends AppCompatActivity {
         });
     }
 
-    private void addSessionToUser(DataSnapshot loginInfo, DataSnapshot sessionSnapshot) {
-        String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
-        String passkey = sessionSnapshot.child("passkey").getValue(String.class);
 
+    private void addSessionToUser(DataSnapshot loginInfo, DataSnapshot sessionSnapshot) {
+        // Retrieve all session data dynamically
+        String sessionId = sessionSnapshot.getKey();  // Use the session ID from the original sessions node
+
+        // Reference to the user's logininfo node, using the original session ID
         DatabaseReference sessionAddedRef = FirebaseDatabase.getInstance()
                 .getReference("users")
                 .child(mAuth.getCurrentUser().getEmail().replace(".", "_"))
-                .child(loginInfo.getKey())
+                .child(loginInfo.getKey())  // loginInfo is a device
                 .child("sessions_added")
-                .push();
+                .child(sessionId);  // Use the session ID from sessions node instead of push()
 
-        sessionAddedRef.child("session_name").setValue(sessionName);
-        sessionAddedRef.child("passkey").setValue(passkey);
+        // Iterate through all child nodes of sessionSnapshot to dynamically add all fields
+        for (DataSnapshot childSnapshot : sessionSnapshot.getChildren()) {
+            String key = childSnapshot.getKey();
+            Object value = childSnapshot.getValue();
+
+            // Set each key-value pair dynamically
+            if (key != null && value != null) {
+                sessionAddedRef.child(key).setValue(value);
+            }
+        }
 
         showToast("Session added successfully.");
         finish();
     }
+    private void cleanUpSessionFields(String userEmail, String deviceKey) {
+        // Get reference to sessions and sessions_added for the user and specific device
+        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users")
+                .child(userEmail.replace(".", "_"));  // Replace '.' with '_' for Firebase compatibility
+
+        // Get the sessions and sessions_added data
+        DatabaseReference sessionsRef = userRef.child("sessions");
+        DatabaseReference loginInfoRef = userRef.child(deviceKey); // e.g., logininfo_5
+
+        sessionsRef.get().addOnCompleteListener(sessionsTask -> {
+            if (sessionsTask.isSuccessful()) {
+                DataSnapshot sessionsSnapshot = sessionsTask.getResult();
+                if (sessionsSnapshot != null && sessionsSnapshot.exists()) {
+                    // Get the sessions_added for the specific device
+                    loginInfoRef.child("sessions_added").get().addOnCompleteListener(sessionsAddedTask -> {
+                        if (sessionsAddedTask.isSuccessful()) {
+                            DataSnapshot sessionsAddedSnapshot = sessionsAddedTask.getResult();
+                            if (sessionsAddedSnapshot != null && sessionsAddedSnapshot.exists()) {
+                                // Iterate through each session in sessions_added
+                                for (DataSnapshot sessionAddedSnapshot : sessionsAddedSnapshot.getChildren()) {
+                                    String sessionId = sessionAddedSnapshot.getKey();
+                                    if (sessionsSnapshot.hasChild(sessionId)) {
+                                        // Get the fields from the original session in sessions
+                                        DataSnapshot sessionSnapshot = sessionsSnapshot.child(sessionId);
+
+                                        // Compare the fields of sessions_added and sessions
+                                        Map<String, Object> sessionAddedData = (Map<String, Object>) sessionAddedSnapshot.getValue();
+                                        Map<String, Object> sessionData = (Map<String, Object>) sessionSnapshot.getValue();
+
+                                        // Iterate through each field in sessions_added and remove those not in sessions
+                                        if (sessionAddedData != null) {
+                                            for (Map.Entry<String, Object> entry : sessionAddedData.entrySet()) {
+                                                String fieldKey = entry.getKey();
+                                                if (!sessionData.containsKey(fieldKey)) {
+                                                    // Remove the field if it's not in the original session data
+                                                    sessionAddedSnapshot.getRef().child(fieldKey).removeValue();
+                                                    Log.d(TAG, "Removed extra field: " + fieldKey);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                showToast("Extra fields removed successfully.");
+                            }
+                        } else {
+                            Log.e(TAG, "Error retrieving sessions_added: " + sessionsAddedTask.getException());
+                        }
+                    });
+                }
+            } else {
+                Log.e(TAG, "Error retrieving sessions: " + sessionsTask.getException());
+            }
+        });
+    }
+
+
 
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();

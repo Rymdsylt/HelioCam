@@ -24,31 +24,20 @@
         tools:ignore="HardcodedText" />
 
     <!-- EditText for Session Name -->
+
+    <!-- Confirm Button -->
     <EditText
-        android:id="@+id/editTextSessionName"
+        android:id="@+id/add_session_input"
         android:layout_width="350dp"
         android:layout_height="60dp"
         android:layout_marginTop="16dp"
+        android:background="@drawable/custom_edittext"
         android:gravity="center"
         android:hint="Enter Session Passkey"
-        android:background="@drawable/custom_edittext"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.482"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textViewAddNewSession" />
-
-    <!-- Confirm Button -->
-    <Button
-        android:id="@+id/buttonConfirm"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:backgroundTint="#FFA500"
-        android:text="Confirm"
-        android:textColor="@android:color/black"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/editTextSessionName"
-        app:layout_constraintWidth_percent="0.8" />
 
     <!-- TextView OR -->
 
@@ -57,6 +46,19 @@
     <!-- TextView for Camera Description -->
 
     <!-- Cancel Button -->
+
+    <Button
+        android:id="@+id/add_session_confirm"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:backgroundTint="#FFA500"
+        android:text="Confirm"
+        android:textColor="@android:color/black"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/add_session_input"
+        app:layout_constraintWidth_percent="0.8" />
 
     <TextView
         android:id="@+id/textViewOR"
@@ -69,7 +71,7 @@
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/buttonConfirm" />
+        app:layout_constraintTop_toBottomOf="@+id/add_session_confirm" />
 
     <ImageButton
         android:id="@+id/imageButtonPhoneCamera"

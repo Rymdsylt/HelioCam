@@ -8,6 +8,7 @@ import android.view.ContextMenu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.LinearLayout;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -19,6 +20,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.status.LoginStatus;
 import com.summersoft.heliocam.status.LogoutUser;
+import com.summersoft.heliocam.status.SessionLoader;
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -26,6 +28,8 @@ public class HomeActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private Handler handler = new Handler();
     private Runnable checkLoginStatusRunnable;
+    private Runnable loadSessionsRunnable; // Add a Runnable for loading sessions
+    private LinearLayout sessionCardContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,14 +39,14 @@ public class HomeActivity extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
 
-        // Apply system bars padding
+        sessionCardContainer = findViewById(R.id.session_card_container);
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.mainpage), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
-        // Register for the context menu on hamburger button
         View hamburgerButton = findViewById(R.id.hamburgerButton);
         registerForContextMenu(hamburgerButton);
 
@@ -51,18 +55,28 @@ public class HomeActivity extends AppCompatActivity {
             v.showContextMenu();
         });
 
-        // Set OnClickListener for the "addSession" button
-        View addSessionButton = findViewById(R.id.addSession); // Replace with your actual button ID
+        // OnClickListener for "addSession" button
+        View addSessionButton = findViewById(R.id.addSession);
         addSessionButton.setOnClickListener(v -> {
-            Intent intent = new Intent(HomeActivity.this, AddSessionActivity.class); // Navigate to AddSessionActivity
+            Intent intent = new Intent(HomeActivity.this, AddSessionActivity.class);
             startActivity(intent);
         });
 
-        // Runnable to call LoginStatus.checkLoginStatus() every 1.5 seconds
+        // Runnable for checking login status
         checkLoginStatusRunnable = new Runnable() {
             @Override
             public void run() {
-                LoginStatus.checkLoginStatus(HomeActivity.this); // Check login status
+                LoginStatus.checkLoginStatus(HomeActivity.this);
+                handler.postDelayed(this, 1500);
+            }
+        };
+
+        // Runnable for loading user sessions every 1.5 seconds
+        loadSessionsRunnable = new Runnable() {
+            @Override
+            public void run() {
+                SessionLoader sessionLoader = new SessionLoader(HomeActivity.this, sessionCardContainer);
+                sessionLoader.loadUserSessions(); // Load sessions
                 handler.postDelayed(this, 1500); // Repeat every 1.5 seconds
             }
         };
@@ -71,14 +85,15 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        handler.postDelayed(checkLoginStatusRunnable, 1500); // Start after 1.5 seconds
+        handler.postDelayed(checkLoginStatusRunnable, 1500); // Start login check after 1.5 seconds
+        handler.postDelayed(loadSessionsRunnable, 1500); // Start loading sessions after 1.5 seconds
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        // Stop the periodic check to avoid memory leaks
-        handler.removeCallbacks(checkLoginStatusRunnable);
+        handler.removeCallbacks(checkLoginStatusRunnable); // Stop login check
+        handler.removeCallbacks(loadSessionsRunnable); // Stop session loading
     }
 
     @Override
@@ -95,8 +110,8 @@ public class HomeActivity extends AppCompatActivity {
     public boolean onContextItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.menu_logout:
-                LogoutUser.logoutUser();  // Pass the Context here
-                LoginStatus.checkLoginStatus(this);
+                LogoutUser.logoutUser();  // Logout user
+                LoginStatus.checkLoginStatus(this); // Check login status
                 return true;
             default:
                 return super.onContextItemSelected(item);

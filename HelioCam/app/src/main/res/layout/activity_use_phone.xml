@@ -34,7 +34,7 @@
         android:layout_marginStart="32dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="32dp"
-        android:text="To start a new session you need to generate a random six number passkey."
+        android:text="To use your phone as a camera, you need to start a session."
         android:textColor="@color/black"
         android:textSize="20sp"
         app:layout_constraintEnd_toEndOf="parent"
@@ -42,64 +42,74 @@
         app:layout_constraintTop_toBottomOf="@id/keyImageView" />
 
     <EditText
-        android:id="@+id/sessionNameEditText"
+        android:id="@+id/session_name_input"
         android:layout_width="350dp"
         android:layout_height="60dp"
         android:layout_marginStart="32dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="32dp"
         android:background="@drawable/custom_edittext"
-        android:hint="Session Name"
+        android:hint="Session Name (e.g. Kitchen, Storage Room, etc.)"
         android:padding="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/infoTextView" />
 
+    <TextView
+        android:id="@+id/asteriskSessionName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="*"
+        android:textColor="@android:color/holo_red_light"
+        android:textSize="16sp"
+        app:layout_constraintStart_toEndOf="@id/session_name_input"
+        app:layout_constraintTop_toTopOf="@id/session_name_input"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <EditText
-        android:id="@+id/newPasskeyEditText"
+        android:id="@+id/passkey_input"
         android:layout_width="350dp"
         android:layout_height="60dp"
         android:layout_marginStart="32dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="32dp"
         android:background="@drawable/custom_edittext"
-        android:hint="New passkey"
+        android:hint="Passkey"
         android:padding="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/sessionNameEditText" />
+        app:layout_constraintTop_toBottomOf="@id/session_name_input" />
 
     <TextView
-        android:id="@+id/asteriskTextView"
+        android:id="@+id/asteriskPasskey"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="40dp"
+        android:layout_marginTop="16dp"
         android:text="*"
         android:textColor="@android:color/holo_red_light"
         android:textSize="16sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.938"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.251" />
+        app:layout_constraintStart_toEndOf="@id/passkey_input"
+        app:layout_constraintTop_toTopOf="@id/passkey_input"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/generateButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="32dp"
-        android:layout_marginTop="120dp"
+        android:layout_marginTop="84dp"
         android:layout_marginEnd="32dp"
         android:background="@drawable/custom_edittext"
-        android:text="Generate"
+        android:padding="16dp"
+        android:text="Generate Passkey (Optional)"
         android:textColor="@android:color/black"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/newPasskeyEditText" />
+        app:layout_constraintTop_toBottomOf="@id/passkey_input" />
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/addButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -107,6 +117,7 @@
         android:layout_marginTop="36dp"
         android:layout_marginEnd="32dp"
         android:background="@drawable/custom_edittext"
+        android:padding="16dp"
         android:text="Add"
         android:textColor="@android:color/black"
         app:layout_constraintEnd_toEndOf="parent"
@@ -114,7 +125,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/generateButton" />
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/cancelButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -122,12 +133,12 @@
         android:layout_marginTop="8dp"
         android:layout_marginEnd="32dp"
         android:background="@drawable/custom_edittext"
+        android:padding="16dp"
         android:text="Cancel"
         android:textColor="@android:color/black"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/addButton" />
-
 
 </androidx.constraintlayout.widget.ConstraintLayout>

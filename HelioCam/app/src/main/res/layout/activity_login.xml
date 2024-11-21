@@ -57,8 +57,6 @@
         android:gravity="center_horizontal" />  <!-- This centers the hint -->
 
 
-
-
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/enterBtn"
         android:layout_width="200dp"

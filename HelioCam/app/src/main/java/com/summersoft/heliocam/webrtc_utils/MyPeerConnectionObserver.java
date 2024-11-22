@@ -1,4 +1,4 @@
-package com.summersoft.heliocam.webrtc;
+package com.summersoft.heliocam.webrtc_utils;
 
 import org.webrtc.DataChannel;
 import org.webrtc.IceCandidate;
@@ -6,8 +6,7 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.RtpReceiver;
 
-public class MyPeerConnectionServer implements PeerConnection.Observer {
-
+public class MyPeerConnectionObserver implements PeerConnection.Observer {
     @Override
     public void onSignalingChange(PeerConnection.SignalingState signalingState) {
 

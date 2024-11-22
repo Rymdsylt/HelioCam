@@ -94,15 +94,18 @@ public class UsePhoneActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         Toast.makeText(this, "Session added successfully", Toast.LENGTH_SHORT).show();
 
-                        // After adding the session, open CameraActivity and pass the session name
+                        // After adding the session, open CameraActivity and pass session details
                         Intent intent = new Intent(UsePhoneActivity.this, CameraActivity.class);
                         intent.putExtra("session_name", sessionName); // Pass session name
+                        intent.putExtra("session_id", sessionId); // Pass session ID (session_(n))
+                        intent.putExtra("passkey", passkey); // Pass passkey
                         startActivity(intent);
                     } else {
                         Toast.makeText(this, "Failed to add session", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
+
 
 
     // Session data model

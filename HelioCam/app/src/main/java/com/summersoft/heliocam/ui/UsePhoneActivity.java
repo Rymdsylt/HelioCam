@@ -1,5 +1,6 @@
 package com.summersoft.heliocam.ui;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.EditText;
@@ -92,11 +93,17 @@ public class UsePhoneActivity extends AppCompatActivity {
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         Toast.makeText(this, "Session added successfully", Toast.LENGTH_SHORT).show();
+
+                        // After adding the session, open CameraActivity and pass the session name
+                        Intent intent = new Intent(UsePhoneActivity.this, CameraActivity.class);
+                        intent.putExtra("session_name", sessionName); // Pass session name
+                        startActivity(intent);
                     } else {
                         Toast.makeText(this, "Failed to add session", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
+
 
     // Session data model
     public static class Session {

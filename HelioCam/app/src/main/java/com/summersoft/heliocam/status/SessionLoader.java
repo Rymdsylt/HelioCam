@@ -107,7 +107,6 @@ public class SessionLoader {
 
                 })
                 .setNegativeButton("No", (dialog, which) -> {
-                    // Dismiss the dialog if the user cancels
                     dialog.dismiss();
                 })
                 .show();

@@ -60,7 +60,9 @@
         <activity
             android:name=".ui.UsePhoneActivity"
             android:exported="false" />
-
+        <activity
+            android:name=".ui.CameraActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

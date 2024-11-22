@@ -5,8 +5,10 @@ import org.webrtc.IceCandidate;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.RtpReceiver;
+import android.util.Log;
 
-public class MyPeerConnectionObserver implements PeerConnection.Observer {
+
+public class PeerConnectionAdapter implements PeerConnection.Observer {
     @Override
     public void onSignalingChange(PeerConnection.SignalingState signalingState) {
 
@@ -59,6 +61,8 @@ public class MyPeerConnectionObserver implements PeerConnection.Observer {
 
     @Override
     public void onAddTrack(RtpReceiver rtpReceiver, MediaStream[] mediaStreams) {
-
+        // Log when a track is added (this can indicate a successful device configuration)
+        Log.d("PeerConnectionAdapter", "Track added: " + rtpReceiver.toString());
     }
+
 }

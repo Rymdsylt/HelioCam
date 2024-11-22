@@ -33,6 +33,8 @@ import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.databinding.ActivityCameraBinding;  // Import the generated binding class
 import com.summersoft.heliocam.status.LoginStatus;
 
+import com.summersoft.heliocam.webrtc_utils.WebRTCClient;
+
 public class CameraActivity extends AppCompatActivity {
     private DatabaseReference mDatabase;
     private FirebaseAuth mAuth;
@@ -46,38 +48,45 @@ public class CameraActivity extends AppCompatActivity {
 
     private boolean isCameraOn = true;
 
+    private WebRTCClient webRTCClient;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_camera);
+
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
 
-
-        fetchSessionName();
-
-
-
-        String sessionName = getIntent().getStringExtra("session_name");
-
-
-        Log.d("CameraActivity", "Session name: " + sessionName);
-
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_camera);
+        String sessionId = getIntent().getStringExtra("session_id");
 
         cameraView = findViewById(R.id.camera_view);
         ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
         ImageButton videoButton = findViewById(R.id.video_button);
 
+        webRTCClient = new WebRTCClient(this, cameraView, mDatabase);
 
-        initializePeerConnectionFactory();
-        checkCameraPermission();
+        // Get the user's email
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
 
-        switchCameraButton.setOnClickListener(v -> switchCamera());
+        // Initialize WebRTC with sessionId and userEmail
+        initializeWebRTC(sessionId, userEmail);
 
+        switchCameraButton.setOnClickListener(v -> webRTCClient.startCamera(this, !isUsingFrontCamera));
         videoButton.setOnClickListener(v -> toggleCamera(videoButton));
 
         LoginStatus.checkLoginStatus(this);
+
+        fetchSessionName();
     }
+
+    private void initializeWebRTC(String sessionId, String email) {
+        webRTCClient.startCamera(this, isUsingFrontCamera); // Start camera first
+        webRTCClient.initializePeerConnection(sessionId, email);  // Pass sessionId and email
+        webRTCClient.createOffer(sessionId, email);        // Create and send the offer with sessionId and email
+    }
+
+
 
     private void toggleCamera(ImageButton videoButton) {
         if (videoCapturer == null) {

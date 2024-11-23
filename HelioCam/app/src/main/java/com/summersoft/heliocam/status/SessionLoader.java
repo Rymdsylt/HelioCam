@@ -81,13 +81,16 @@ public class SessionLoader {
                                             String iceCandidatesJson = new Gson().toJson(iceCandidatesSnapshot.getValue());
 
                                             // Store session data (including ICE candidates) in SharedPreferences
+                                            // Modify the onClick listener to log all session data before passing it
                                             sessionCard.setOnClickListener(v -> {
-                                                // Serialize entire session data (including ICE candidates)
+                                                // Serialize entire session data (including ice_candidates)
                                                 Map<String, Object> sessionData = (Map<String, Object>) sessionSnapshot.getValue();
-                                                sessionData.put("ice_candidates", iceCandidatesJson);
+                                                sessionData.put("ice_candidates", iceCandidatesJson);  // Add the ICE candidates to the session data
 
+                                                // Log the entire session data (including ICE candidates)
                                                 Gson gson = new Gson();
                                                 String sessionDataJson = gson.toJson(sessionData);
+                                                Log.d("SessionLoader", "Session Data: " + sessionDataJson);  // Log session data
 
                                                 // Store serialized session data in SharedPreferences
                                                 homeActivity.getSharedPreferences("SESSION_PREFS", MODE_PRIVATE)
@@ -99,6 +102,7 @@ public class SessionLoader {
                                                 Intent intent = new Intent(homeActivity, WatchSessionActivity.class);
                                                 homeActivity.startActivity(intent);
                                             });
+
 
                                             // Handle delete button
                                             View deleteButton = sessionCard.findViewById(R.id.delete_button);

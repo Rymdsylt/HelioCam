@@ -13,7 +13,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.summersoft.heliocam.R;
-import com.summersoft.heliocam.webrtc_utils.WebRTCManager;
+
 
 import java.lang.reflect.Type;
 import java.util.Map;
@@ -22,7 +22,7 @@ public class WatchSessionActivity extends AppCompatActivity {
 
     private static final String TAG = "WatchSessionActivity";
     private TextView cameraDisabledMessage;
-    private WebRTCManager webRTCManager;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,23 +43,25 @@ public class WatchSessionActivity extends AppCompatActivity {
             Type type = new TypeToken<Map<String, Object>>() {}.getType();
             Map<String, Object> sessionData = gson.fromJson(sessionDataJson, type);
 
-            String sdpOffer = (String) sessionData.get("Offer");
+            // Log the entire session data
+            Log.d(TAG, "Full Session Data: " + sessionDataJson);
 
+            // Extract and log specific values like "Offer"
+            String sdpOffer = (String) sessionData.get("Offer");
             Log.d(TAG, "SDP Offer: " + sdpOffer);
 
-            cameraDisabledMessage = findViewById(R.id.camera_disabled_message);
+            // Optionally log the ICE candidates as well
+            Map<String, Object> iceCandidates = (Map<String, Object>) sessionData.get("ice_candidates");
+            Log.d(TAG, "ICE Candidates: " + new Gson().toJson(iceCandidates));
 
-            // Initialize WebRTCManager
-            webRTCManager = new WebRTCManager(this, findViewById(R.id.live_feed_view), sdpOffer);
-            webRTCManager.setupConnection();
+            cameraDisabledMessage = findViewById(R.id.camera_disabled_message);
         }
     }
+
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (webRTCManager != null) {
-            webRTCManager.closeConnection();
-        }
+
     }
 }

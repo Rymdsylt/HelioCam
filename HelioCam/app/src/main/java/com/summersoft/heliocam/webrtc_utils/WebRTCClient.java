@@ -97,6 +97,9 @@ public class WebRTCClient {
     }
 
 
+    // Initialize SurfaceTextureHelper once
+    private SurfaceTextureHelper surfaceTextureHelper;
+
     public void startCamera(Context context, boolean useFrontCamera) {
         if (peerConnectionFactory == null) {
             Log.e(TAG, "PeerConnectionFactory is not initialized.");
@@ -111,9 +114,13 @@ public class WebRTCClient {
             return;
         }
 
+        // Create SurfaceTextureHelper once and reuse
+        if (surfaceTextureHelper == null) {
+            surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
+        }
+
         videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
-        videoCapturer.initialize(SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext()),
-                context, videoSource.getCapturerObserver());
+        videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
         videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", videoSource);
 
         if (videoTrack == null) {
@@ -130,6 +137,7 @@ public class WebRTCClient {
         }
     }
 
+
     public void initializePeerConnection(String sessionId, String email) {
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(getIceServers());
         rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
@@ -145,11 +153,12 @@ public class WebRTCClient {
                         .child(sessionId)
                         .child("ice_candidates");
 
-                // Generate a candidate key, e.g., candidate_1, candidate_2, etc.
+                // Check if the candidate already exists in Firebase, otherwise add it
                 iceCandidatesRef.child("candidate_" + System.currentTimeMillis()).setValue(
                         new IceCandidateData(candidate.sdp, candidate.sdpMid, candidate.sdpMLineIndex)
                 );
             }
+
         });
 
         MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
@@ -183,16 +192,29 @@ public class WebRTCClient {
                             }
                         });
             }
+
+            @Override
+            public void onCreateFailure(String error) {
+                Log.e(TAG, "Failed to create offer: " + error);
+            }
         }, new MediaConstraints());
     }
 
+
     public void onReceiveAnswer(SessionDescription answer) {
         if (peerConnection != null) {
-            peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), answer);
-            // Show toast when the answer is received
-            Toast.makeText(localView.getContext(), "Answer received", Toast.LENGTH_SHORT).show();
+            if (answer != null) {
+                peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), answer);
+                // Show toast when the answer is received
+                Toast.makeText(localView.getContext(), "Answer received", Toast.LENGTH_SHORT).show();
+            } else {
+                Log.e(TAG, "Received invalid answer: null");
+            }
+        } else {
+            Log.e(TAG, "PeerConnection is null, cannot set remote description.");
         }
     }
+
 
     public void startListeningForAnswer(String sessionId, String email) {
         listenForAnswer(sessionId, email);
@@ -253,6 +275,7 @@ public class WebRTCClient {
                         .createIceServer()
         );
     }
+
 
     public void release() {
         if (videoCapturer != null) {

@@ -31,7 +31,7 @@
 
     <EditText
         android:id="@+id/username"
-        android:layout_width="300dp"
+        android:layout_width="320dp"
         android:layout_height="55dp"
         android:layout_marginTop="30dp"
         android:background="@drawable/custom_edittext"
@@ -40,21 +40,47 @@
         android:padding="12dp"
         android:textColorHint="@color/black"
         android:textSize="18sp"
-        android:gravity="center_horizontal" />  <!-- This centers the hint -->
+       />
 
-    <EditText
+    <!-- For input password -->
+
+    <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/password"
-        android:layout_width="300dp"
+        android:layout_width="320dp"
         android:layout_height="55dp"
         android:layout_marginTop="12dp"
         android:background="@drawable/custom_edittext"
-        android:drawablePadding="8dp"
-        android:hint="Password:"
-        android:padding="12dp"
         android:textColorHint="@color/black"
         android:textSize="18sp"
-        android:inputType="textPassword"
-        android:gravity="center_horizontal" />  <!-- This centers the hint -->
+        app:passwordToggleEnabled="true"
+        app:passwordToggleContentDescription="Input password">
+
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:autofillHints="password"
+            android:ems="15"
+            android:hint="Password:"
+            android:textSize="18sp"
+            android:inputType="textPassword"
+            android:padding="12dp"
+            />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+
+    <!-- For forgot password link -->
+    <TextView
+        android:id="@+id/forgotpassLink"
+        android:layout_width="300dp"
+        android:layout_height="wrap_content"
+        android:text="Forgot password?"
+        android:textSize="18sp"
+        android:textColor="@color/black"
+        android:padding="2dp"
+        android:layout_marginTop="6dp"/>
+
 
 
     <androidx.appcompat.widget.AppCompatButton

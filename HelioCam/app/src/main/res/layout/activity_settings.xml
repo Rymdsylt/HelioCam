@@ -75,7 +75,8 @@
             android:padding="12dp"
             android:text="Devices Log-In"
             android:textColor="@color/black"
-            android:textSize="20sp" />
+            android:textSize="20sp"
+            />
 
         <View
             android:layout_width="match_parent"
@@ -146,14 +147,14 @@
             android:layout_marginBottom="8dp"
             android:background="#BDBDBD" />
 
-        <!-- About Button -->
+        <!-- Logout Button -->
         <Button
             android:id="@+id/btnLogout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
             android:background="?attr/selectableItemBackground"
-            android:contentDescription="About Row"
+            android:contentDescription="Logout Row"
             android:drawablePadding="16dp"
             android:gravity="center_vertical|start"
             android:padding="12dp"
@@ -192,8 +193,8 @@
 
                 <ImageButton
                     android:id="@+id/homeButton"
-                    android:layout_width="55dp"
-                    android:layout_height="55dp"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
                     android:contentDescription="Home"
                     android:background="@drawable/baseline_home_24"
                     app:srcCompat="@drawable/ic_trash" />
@@ -204,6 +205,7 @@
                     android:layout_marginTop="4dp"
                     android:text="Home"
                     android:textColor="@color/black"
+                    android:textAlignment="center"
                     android:textStyle="bold"
                     android:textSize="15sp" />
             </LinearLayout>
@@ -218,8 +220,8 @@
 
                 <ImageButton
                     android:id="@+id/notifButton"
-                    android:layout_width="55dp"
-                    android:layout_height="55dp"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
                     android:contentDescription="Notification"
                     android:background="@drawable/baseline_notifications_24"
                     app:srcCompat="@drawable/ic_trash" />
@@ -230,6 +232,7 @@
                     android:layout_marginTop="4dp"
                     android:text="Notification"
                     android:textColor="@color/black"
+                    android:textAlignment="center"
                     android:textStyle="bold"
                     android:textSize="12sp" />
             </LinearLayout>
@@ -244,8 +247,8 @@
 
                 <ImageButton
                     android:id="@+id/historyButton"
-                    android:layout_width="55dp"
-                    android:layout_height="55dp"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
                     android:contentDescription="History"
                     android:background="@drawable/baseline_history_24"
                     app:srcCompat="@drawable/ic_trash" />
@@ -256,6 +259,7 @@
                     android:layout_marginTop="4dp"
                     android:text="History"
                     android:textColor="@color/black"
+                    android:textAlignment="center"
                     android:textStyle="bold"
                     android:textSize="15sp" />
             </LinearLayout>
@@ -270,8 +274,8 @@
 
                 <ImageButton
                     android:id="@+id/helpButton"
-                    android:layout_width="55dp"
-                    android:layout_height="55dp"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
                     android:contentDescription="Help"
                     android:background="@drawable/baseline_help_24"
                     app:srcCompat="@drawable/ic_trash"
@@ -283,6 +287,7 @@
                     android:layout_marginTop="4dp"
                     android:text="Help"
                     android:textColor="@color/black"
+                    android:textAlignment="center"
                     android:textStyle="bold"
                     android:textSize="15sp" />
             </LinearLayout>
@@ -297,8 +302,8 @@
 
                 <ImageButton
                     android:id="@+id/settingButton"
-                    android:layout_width="55dp"
-                    android:layout_height="55dp"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
                     android:contentDescription="Setting"
                     android:background="@drawable/baseline_settings_24"
                     app:srcCompat="@drawable/ic_trash"
@@ -310,6 +315,7 @@
                     android:layout_marginTop="4dp"
                     android:text="Settings"
                     android:textColor="@color/black"
+                    android:textAlignment="center"
                     android:textStyle="bold"
                     android:textSize="15sp" />
             </LinearLayout>
@@ -324,8 +330,8 @@
 
                 <ImageButton
                     android:id="@+id/profileButton"
-                    android:layout_width="55dp"
-                    android:layout_height="55dp"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
                     android:contentDescription="Profile"
                     android:background="@drawable/baseline_person_24"
                     app:srcCompat="@drawable/ic_trash"
@@ -338,6 +344,7 @@
                     android:text="Profile"
                     android:textColor="@color/black"
                     android:textStyle="bold"
+                    android:textAlignment="center"
                     android:textSize="15sp" />
             </LinearLayout>
 

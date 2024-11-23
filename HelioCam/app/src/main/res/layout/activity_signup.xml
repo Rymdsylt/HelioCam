@@ -18,6 +18,7 @@
         android:textSize="48sp"
         android:textStyle="bold" />
 
+    <!-- For input fullname -->
     <EditText
         android:id="@+id/fullname"
         android:layout_width="300dp"
@@ -30,6 +31,8 @@
         android:textColorHint="@color/black"
         android:textSize="18sp" />
 
+
+    <!-- For input username -->
     <EditText
         android:id="@+id/username"
         android:layout_width="300dp"
@@ -42,6 +45,7 @@
         android:textColorHint="@color/black"
         android:textSize="18sp" />
 
+    <!-- For input contact number -->
     <EditText
         android:id="@+id/contact"
         android:layout_width="300dp"
@@ -55,6 +59,7 @@
         android:textSize="18sp"
         android:inputType="number" />
 
+    <!-- For input email address -->
     <EditText
         android:id="@+id/email"
         android:layout_width="300dp"
@@ -67,19 +72,34 @@
         android:textColorHint="@color/black"
         android:textSize="18sp" />
 
-    <EditText
+    <!-- For input password -->
+
+    <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/password"
         android:layout_width="300dp"
         android:layout_height="55dp"
         android:layout_marginTop="12dp"
         android:background="@drawable/custom_edittext"
-        android:drawablePadding="8dp"
-        android:hint="Password:"
-        android:padding="12dp"
         android:textColorHint="@color/black"
         android:textSize="18sp"
-        android:inputType="textPassword" />
+        app:passwordToggleEnabled="true"
+        app:passwordToggleContentDescription="Input password">
 
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:autofillHints="password"
+            android:ems="15"
+            android:hint="Password:"
+            android:textSize="18sp"
+            android:inputType="textPassword"
+            android:padding="12dp"
+            />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- For sign up button -->
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/enterBtn"
         android:layout_width="200dp"
@@ -98,19 +118,20 @@
         android:textColor="@color/black"
         android:textSize="18sp" />
 
+    <!-- For Log in link -->
     <TextView
         android:id="@+id/loginLink"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
+        android:clickable="true"
+        android:focusable="true"
         android:text="Login here"
         android:textAlignment="center"
         android:textColor="@color/black"
         android:textSize="18sp"
         android:textStyle="bold"
-        android:clickable="true"
-        android:focusable="true"
-        tools:ignore="HardcodedText" />
+        tools:ignore="TouchTargetSizeCheck"/>
 
 
 

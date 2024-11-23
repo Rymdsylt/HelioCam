@@ -1,0 +1,85 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#808080"
+    android:keepScreenOn="true">
+
+    <!-- Live Feed View Layout -->
+    <RelativeLayout
+        android:id="@+id/liveFeedLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <org.webrtc.SurfaceViewRenderer
+            android:id="@+id/live_feed_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Camera Disabled Text -->
+        <TextView
+            android:id="@+id/camera_disabled_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="Camera Disabled"
+            android:textColor="@android:color/white"
+            android:textSize="24sp"
+            android:visibility="gone" /> <!-- Initially hidden -->
+    </RelativeLayout>
+
+    <!-- Control Layout for Live Feed -->
+    <RelativeLayout
+        android:id="@+id/liveFeedControlLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible">
+
+        <!-- Bottom Control Bar -->
+        <LinearLayout
+            android:id="@+id/controlBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true"
+            android:background="@drawable/curve_background"
+            android:backgroundTint="@android:color/holo_orange_dark"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <!-- Microphone Button -->
+            <ImageView
+                android:id="@+id/microphone_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                android:background="@drawable/circle_background"
+                android:clickable="true"
+                android:contentDescription="Microphone"
+                android:focusable="true"
+                android:padding="12dp"
+                app:backgroundTint="@color/cardview_dark_background"
+                app:srcCompat="@drawable/ic_baseline_mic_24" />
+
+            <!-- End Feed Button -->
+
+            <!-- Video Toggle Button -->
+
+            <!-- Switch Camera Button -->
+            <ImageButton
+                android:id="@+id/switch_camera_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                android:background="@drawable/circle_background"
+                android:clickable="true"
+                android:contentDescription="Switch Camera"
+                android:focusable="true"
+                android:padding="12dp"
+                app:backgroundTint="@color/cardview_dark_background"
+                tools:src="@drawable/baseline_settings_24" />
+        </LinearLayout>
+    </RelativeLayout>
+</RelativeLayout>

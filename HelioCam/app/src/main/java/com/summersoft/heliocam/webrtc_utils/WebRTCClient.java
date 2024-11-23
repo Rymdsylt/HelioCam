@@ -19,13 +19,20 @@ import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
+import org.webrtc.VideoCodecInfo;
+import org.webrtc.VideoCapturer;
+import org.webrtc.VideoCodecInfo;
 
+import android.content.Context;
+import android.widget.Toast;
 
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.Arrays;
 import java.util.List;
-import com.google.firebase.database.DatabaseReference;
 
 public class WebRTCClient {
     private static final String TAG = "WebRTCClient";
@@ -41,9 +48,10 @@ public class WebRTCClient {
 
     private DatabaseReference firebaseDatabase;
     private String stunServer = "stun:stun.relay.metered.ca:80";
-    private String turnServer = "turn:asia.relay.metered.ca:443";
+    private String turnServer = "turn:asia.relay.metered.ca:80";
     private String turnUsername = "08a10b202c595304495012c2";
     private String turnPassword = "JnsH2+jc2q3/uGon";
+
 
     public WebRTCClient(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
         this.localView = localView;
@@ -58,11 +66,36 @@ public class WebRTCClient {
         localView.init(rootEglBase.getEglBaseContext(), null);
         localView.setMirror(true);
 
+        // Enable H264 codec and VP8 codec for maximum device compatibility
+        PeerConnectionFactory.Options peerOptions = new PeerConnectionFactory.Options();
+        peerOptions.disableNetworkMonitor = true;  // Optional for better performance
+
+        // Default video encoder factory that supports multiple codecs
+        DefaultVideoEncoderFactory encoderFactory = new DefaultVideoEncoderFactory(rootEglBase.getEglBaseContext(), true, true);
+        DefaultVideoDecoderFactory decoderFactory = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
+
+        // Create the PeerConnectionFactory with custom encoder and decoder
         peerConnectionFactory = PeerConnectionFactory.builder()
-                .setVideoEncoderFactory(new DefaultVideoEncoderFactory(rootEglBase.getEglBaseContext(), true, true))
-                .setVideoDecoderFactory(new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext()))
+                .setVideoEncoderFactory(encoderFactory)
+                .setVideoDecoderFactory(decoderFactory)
+                .setOptions(peerOptions)
                 .createPeerConnectionFactory();
+
+        // Check which encoder is being used
+        String codecUsed = "Unknown codec";
+        for (VideoCodecInfo codecInfo : encoderFactory.getSupportedCodecs()) {
+            if (codecInfo.name.equalsIgnoreCase("H264")) {
+                codecUsed = "H.264";
+                break;
+            } else if (codecInfo.name.equalsIgnoreCase("VP8")) {
+                codecUsed = "VP8";
+            }
+        }
+
+        // Show a toast with the codec being used
+        Toast.makeText(context, "Using codec: " + codecUsed, Toast.LENGTH_LONG).show();
     }
+
 
     public void startCamera(Context context, boolean useFrontCamera) {
         if (peerConnectionFactory == null) {
@@ -91,12 +124,11 @@ public class WebRTCClient {
         videoTrack.addSink(localView);
 
         try {
-            videoCapturer.startCapture(1280, 720, 30);
+            videoCapturer.startCapture(1280, 720, 30);  // 720p resolution, 30 fps for compatibility
         } catch (Exception e) {
             Log.e(TAG, "Failed to start video capturer.", e);
         }
     }
-
 
     public void initializePeerConnection(String sessionId, String email) {
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(getIceServers());
@@ -124,23 +156,6 @@ public class WebRTCClient {
         localStream.addTrack(videoTrack);
         peerConnection.addStream(localStream);
     }
-
-    public static class IceCandidateData {
-        public String candidate;
-        public String sdpMid;
-        public int sdpMLineIndex;
-
-        // Default constructor for Firebase
-        public IceCandidateData() {}
-
-        public IceCandidateData(String candidate, String sdpMid, int sdpMLineIndex) {
-            this.candidate = candidate;
-            this.sdpMid = sdpMid;
-            this.sdpMLineIndex = sdpMLineIndex;
-        }
-    }
-
-
 
     public void createOffer(String sessionId, String email) {
         peerConnection.createOffer(new SdpAdapter("CreateOffer") {
@@ -170,6 +185,51 @@ public class WebRTCClient {
             }
         }, new MediaConstraints());
     }
+
+    public void onReceiveAnswer(SessionDescription answer) {
+        if (peerConnection != null) {
+            peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), answer);
+            // Show toast when the answer is received
+            Toast.makeText(localView.getContext(), "Answer received", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public void startListeningForAnswer(String sessionId, String email) {
+        listenForAnswer(sessionId, email);
+    }
+
+
+    public void listenForAnswer(String sessionId, String email) {
+        String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
+
+        DatabaseReference answerRef = firebaseDatabase.child("users")
+                .child(emailKey)
+                .child("sessions")
+                .child(sessionId)
+                .child("Answer");
+
+        // Listen for changes to the answer
+        answerRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                String answer = dataSnapshot.getValue(String.class);
+
+                if (answer != null) {
+                    // Once the answer is received, create the SessionDescription and call onReceiveAnswer
+                    SessionDescription sessionDescription = new SessionDescription(SessionDescription.Type.ANSWER, answer);
+                    onReceiveAnswer(sessionDescription);
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                // Handle error in case the database operation is canceled or fails
+                Log.e(TAG, "Failed to listen for answer: " + databaseError.getMessage());
+            }
+        });
+    }
+
+
 
 
 
@@ -211,6 +271,22 @@ public class WebRTCClient {
         }
         if (rootEglBase != null) {
             rootEglBase.release();
+        }
+    }
+
+    // IceCandidate data class
+    public static class IceCandidateData {
+        public String candidate;
+        public String sdpMid;
+        public int sdpMLineIndex;
+
+        // Default constructor for Firebase
+        public IceCandidateData() {}
+
+        public IceCandidateData(String candidate, String sdpMid, int sdpMLineIndex) {
+            this.candidate = candidate;
+            this.sdpMid = sdpMid;
+            this.sdpMLineIndex = sdpMLineIndex;
         }
     }
 }

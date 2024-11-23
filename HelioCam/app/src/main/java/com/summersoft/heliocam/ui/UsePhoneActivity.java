@@ -19,12 +19,21 @@ import com.summersoft.heliocam.R;
 
 import java.security.SecureRandom;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+
+
+
 public class UsePhoneActivity extends AppCompatActivity {
 
     private EditText passkeyInput, sessionNameInput;
     private SecureRandom random;
     private FirebaseAuth mAuth;
     private DatabaseReference mDatabase;
+    private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,6 +88,16 @@ public class UsePhoneActivity extends AppCompatActivity {
             return;
         }
 
+        // Check if the camera permission is granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            // Request camera permission if not granted
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+        } else {
+            // Permission is already granted, proceed with adding session
+            proceedWithAddingSession(sessionName, passkey);
+        }
+    }
+    private void proceedWithAddingSession(String sessionName, String passkey) {
         // Get the current user's email
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
 
@@ -107,7 +126,6 @@ public class UsePhoneActivity extends AppCompatActivity {
     }
 
 
-
     // Session data model
     public static class Session {
         public String passkey;
@@ -116,6 +134,23 @@ public class UsePhoneActivity extends AppCompatActivity {
         public Session(String passkey, String session_name) {
             this.passkey = passkey;
             this.session_name = session_name;
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted, proceed with adding session
+                String sessionName = sessionNameInput.getText().toString().trim();
+                String passkey = passkeyInput.getText().toString().trim();
+                proceedWithAddingSession(sessionName, passkey);
+            } else {
+                // Permission denied, show a message to the user
+                Toast.makeText(this, "Camera permission is required to continue", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 }

@@ -74,7 +74,7 @@ public class RTCJoin {
     /**
      * Creates an SDP Answer to the remote peer.
      */
-    private void createAnswer() {
+    public void createAnswer() {
         MediaConstraints mediaConstraints = new MediaConstraints();
         mediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
         mediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));

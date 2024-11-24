@@ -14,7 +14,7 @@
         android:layout_height="match_parent">
 
         <org.webrtc.SurfaceViewRenderer
-            android:id="@+id/live_feed_view"
+            android:id="@+id/feed_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 

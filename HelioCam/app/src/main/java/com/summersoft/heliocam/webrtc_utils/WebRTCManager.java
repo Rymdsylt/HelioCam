@@ -39,6 +39,15 @@ public class WebRTCManager {
         initializeWebRTC(context);
     }
 
+    public void setLocalDescription(SessionDescription description) {
+        if (peerConnection != null) {
+            peerConnection.setLocalDescription(new SdpAdapter(TAG), description);
+            Log.d(TAG, "Local SDP Description set successfully.");
+        } else {
+            Log.e(TAG, "Peer connection is null. Cannot set local description.");
+        }
+    }
+
     private void initializeWebRTC(Context context) {
         // Initialize WebRTC
         PeerConnectionFactory.InitializationOptions options = PeerConnectionFactory.InitializationOptions.builder(context)

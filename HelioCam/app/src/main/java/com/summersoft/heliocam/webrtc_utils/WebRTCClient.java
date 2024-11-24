@@ -48,7 +48,7 @@ public class WebRTCClient {
 
     private DatabaseReference firebaseDatabase;
     private String stunServer = "stun:stun.relay.metered.ca:80";
-    private String turnServer = "turn:asia.relay.metered.ca:80";
+    private String turnServer = "turn:asia.relay.metered.ca:80?transport=tcp";
     private String turnUsername = "08a10b202c595304495012c2";
     private String turnPassword = "JnsH2+jc2q3/uGon";
 
@@ -106,6 +106,12 @@ public class WebRTCClient {
             return;
         }
 
+        if (videoTrack != null) {
+            // Toast if the streaming has already started
+            Toast.makeText(context, "Streaming has already started. Just adding observers.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         Camera2Enumerator cameraEnumerator = new Camera2Enumerator(context);
         videoCapturer = createCameraCapturer(cameraEnumerator, useFrontCamera);
 
@@ -136,6 +142,7 @@ public class WebRTCClient {
             Log.e(TAG, "Failed to start video capturer.", e);
         }
     }
+
 
 
     public void initializePeerConnection(String sessionId, String email) {

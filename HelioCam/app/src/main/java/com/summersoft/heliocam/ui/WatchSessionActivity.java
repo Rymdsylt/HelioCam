@@ -39,24 +39,47 @@ public class WatchSessionActivity extends AppCompatActivity {
         String sessionDataJson = sharedPreferences.getString("SESSION_DATA", null);
 
         if (sessionDataJson != null) {
-            Gson gson = new Gson();
-            Type type = new TypeToken<Map<String, Object>>() {}.getType();
-            Map<String, Object> sessionData = gson.fromJson(sessionDataJson, type);
+            try {
+                // Parse the JSON string
+                Gson gson = new Gson();
+                Type type = new TypeToken<Map<String, Object>>() {}.getType();
+                Map<String, Object> sessionData = gson.fromJson(sessionDataJson, type);
 
-            // Log the entire session data
-            Log.d(TAG, "Full Session Data: " + sessionDataJson);
+                if (sessionData != null) {
+                    // Log the full session data
+                    Log.d(TAG, "Full Session Data: " + sessionData);
 
-            // Extract and log specific values like "Offer"
-            String sdpOffer = (String) sessionData.get("Offer");
-            Log.d(TAG, "SDP Offer: " + sdpOffer);
+                    // Safely extract and log "Offer"
+                    Object offerObject = sessionData.get("Offer");
+                    if (offerObject instanceof String) {
+                        String sdpOffer = (String) offerObject;
+                        Log.d(TAG, "SDP Offer: " + sdpOffer);
+                    } else {
+                        Log.e(TAG, "'Offer' is not a String or is missing.");
+                    }
 
-            // Optionally log the ICE candidates as well
-            Map<String, Object> iceCandidates = (Map<String, Object>) sessionData.get("ice_candidates");
-            Log.d(TAG, "ICE Candidates: " + new Gson().toJson(iceCandidates));
-
-            cameraDisabledMessage = findViewById(R.id.camera_disabled_message);
+                    // Safely extract and log "ice_candidates"
+                    Object iceCandidatesObject = sessionData.get("ice_candidates");
+                    if (iceCandidatesObject instanceof Map) {
+                        @SuppressWarnings("unchecked") // Suppress unchecked cast warning
+                        Map<String, Object> iceCandidates = (Map<String, Object>) iceCandidatesObject;
+                        Log.d(TAG, "ICE Candidates: " + gson.toJson(iceCandidates));
+                    } else {
+                        Log.e(TAG, "'ice_candidates' is not a Map or is missing.");
+                    }
+                } else {
+                    Log.e(TAG, "Failed to parse session data into a Map.");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error parsing session data JSON", e);
+            }
+        } else {
+            Log.w(TAG, "No session data found in SharedPreferences.");
         }
+
+        cameraDisabledMessage = findViewById(R.id.camera_disabled_message);
     }
+
 
 
     @Override

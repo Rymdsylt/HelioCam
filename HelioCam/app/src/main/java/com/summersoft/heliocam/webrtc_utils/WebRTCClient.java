@@ -97,6 +97,7 @@ public class WebRTCClient {
     }
 
 
+
     // Initialize SurfaceTextureHelper once
     private SurfaceTextureHelper surfaceTextureHelper;
 
@@ -173,6 +174,8 @@ public class WebRTCClient {
         peerConnection.addStream(localStream);
     }
 
+
+
     public void createOffer(String sessionId, String email) {
         peerConnection.createOffer(new SdpAdapter("CreateOffer") {
             @Override
@@ -211,7 +214,9 @@ public class WebRTCClient {
     public void onReceiveAnswer(SessionDescription answer) {
         if (peerConnection != null) {
             if (answer != null) {
+                // Set remote description with the received answer
                 peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), answer);
+
                 // Show toast when the answer is received
                 Toast.makeText(localView.getContext(), "Answer received", Toast.LENGTH_SHORT).show();
             } else {
@@ -221,6 +226,7 @@ public class WebRTCClient {
             Log.e(TAG, "PeerConnection is null, cannot set remote description.");
         }
     }
+
 
 
     public void startListeningForAnswer(String sessionId, String email) {

@@ -3,6 +3,8 @@ package com.summersoft.heliocam.webrtc_utils;
 import android.content.Context;
 import android.util.Log;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnection;
@@ -88,9 +90,38 @@ public class RTCJoin {
                 // Set the local description with the created SDP Answer
                 peerConnection.setLocalDescription(new SdpAdapter(TAG), sessionDescription);
 
-                // Send the SDP Answer to the remote peer if required
+                // Send the SDP Answer to Firebase
+                sendSdpAnswerToFirebase(sessionDescription);
             }
         }, mediaConstraints);
+    }
+
+    /**
+     * Sends the SDP Answer to Firebase Firestore.
+     *
+     * @param sessionDescription The SDP answer to send.
+     */
+    public void sendSdpAnswerToFirebase(SessionDescription sessionDescription) {
+        // Get the current user's email
+        FirebaseAuth firebaseAuth = FirebaseAuth.getInstance();
+        String userEmail = firebaseAuth.getCurrentUser().getEmail();
+        if (userEmail == null) {
+            Log.e(TAG, "User not logged in!");
+            return;
+        }
+
+        // Sanitize the email (Firebase doesn't allow '.' or '@' in document IDs)
+        String sanitizedEmail = userEmail.replace(".", "_");
+
+        // Create Firestore instance
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+
+        // Send the SDP answer to Firebase
+        firestore.collection("users")
+                .document(sanitizedEmail) // Use sanitized email as the document ID
+                .update("sdpAnswer", sessionDescription.description) // Field name 'sdpAnswer' can be changed
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "SDP Answer sent successfully"))
+                .addOnFailureListener(e -> Log.e(TAG, "Error sending SDP answer to Firebase", e));
     }
 
     /**

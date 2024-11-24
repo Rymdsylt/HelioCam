@@ -40,16 +40,14 @@ public class WatchSessionActivity extends AppCompatActivity {
 
         if (sessionDataJson != null) {
             try {
-                // Parse the JSON string
                 Gson gson = new Gson();
                 Type type = new TypeToken<Map<String, Object>>() {}.getType();
                 Map<String, Object> sessionData = gson.fromJson(sessionDataJson, type);
 
                 if (sessionData != null) {
-                    // Log the full session data
+
                     Log.d(TAG, "Full Session Data: " + sessionData);
 
-                    // Safely extract and log "Offer"
                     Object offerObject = sessionData.get("Offer");
                     if (offerObject instanceof String) {
                         String sdpOffer = (String) offerObject;
@@ -58,14 +56,26 @@ public class WatchSessionActivity extends AppCompatActivity {
                         Log.e(TAG, "'Offer' is not a String or is missing.");
                     }
 
-                    // Safely extract and log "ice_candidates"
                     Object iceCandidatesObject = sessionData.get("ice_candidates");
+
                     if (iceCandidatesObject instanceof Map) {
-                        @SuppressWarnings("unchecked") // Suppress unchecked cast warning
-                        Map<String, Object> iceCandidates = (Map<String, Object>) iceCandidatesObject;
-                        Log.d(TAG, "ICE Candidates: " + gson.toJson(iceCandidates));
+                        @SuppressWarnings("unchecked")
+                        Map<String, Map<String, Object>> iceCandidates = (Map<String, Map<String, Object>>) iceCandidatesObject;
+                        Log.d(TAG, "ICE Candidates: " + new Gson().toJson(iceCandidates));
+
+                        for (Map.Entry<String, Map<String, Object>> entry : iceCandidates.entrySet()) {
+                            String candidateKey = entry.getKey();
+                            Map<String, Object> candidateDetails = entry.getValue();
+
+                            Log.d(TAG, "Candidate Key: " + candidateKey);
+                            Log.d(TAG, "Candidate Details: " + new Gson().toJson(candidateDetails));
+                        }
                     } else {
-                        Log.e(TAG, "'ice_candidates' is not a Map or is missing.");
+                        if (iceCandidatesObject == null) {
+                            Log.e(TAG, "'ice_candidates' is missing from the session data.");
+                        } else {
+                            Log.e(TAG, "'ice_candidates' is not a valid Map. Found type: " + iceCandidatesObject.getClass().getSimpleName());
+                        }
                     }
                 } else {
                     Log.e(TAG, "Failed to parse session data into a Map.");
@@ -85,6 +95,5 @@ public class WatchSessionActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-//a
     }
 }

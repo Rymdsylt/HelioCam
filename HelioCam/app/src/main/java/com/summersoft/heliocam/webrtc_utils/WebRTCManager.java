@@ -29,7 +29,7 @@ public class WebRTCManager {
 
     // STUN and TURN server details
     private String stunServer = "stun:stun.relay.metered.ca:80";
-    private String turnServer = "turn:asia.relay.metered.ca:80";
+    private String turnServer = "turn:asia.relay.metered.ca:80?transport=tcp";
     private String turnUsername = "08a10b202c595304495012c2";
     private String turnPassword = "JnsH2+jc2q3/uGon";
 

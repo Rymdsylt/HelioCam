@@ -60,6 +60,7 @@ public class SessionLoader {
                                     int sessionNumber = 1;
 
                                     for (DataSnapshot sessionSnapshot : sessionsAddedSnapshot.getChildren()) {
+                                        // Get session data
                                         String sessionKey = sessionSnapshot.getKey();
                                         String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
 
@@ -77,32 +78,27 @@ public class SessionLoader {
                                             sessionNameTextView.setText(sessionName);
 
                                             // Extract the ICE candidates
-                                            DataSnapshot iceCandidatesSnapshot = sessionSnapshot.child("ice_candidates");
-                                            String iceCandidatesJson = new Gson().toJson(iceCandidatesSnapshot.getValue());
+                                            String iceCandidatesJsonLocal = new Gson().toJson(sessionSnapshot.child("ice_candidates").getValue());
 
-                                            // Store session data (including ICE candidates) in SharedPreferences
-                                            // Modify the onClick listener to log all session data before passing it
+                                            // Set up the click listener for the session card
                                             sessionCard.setOnClickListener(v -> {
-                                                // Serialize entire session data (including ice_candidates)
-                                                Map<String, Object> sessionData = (Map<String, Object>) sessionSnapshot.getValue();
-                                                sessionData.put("ice_candidates", iceCandidatesJson);  // Add the ICE candidates to the session data
+                                                // Extract the required session data fields
+                                                String offer = sessionSnapshot.child("Offer").getValue(String.class);
+                                                Map<String, Object> iceCandidates = (Map<String, Object>) sessionSnapshot.child("ice_candidates").getValue();
 
-                                                // Log the entire session data (including ICE candidates)
-                                                Gson gson = new Gson();
-                                                String sessionDataJson = gson.toJson(sessionData);
-                                                Log.d("SessionLoader", "Session Data: " + sessionDataJson);  // Log session data
+                                                // Convert the iceCandidates to a JSON string for transfer
+                                                String iceCandidatesJson = new Gson().toJson(iceCandidates);
 
-                                                // Store serialized session data in SharedPreferences
-                                                homeActivity.getSharedPreferences("SESSION_PREFS", MODE_PRIVATE)
-                                                        .edit()
-                                                        .putString("SESSION_DATA", sessionDataJson)
-                                                        .apply();
-
-                                                // Start WatchSessionActivity
+                                                // Create an Intent to launch WatchSessionActivity
                                                 Intent intent = new Intent(homeActivity, WatchSessionActivity.class);
+                                                intent.putExtra("SESSION_KEY", sessionKey);
+                                                intent.putExtra("SESSION_NAME", sessionName);
+                                                intent.putExtra("OFFER", offer);
+                                                intent.putExtra("ICE_CANDIDATES", iceCandidatesJson);
+
+                                                // Start the activity
                                                 homeActivity.startActivity(intent);
                                             });
-
 
                                             // Handle delete button
                                             View deleteButton = sessionCard.findViewById(R.id.delete_button);
@@ -127,7 +123,6 @@ public class SessionLoader {
         });
     }
 
-
     private void deleteSession(DatabaseReference userRef, String loginInfoKey, String sessionKey, View sessionCard) {
         // Create a confirmation dialog
         new AlertDialog.Builder(sessionCardContainer.getContext())
@@ -140,7 +135,7 @@ public class SessionLoader {
                     sessionRef.removeValue().addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
                             sessionCardContainer.removeView(sessionCard); // Remove the card from the UI
-                            Toast.makeText(sessionCardContainer.getContext(), "Session deleted successfully" , Toast.LENGTH_SHORT).show();
+                            Toast.makeText(sessionCardContainer.getContext(), "Session deleted successfully", Toast.LENGTH_SHORT).show();
                         } else {
                             Log.e("SessionLoader", "Failed to delete session: " + task.getException().getMessage());
                         }

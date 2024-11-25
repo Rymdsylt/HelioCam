@@ -1,5 +1,7 @@
 package com.summersoft.heliocam.webrtc_utils;
 
+import static android.content.Intent.getIntent;
+
 import android.content.Context;
 import android.util.Log;
 
@@ -11,6 +13,13 @@ import org.webrtc.SessionDescription;
 
 import java.util.List;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+
 public class RTCJoin {
 
     private static final String TAG = "RTCJoin";
@@ -18,10 +27,12 @@ public class RTCJoin {
     private final PeerConnectionFactory peerConnectionFactory;
     private final PeerConnection peerConnection;
     private final Context context;
+    private final String sessionKey;  // Add sessionKey
 
-    public RTCJoin(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers) {
+    public RTCJoin(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers, String sessionKey) {
         this.context = context;
         this.peerConnectionFactory = peerConnectionFactory;
+        this.sessionKey = sessionKey;  // Initialize sessionKey
 
         // Initialize the PeerConnection
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
@@ -56,7 +67,7 @@ public class RTCJoin {
      *
      * @param sdpOffer SDP offer received from the remote peer.
      */
-    public void joinSession(String sdpOffer) {
+    public void joinSession(final String sdpOffer) {
         // Set remote description with the received SDP Offer
         SessionDescription remoteSdp = new SessionDescription(SessionDescription.Type.OFFER, sdpOffer);
         peerConnection.setRemoteDescription(new SdpAdapter(TAG) {
@@ -70,6 +81,33 @@ public class RTCJoin {
             }
         }, remoteSdp);
     }
+
+    private void sendSdpAnswerToFirebase(final SessionDescription answerSdp) {
+        if (sessionKey != null) {  // Use the sessionKey passed into RTCJoin
+            // Get the currently logged-in user's email
+            String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+            if (email != null) {
+                String formattedEmail = email.replace(".", "_"); // Format email for Firebase paths
+
+                // Get a reference to the session in Firebase
+                DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
+                        .child(formattedEmail)
+                        .child("sessions")
+                        .child(sessionKey);
+
+                // Prepare the SDP Answer to send to Firebase
+                sessionRef.child("Answer").setValue(answerSdp.description)
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                Log.d(TAG, "SDP Answer sent to Firebase successfully");
+                            } else {
+                                Log.e(TAG, "Failed to send SDP Answer to Firebase", task.getException());
+                            }
+                        });
+            }
+        }
+    }
+
 
     /**
      * Creates an SDP Answer to the remote peer.
@@ -88,10 +126,12 @@ public class RTCJoin {
                 // Set the local description with the created SDP Answer
                 peerConnection.setLocalDescription(new SdpAdapter(TAG), sessionDescription);
 
-                // Send the SDP Answer to the remote peer if required
+                // Send the SDP Answer to Firebase
+                sendSdpAnswerToFirebase(sessionDescription);
             }
         }, mediaConstraints);
     }
+
 
     /**
      * Adds ICE candidates received from the signaling server.

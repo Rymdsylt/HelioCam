@@ -1,7 +1,5 @@
 package com.summersoft.heliocam.webrtc_utils;
 
-import static android.content.Intent.getIntent;
-
 import android.content.Context;
 import android.util.Log;
 
@@ -11,7 +9,9 @@ import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
@@ -23,6 +23,7 @@ import com.google.firebase.database.DatabaseError;
 public class RTCJoin {
 
     private static final String TAG = "RTCJoin";
+    private static boolean candidateSent = false; // Track if the candidate is already sent
 
     private final PeerConnectionFactory peerConnectionFactory;
     private final PeerConnection peerConnection;
@@ -45,8 +46,43 @@ public class RTCJoin {
                     public void onIceCandidate(IceCandidate candidate) {
                         super.onIceCandidate(candidate);
                         Log.d(TAG, "New ICE Candidate: " + candidate.sdp);
-                        // Send the ICE candidate to the remote peer if required
+
+                        // Ensure only one ICE candidate is sent
+                        if (!candidateSent) {
+                            candidateSent = true;
+
+                            // Get the currently logged-in user's email
+                            String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+                            if (email != null && sessionKey != null) {
+                                // Format email for Firebase path (Firebase doesn't allow '.' or '@' in keys)
+                                String formattedEmail = email.replace(".", "_");
+
+                                // Get a reference to the session in Firebase
+                                DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
+                                        .child(formattedEmail)
+                                        .child("sessions")
+                                        .child(sessionKey)
+                                        .child("ViewerCandidate");  // Store ICE candidates under "ViewerCandidate"
+
+                                // Create a map to store the candidate data with simplified structure
+                                Map<String, Object> candidateData = new HashMap<>();
+                                candidateData.put("ViewerSdp", candidate.sdp);
+                                candidateData.put("ViewerSdpMid", candidate.sdpMid);
+                                candidateData.put("ViewerSdpMLineIndex", candidate.sdpMLineIndex);
+
+                                // Set the candidate data directly under "ViewerCandidate"
+                                sessionRef.setValue(candidateData)
+                                        .addOnCompleteListener(task -> {
+                                            if (task.isSuccessful()) {
+                                                Log.d(TAG, "ICE candidate sent to Firebase successfully.");
+                                            } else {
+                                                Log.e(TAG, "Failed to send ICE candidate to Firebase", task.getException());
+                                            }
+                                        });
+                            }
+                        }
                     }
+
 
                     @Override
                     public void onAddStream(org.webrtc.MediaStream stream) {
@@ -151,3 +187,6 @@ public class RTCJoin {
         }
     }
 }
+
+
+

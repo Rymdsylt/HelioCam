@@ -32,7 +32,9 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class WebRTCClient {
     private static final String TAG = "WebRTCClient";
@@ -152,19 +154,31 @@ public class WebRTCClient {
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnectionAdapter() {
             @Override
             public void onIceCandidate(IceCandidate candidate) {
-                // Send ICE candidate to Firebase under the specific session
+                // Send ICE candidate to Firebase under the specific session and use "HostCandidate" as the key
                 String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
                 DatabaseReference iceCandidatesRef = firebaseDatabase.child("users")
                         .child(emailKey)
                         .child("sessions")
                         .child(sessionId)
-                        .child("ice_candidates");
+                        .child("HostCandidate");
 
-                // Check if the candidate already exists in Firebase, otherwise add it
-                iceCandidatesRef.child("candidate_" + System.currentTimeMillis()).setValue(
-                        new IceCandidateData(candidate.sdp, candidate.sdpMid, candidate.sdpMLineIndex)
-                );
+                // Create a map to store the candidate data
+                Map<String, Object> candidateData = new HashMap<>();
+                candidateData.put("HostSdp", candidate.sdp);
+                candidateData.put("HostSdpMid", candidate.sdpMid);
+                candidateData.put("HostSpdMLineIndex", candidate.sdpMLineIndex);
+
+                // Set the candidate data in Firebase
+                iceCandidatesRef.setValue(candidateData)
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                Log.d(TAG, "ICE candidate sent to Firebase.");
+                            } else {
+                                Log.e(TAG, "Failed to send ICE candidate to Firebase.", task.getException());
+                            }
+                        });
             }
+
 
         });
 

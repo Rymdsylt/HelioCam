@@ -198,6 +198,9 @@ public class WebRTCClient {
                                 Log.e(TAG, "Failed to send offer to Firebase for session: " + sessionId, task.getException());
                             }
                         });
+
+                // Start listening for the answer from the remote peer
+                startListeningForAnswer(sessionId, email);
             }
 
             @Override
@@ -211,9 +214,14 @@ public class WebRTCClient {
     public void onReceiveAnswer(SessionDescription answer) {
         if (peerConnection != null) {
             if (answer != null) {
+                // Set the remote description once the answer is received
                 peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), answer);
+
                 // Show toast when the answer is received
-                Toast.makeText(localView.getContext(), "Answer received", Toast.LENGTH_SHORT).show();
+                Toast.makeText(localView.getContext(), "Answer received, streaming starts now!", Toast.LENGTH_SHORT).show();
+
+                // Start streaming your local media to the remote peer
+                startStreaming();
             } else {
                 Log.e(TAG, "Received invalid answer: null");
             }
@@ -221,6 +229,22 @@ public class WebRTCClient {
             Log.e(TAG, "PeerConnection is null, cannot set remote description.");
         }
     }
+
+    private void startStreaming() {
+        // Assuming you already have the local video track and media stream set up
+        if (peerConnection != null && videoTrack != null) {
+            MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
+            localStream.addTrack(videoTrack);
+
+            // Add the media stream to the peer connection
+            peerConnection.addStream(localStream);
+            Log.d(TAG, "Started streaming to remote peer.");
+        } else {
+            Log.e(TAG, "Error: PeerConnection or videoTrack is null. Cannot start streaming.");
+        }
+    }
+
+
 
 
     public void startListeningForAnswer(String sessionId, String email) {
@@ -237,16 +261,20 @@ public class WebRTCClient {
                 .child(sessionId)
                 .child("Answer");
 
-        // Listen for changes to the answer
+        // Listen for changes to the answer in real-time
         answerRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
+                // Get the answer value
                 String answer = dataSnapshot.getValue(String.class);
 
                 if (answer != null) {
                     // Once the answer is received, create the SessionDescription and call onReceiveAnswer
                     SessionDescription sessionDescription = new SessionDescription(SessionDescription.Type.ANSWER, answer);
                     onReceiveAnswer(sessionDescription);
+
+                    // Optionally, remove the listener after receiving the answer to prevent further updates
+                    answerRef.removeEventListener(this);
                 }
             }
 
@@ -257,6 +285,7 @@ public class WebRTCClient {
             }
         });
     }
+
 
 
 

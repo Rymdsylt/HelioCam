@@ -101,7 +101,7 @@ public class UsePhoneActivity extends AppCompatActivity {
         // Get the current user's email
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
 
-        // Create a unique session ID (e.g., session_1, session_2, etc.)
+        // Create a unique session ID (e.g., session_1, session_2, etc.)a
         String sessionId = "session_" + (System.currentTimeMillis() / 1000);
 
         // Create the session data

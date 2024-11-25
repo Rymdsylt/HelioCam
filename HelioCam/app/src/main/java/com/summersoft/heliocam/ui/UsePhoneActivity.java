@@ -88,15 +88,22 @@ public class UsePhoneActivity extends AppCompatActivity {
             return;
         }
 
-        // Check if the camera permission is granted
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            // Request camera permission if not granted
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+        // Check for Android version
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            // For Android 6.0 (API level 23) and higher, request camera permission
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                // Request camera permission if not granted
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+            } else {
+                // Permission is already granted, proceed with adding session
+                proceedWithAddingSession(sessionName, passkey);
+            }
         } else {
-            // Permission is already granted, proceed with adding session
+            // For older Android versions, permission is granted at install time, so just proceed
             proceedWithAddingSession(sessionName, passkey);
         }
     }
+
     private void proceedWithAddingSession(String sessionName, String passkey) {
         // Get the current user's email
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");

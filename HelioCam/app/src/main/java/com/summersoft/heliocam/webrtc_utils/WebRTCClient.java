@@ -57,8 +57,6 @@ public class WebRTCClient {
         this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
 
-
-
         // Initialize WebRTC
         PeerConnectionFactory.InitializationOptions options =
                 PeerConnectionFactory.InitializationOptions.builder(context).createInitializationOptions();
@@ -198,8 +196,6 @@ public class WebRTCClient {
                             if (task.isSuccessful()) {
                                 // Log if the offer was successfully sent to Firebase
                                 Log.d(TAG, "Offer created for session " + sessionId + ": " + offer);
-                                // Start listening for the answer
-                                startListeningForAnswer(sessionId, email);
                             } else {
                                 // Log failure if the operation was unsuccessful
                                 Log.e(TAG, "Failed to send offer to Firebase for session: " + sessionId, task.getException());
@@ -221,38 +217,8 @@ public class WebRTCClient {
                 // Set remote description with the received answer
                 peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), answer);
 
-                // Automatically trigger ICE candidate gathering and proceed with connection
-                peerConnection.createAnswer(new SdpAdapter("CreateAnswer") {
-                    @Override
-                    public void onCreateSuccess(SessionDescription sessionDescription) {
-                        // Set the local description with the created answer
-                        peerConnection.setLocalDescription(new SdpAdapter("SetLocalDescription"), sessionDescription);
-
-                        // Send the local answer to the other peer via Firebase
-                        String sessionId = answer.description;  // Replace with correct sessionId if needed
-                        String email = "user_email"; // Replace with actual email of the user
-                        String emailKey = email.replace(".", "_");  // Firebase does not support '@' or '.' in keys
-                        firebaseDatabase.child("users").child(emailKey).child("sessions").child(sessionId)
-                                .child("Answer").setValue(sessionDescription.description)
-                                .addOnCompleteListener(task -> {
-                                    if (task.isSuccessful()) {
-                                        // Log if the answer was successfully sent to Firebase
-                                        Log.d(TAG, "Answer sent to Firebase: " + sessionDescription.description);
-                                    } else {
-                                        // Log failure if the operation was unsuccessful
-                                        Log.e(TAG, "Failed to send answer to Firebase.", task.getException());
-                                    }
-                                });
-                    }
-
-                    @Override
-                    public void onCreateFailure(String error) {
-                        Log.e(TAG, "Failed to create answer: " + error);
-                    }
-                }, new MediaConstraints());
-
-                // Show a toast when the answer is received and handshake starts
-                Toast.makeText(localView.getContext(), "Answer received. Handshake complete.", Toast.LENGTH_SHORT).show();
+                // Show toast when the answer is received
+                Toast.makeText(localView.getContext(), "Answer received", Toast.LENGTH_SHORT).show();
             } else {
                 Log.e(TAG, "Received invalid answer: null");
             }
@@ -260,7 +226,6 @@ public class WebRTCClient {
             Log.e(TAG, "PeerConnection is null, cannot set remote description.");
         }
     }
-
 
 
 
@@ -278,35 +243,26 @@ public class WebRTCClient {
                 .child(sessionId)
                 .child("Answer");
 
-        // Attach a listener for real-time updates
+        // Listen for changes to the answer
         answerRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 String answer = dataSnapshot.getValue(String.class);
 
-                if (answer != null && peerConnection != null) {
-                    // Create the SessionDescription and pass it to onReceiveAnswer
+                if (answer != null) {
+                    // Once the answer is received, create the SessionDescription and call onReceiveAnswer
                     SessionDescription sessionDescription = new SessionDescription(SessionDescription.Type.ANSWER, answer);
                     onReceiveAnswer(sessionDescription);
-
-                    // Show a toast message when the answer is received
-                    localView.post(() ->
-                            Toast.makeText(localView.getContext(), "Answer received: " + answer, Toast.LENGTH_SHORT).show()
-                    );
-
-                } else {
-                    Log.e(TAG, "Answer is null or PeerConnection is not initialized.");
                 }
             }
 
             @Override
             public void onCancelled(DatabaseError databaseError) {
+                // Handle error in case the database operation is canceled or fails
                 Log.e(TAG, "Failed to listen for answer: " + databaseError.getMessage());
             }
         });
     }
-
-
 
 
 

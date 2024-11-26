@@ -8,6 +8,7 @@ import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
+import org.webrtc.SurfaceViewRenderer;
 
 import java.util.HashMap;
 import java.util.List;
@@ -29,11 +30,13 @@ public class RTCJoin {
     private final PeerConnection peerConnection;
     private final Context context;
     private final String sessionKey;  // Add sessionKey
+    private final SurfaceViewRenderer feedView; // View to show the remote feed
 
-    public RTCJoin(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers, String sessionKey) {
+    public RTCJoin(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers, String sessionKey, SurfaceViewRenderer feedView) {
         this.context = context;
         this.peerConnectionFactory = peerConnectionFactory;
         this.sessionKey = sessionKey;  // Initialize sessionKey
+        this.feedView = feedView; // Initialize the feedView
 
         // Initialize the PeerConnection
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
@@ -83,18 +86,79 @@ public class RTCJoin {
                         }
                     }
 
-
                     @Override
                     public void onAddStream(org.webrtc.MediaStream stream) {
                         super.onAddStream(stream);
-                        Log.d(TAG, "Media Stream added");
-                        // Handle remote media stream
+                        Log.d(TAG, "Remote Media Stream added");
+
+                        // Display the remote video feed
+                        if (stream.videoTracks.size() > 0) {
+                            stream.videoTracks.get(0).addSink(feedView);  // feedView is the SurfaceViewRenderer in your UI
+                        }
                     }
                 }
         );
 
         if (this.peerConnection == null) {
             throw new IllegalStateException("Failed to create PeerConnection");
+        }
+
+        // Load HostCandidate and HostSdp from Firebase when joining the session
+        loadHostCandidateAndSdp(sessionKey);
+    }
+
+    private void loadHostCandidateAndSdp(String sessionKey) {
+        // Assuming the current user is the viewer, and the host's SDP is stored under "HostCandidate"
+        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+        if (email != null) {
+            String formattedEmail = email.replace(".", "_"); // Format email for Firebase paths
+
+            DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
+                    .child(formattedEmail)
+                    .child("sessions")
+                    .child(sessionKey)
+                    .child("HostCandidate");  // Get ICE candidates from the "HostCandidate"
+
+            sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.exists()) {
+                        String sdp = dataSnapshot.child("HostSdp").getValue(String.class);
+                        String sdpMid = dataSnapshot.child("HostSdpMid").getValue(String.class);
+                        Integer sdpMLineIndex = dataSnapshot.child("HostSdpMLineIndex").getValue(Integer.class);
+                        if (sdpMLineIndex != null) {
+                            // Create the IceCandidate from the retrieved data
+                            if (sdp != null && sdpMid != null) {
+                                IceCandidate iceCandidate = new IceCandidate(sdpMid, sdpMLineIndex, sdp);
+                                peerConnection.addIceCandidate(iceCandidate);  // Add the candidate to the PeerConnection
+
+                                Log.d(TAG, "Host Candidate loaded and added: " + sdp);
+                            }
+                        } else {
+                            Log.e(TAG, "HostSdpMLineIndex is null, cannot create IceCandidate.");
+                        }
+
+                        // After loading the host's candidate, set the remote SDP
+                        String hostSdp = dataSnapshot.child("HostSdp").getValue(String.class);
+                        if (hostSdp != null) {
+                            // Set the Host's SDP as the remote description
+                            SessionDescription remoteSdp = new SessionDescription(SessionDescription.Type.OFFER, hostSdp);
+                            peerConnection.setRemoteDescription(new SdpAdapter(TAG) {
+                                @Override
+                                public void onSetSuccess() {
+                                    super.onSetSuccess();
+                                    Log.d(TAG, "Remote SDP set successfully");
+                                }
+                            }, remoteSdp);
+                        }
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    Log.e(TAG, "Failed to load Host Candidate from Firebase: " + databaseError.getMessage());
+                }
+            });
         }
     }
 
@@ -144,7 +208,6 @@ public class RTCJoin {
         }
     }
 
-
     /**
      * Creates an SDP Answer to the remote peer.
      */
@@ -168,7 +231,6 @@ public class RTCJoin {
         }, mediaConstraints);
     }
 
-
     /**
      * Adds ICE candidates received from the signaling server.
      *
@@ -187,6 +249,7 @@ public class RTCJoin {
         }
     }
 }
+
 
 
 

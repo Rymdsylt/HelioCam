@@ -154,6 +154,9 @@ public class WebRTCClient {
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnectionAdapter() {
             @Override
             public void onIceCandidate(IceCandidate candidate) {
+                // Example: After creating an offer, start listening for viewer SDP
+                listenForViewerSdp(sessionId, email);
+
                 // Send ICE candidate to Firebase under the specific session and use "HostCandidate" as the key
                 String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
                 DatabaseReference iceCandidatesRef = firebaseDatabase.child("users")
@@ -178,13 +181,14 @@ public class WebRTCClient {
                             }
                         });
             }
-
-
         });
 
         MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
         localStream.addTrack(videoTrack);
         peerConnection.addStream(localStream);
+
+        // Start listening for viewer's ICE candidates
+        listenForViewerCandidate(sessionId, email);
     }
 
     public void createOffer(String sessionId, String email) {
@@ -231,7 +235,7 @@ public class WebRTCClient {
                 // Set the remote description once the answer is received
                 peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), answer);
 
-                // Show toast when the answer is received
+                // Show a toast when the answer is received
                 Toast.makeText(localView.getContext(), "Answer received, streaming starts now!", Toast.LENGTH_SHORT).show();
 
                 // Start streaming your local media to the remote peer
@@ -245,14 +249,22 @@ public class WebRTCClient {
     }
 
     private void startStreaming() {
-        // Assuming you already have the local video track and media stream set up
+        // Ensure video capture is started and videoTrack is available
         if (peerConnection != null && videoTrack != null) {
+            // Create a local media stream and add the video track
             MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
             localStream.addTrack(videoTrack);
 
             // Add the media stream to the peer connection
             peerConnection.addStream(localStream);
             Log.d(TAG, "Started streaming to remote peer.");
+
+            // If the camera view (camera_view) is available, set it as the sink for the video track
+            if (localView != null) {
+                videoTrack.addSink(localView);
+            } else {
+                Log.e(TAG, "Local view is not available to render the camera stream.");
+            }
         } else {
             Log.e(TAG, "Error: PeerConnection or videoTrack is null. Cannot start streaming.");
         }
@@ -302,6 +314,92 @@ public class WebRTCClient {
 
 
 
+
+    public void listenForViewerSdp(String sessionId, String email) {
+        String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
+
+        // Reference to the Firebase node where ViewerSdp is stored
+        DatabaseReference sdpRef = firebaseDatabase.child("users")
+                .child(emailKey)
+                .child("sessions")
+                .child(sessionId)
+                .child("ViewerCandidate")
+                .child("ViewerSdp");
+
+        // Listen for changes to the ViewerSdp in real-time
+        sdpRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // Get the SDP string
+                String sdpString = dataSnapshot.getValue(String.class);
+
+                if (sdpString != null) {
+                    // Create a SessionDescription from the received SDP string
+                    SessionDescription sessionDescription = new SessionDescription(SessionDescription.Type.ANSWER, sdpString);
+                    onReceiveViewerSdp(sessionDescription);
+                } else {
+                    Log.e(TAG, "Received null SDP string.");
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                // Handle error if the database operation is canceled or fails
+                Log.e(TAG, "Failed to listen for ViewerSdp: " + databaseError.getMessage());
+            }
+        });
+    }
+
+
+    public void listenForViewerCandidate(String sessionId, String email) {
+        String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
+
+        DatabaseReference candidateRef = firebaseDatabase.child("users")
+                .child(emailKey)
+                .child("sessions")
+                .child(sessionId)
+                .child("ViewerCandidate");
+
+        // Listen for ICE candidate changes in real-time
+        candidateRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                IceCandidateData candidateData = dataSnapshot.getValue(IceCandidateData.class);
+                if (candidateData != null) {
+                    // Create the IceCandidate and add it to the peer connection
+                    IceCandidate candidate = new IceCandidate(candidateData.sdpMid, candidateData.sdpMLineIndex, candidateData.candidate);
+                    peerConnection.addIceCandidate(candidate);
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                // Handle error if the database operation is cancelled or fails
+                Log.e(TAG, "Failed to listen for ViewerCandidate: " + databaseError.getMessage());
+            }
+        });
+    }
+
+    // Handle the remote SDP (ViewerSdp) when it’s received
+    public void onReceiveViewerSdp(SessionDescription sessionDescription) {
+        if (peerConnection != null) {
+            if (sessionDescription != null) {
+                // Set the remote description for the Viewer
+                peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), sessionDescription);
+
+                // Show a toast when the Viewer SDP is received
+                Toast.makeText(localView.getContext(), "Viewer SDP received, streaming to the viewer!", Toast.LENGTH_SHORT).show();
+
+                // Start streaming the camera view to the remote peer (Viewer)
+                startStreaming();
+
+            } else {
+                Log.e(TAG, "Received invalid ViewerSdp: null");
+            }
+        } else {
+            Log.e(TAG, "PeerConnection is null, cannot set remote description.");
+        }
+    }
 
 
 
@@ -363,3 +461,5 @@ public class WebRTCClient {
         }
     }
 }
+
+

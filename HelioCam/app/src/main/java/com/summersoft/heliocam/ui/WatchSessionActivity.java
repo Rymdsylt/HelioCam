@@ -97,7 +97,7 @@ public class WatchSessionActivity extends AppCompatActivity {
 
         // Parse and process the received session data
         if (sdpOffer != null) {
-            rtcJoin = new RTCJoin(this, peerConnectionFactory, iceServers, sessionKey);  // Pass sessionKey
+            rtcJoin = new RTCJoin(this, peerConnectionFactory, iceServers, sessionKey, feedView);  // Pass sessionKey and feedView
             rtcJoin.joinSession(sdpOffer);
         }
 

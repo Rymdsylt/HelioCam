@@ -6,10 +6,15 @@
     android:id="@+id/Notification"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.NotifcationActivity">
+    tools:context=".ui.NotificationFragment">
 
 
     <!-- Main Content Layout -->
+    <FrameLayout
+        android:id="@+id/fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
     <ScrollView
         android:id="@+id/mainContent"
         android:layout_width="0dp"

@@ -66,4 +66,7 @@ dependencies {
     implementation("com.guolindev.permissionx:permissionx:1.6.1")
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
+    //navigation
+    implementation("com.google.android.material:material:1.8.0")
+
 }

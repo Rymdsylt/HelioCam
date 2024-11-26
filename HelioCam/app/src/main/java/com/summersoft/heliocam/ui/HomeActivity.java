@@ -16,6 +16,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.status.LoginStatus;
@@ -46,6 +47,8 @@ public class HomeActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+
 
         View hamburgerButton = findViewById(R.id.hamburgerButton);
         registerForContextMenu(hamburgerButton);
@@ -80,6 +83,34 @@ public class HomeActivity extends AppCompatActivity {
                 handler.postDelayed(this, 1500); // Repeat every 1.5 seconds
             }
         };
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavigation);
+        bottomNavigationView.setSelectedItemId(R.id.bottom_home);
+        bottomNavigationView.setOnItemSelectedListener(item -> {
+            switch (item.getItemId()) {
+                case R.id.bottom_home:
+                    finish();
+                    return true;
+                case R.id.bottom_notifications:
+                    startActivity(new Intent(this, NotifcationActivity.class));
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                    finish();
+                    return true;
+                case R.id.bottom_history:
+                    finish();
+                    return true;
+                case R.id.bottom_settings:
+                    startActivity(new Intent(this, SettingsActivity.class));
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                    finish();
+                    return true;
+                case R.id.bottom_profile:
+                    startActivity(new Intent(this, ProfileActivity.class));
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                    finish();
+                    return true;
+            }
+            return false;
+        });
     }
 
     @Override
@@ -117,6 +148,9 @@ public class HomeActivity extends AppCompatActivity {
                 return super.onContextItemSelected(item);
         }
     }
+
+
+
 }
 
 

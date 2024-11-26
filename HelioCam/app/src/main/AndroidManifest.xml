@@ -53,6 +53,18 @@
  android:exported="false" />
         -->
         <activity
+            android:name=".ui.NotifcationActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.HistoryActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.ProfileActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.SignupActivity"
             android:exported="false" />
         <activity

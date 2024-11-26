@@ -31,14 +31,14 @@ public class RTCJoin {
     private final PeerConnectionFactory peerConnectionFactory;
     private final PeerConnection peerConnection;
     private final Context context;
-    private final String sessionKey;  // Add sessionKey
+    private final String sessionKey;
     private final SurfaceViewRenderer feedView; // View to show the remote feed
 
     public RTCJoin(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers, String sessionKey, SurfaceViewRenderer feedView) {
         this.context = context;
         this.peerConnectionFactory = peerConnectionFactory;
-        this.sessionKey = sessionKey;  // Initialize sessionKey
-        this.feedView = feedView; // Initialize the feedView
+        this.sessionKey = sessionKey;
+        this.feedView = feedView;
 
         // Initialize the PeerConnection
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
@@ -52,54 +52,62 @@ public class RTCJoin {
                         super.onIceCandidate(candidate);
                         Log.d(TAG, "New ICE Candidate: " + candidate.sdp);
 
-                        // Ensure only one ICE candidate is sent
-                        if (!candidateSent) {
-                            candidateSent = true;
-
-                            // Get the currently logged-in user's email
+                        // Send the ICE candidate to Firebase as soon as it is available
+                        if (candidate != null) {
                             String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
                             if (email != null && sessionKey != null) {
-                                // Format email for Firebase path (Firebase doesn't allow '.' or '@' in keys)
-                                String formattedEmail = email.replace(".", "_");
+                                String formattedEmail = email.replace(".", "_");  // Format email for Firebase paths
 
-                                // Get a reference to the session in Firebase
-                                DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
+                                // Send ICE candidate to Firebase under the specific session with a unique key
+                                DatabaseReference iceCandidatesRef = FirebaseDatabase.getInstance().getReference("users")
                                         .child(formattedEmail)
                                         .child("sessions")
                                         .child(sessionKey)
-                                        .child("ViewerCandidate");  // Store ICE candidates under "ViewerCandidate"
+                                        .child("ice_candidates");
 
-                                // Create a map to store the candidate data with simplified structure
-                                Map<String, Object> candidateData = new HashMap<>();
-                                candidateData.put("ViewerSdp", candidate.sdp);
-                                candidateData.put("ViewerSdpMid", candidate.sdpMid);
-                                candidateData.put("ViewerSdpMLineIndex", candidate.sdpMLineIndex);
+                                // Get the next available candidate index
+                                iceCandidatesRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(DataSnapshot dataSnapshot) {
+                                        int candidateCount = (int) dataSnapshot.getChildrenCount();
+                                        String candidateKey = "candidate_" + (candidateCount + 1);  // Generate unique key for new candidate
 
-                                // Set the candidate data directly under "ViewerCandidate"
-                                sessionRef.setValue(candidateData)
-                                        .addOnCompleteListener(task -> {
-                                            if (task.isSuccessful()) {
-                                                Log.d(TAG, "ICE candidate sent to Firebase successfully.");
-                                            } else {
-                                                Log.e(TAG, "Failed to send ICE candidate to Firebase", task.getException());
-                                            }
-                                        });
+                                        // Create a map to store the candidate data
+                                        Map<String, Object> candidateData = new HashMap<>();
+                                        candidateData.put("candidate", candidate.sdp);
+                                        candidateData.put("sdpMid", candidate.sdpMid);
+                                        candidateData.put("sdpMLineIndex", candidate.sdpMLineIndex);
+
+                                        // Set the candidate data in Firebase under the unique key
+                                        iceCandidatesRef.child(candidateKey).setValue(candidateData)
+                                                .addOnCompleteListener(task -> {
+                                                    if (task.isSuccessful()) {
+                                                        Log.d(TAG, "ICE candidate sent to Firebase.");
+                                                    } else {
+                                                        Log.e(TAG, "Failed to send ICE candidate to Firebase.", task.getException());
+                                                    }
+                                                });
+                                    }
+
+                                    @Override
+                                    public void onCancelled(DatabaseError databaseError) {
+                                        Log.e(TAG, "Failed to fetch ice candidates: " + databaseError.getMessage());
+                                    }
+                                });
                             }
                         }
                     }
+
 
                     @Override
                     public void onAddStream(org.webrtc.MediaStream stream) {
                         super.onAddStream(stream);
                         Log.d(TAG, "Remote Media Stream added");
 
-                        // Display a toast when the remote stream is received
+                        // Handling Video Stream
                         if (stream.videoTracks.size() > 0) {
-                            // Add the video track to the feed view
-                            stream.videoTracks.get(0).addSink(feedView);  // feedView is the SurfaceViewRenderer in your UI
-
-                            // Show a toast indicating that the stream has been received
-                            Log.d(TAG, "Remote Media Stream Started");
+                            stream.videoTracks.get(0).addSink(feedView);  // Add video to SurfaceViewRenderer
+                            Log.d(TAG, "Remote Video Stream Started");
                         }
                     }
                 }
@@ -113,8 +121,29 @@ public class RTCJoin {
         loadHostCandidateAndSdp(sessionKey);
     }
 
+    private void sendIceCandidateToFirebase(IceCandidate candidate, String formattedEmail) {
+        DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
+                .child(formattedEmail)
+                .child("sessions")
+                .child(sessionKey)
+                .child("ViewerCandidate");
+
+        Map<String, Object> candidateData = new HashMap<>();
+        candidateData.put("ViewerSdp", candidate.sdp);
+        candidateData.put("ViewerSdpMid", candidate.sdpMid);
+        candidateData.put("ViewerSdpMLineIndex", candidate.sdpMLineIndex);
+
+        sessionRef.setValue(candidateData)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, "ICE candidate sent to Firebase successfully.");
+                    } else {
+                        Log.e(TAG, "Failed to send ICE candidate to Firebase", task.getException());
+                    }
+                });
+    }
+
     private void loadHostCandidateAndSdp(String sessionKey) {
-        // Assuming the current user is the viewer, and the host's SDP is stored under "HostCandidate"
         String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
         if (email != null) {
             String formattedEmail = email.replace(".", "_"); // Format email for Firebase paths
@@ -129,7 +158,6 @@ public class RTCJoin {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     if (dataSnapshot.exists()) {
-                        // Log and parse the Offer
                         String offer = dataSnapshot.child("Offer").getValue(String.class);
                         if (offer != null) {
                             Log.d(TAG, "Fetched Offer SDP: " + offer);
@@ -160,7 +188,6 @@ public class RTCJoin {
                             Log.d(TAG, "Fetched Host Candidate SDP Mid: " + sdpMid);
                             Log.d(TAG, "Fetched Host Candidate SDP MLine Index: " + sdpMLineIndex);
 
-                            // Add the fetched HostCandidate to the PeerConnection
                             IceCandidate hostCandidate = new IceCandidate(sdpMid, sdpMLineIndex, sdp);
                             peerConnection.addIceCandidate(hostCandidate);
                             Log.d(TAG, "Host Candidate added successfully");
@@ -180,26 +207,32 @@ public class RTCJoin {
         }
     }
 
+    public void addIceCandidate(IceCandidate iceCandidate) {
+        if (peerConnection != null) {
+            peerConnection.addIceCandidate(iceCandidate);
+            Log.d(TAG, "Added ICE candidate: " + iceCandidate.sdp);
+        } else {
+            Log.e(TAG, "PeerConnection is null, can't add ICE candidate.");
+        }
+    }
 
     public void joinSession() {
-        // Fetch the offer SDP from Firebase
         String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
         if (email != null) {
-            String formattedEmail = email.replace(".", "_"); // Format email for Firebase paths
+            String formattedEmail = email.replace(".", "_");
 
             DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
                     .child(formattedEmail)
                     .child("sessions")
                     .child(sessionKey)
-                    .child("Offer"); // Retrieve the Offer SDP
+                    .child("Offer");
 
             sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     if (dataSnapshot.exists()) {
-                        String sdpOffer = dataSnapshot.getValue(String.class); // Get the SDP offer
+                        String sdpOffer = dataSnapshot.getValue(String.class);
                         if (sdpOffer != null) {
-                            // Set remote description with the SDP Offer from Firebase
                             SessionDescription remoteSdp = new SessionDescription(SessionDescription.Type.OFFER, sdpOffer);
                             peerConnection.setRemoteDescription(new SdpAdapter(TAG) {
                                 @Override
@@ -207,7 +240,6 @@ public class RTCJoin {
                                     super.onSetSuccess();
                                     Log.d(TAG, "Remote SDP from Firebase set successfully");
 
-                                    // Create an SDP Answer
                                     createAnswer();
                                 }
                             }, remoteSdp);
@@ -227,36 +259,6 @@ public class RTCJoin {
         }
     }
 
-
-    private void sendSdpAnswerToFirebase(final SessionDescription answerSdp) {
-        if (sessionKey != null) {  // Use the sessionKey passed into RTCJoin
-            // Get the currently logged-in user's email
-            String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-            if (email != null) {
-                String formattedEmail = email.replace(".", "_"); // Format email for Firebase paths
-
-                // Get a reference to the session in Firebase
-                DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
-                        .child(formattedEmail)
-                        .child("sessions")
-                        .child(sessionKey);
-
-                // Prepare the SDP Answer to send to Firebase
-                sessionRef.child("Answer").setValue(answerSdp.description)
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                Log.d(TAG, "SDP Answer sent to Firebase successfully");
-                            } else {
-                                Log.e(TAG, "Failed to send SDP Answer to Firebase", task.getException());
-                            }
-                        });
-            }
-        }
-    }
-
-    /**
-     * Creates an SDP Answer to the remote peer.
-     */
     public void createAnswer() {
         MediaConstraints mediaConstraints = new MediaConstraints();
         mediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
@@ -276,25 +278,36 @@ public class RTCJoin {
             }
         }, mediaConstraints);
     }
-    /**
-     * Adds ICE candidates received from the signaling server.
-     *
-     * @param iceCandidate ICE candidate to add.
-     */
-    public void addIceCandidate(IceCandidate iceCandidate) {
-        peerConnection.addIceCandidate(iceCandidate);
+
+    private void sendSdpAnswerToFirebase(final SessionDescription answerSdp) {
+        if (sessionKey != null) {
+            String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+            if (email != null) {
+                String formattedEmail = email.replace(".", "_");
+
+                DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
+                        .child(formattedEmail)
+                        .child("sessions")
+                        .child(sessionKey);
+
+                sessionRef.child("Answer").setValue(answerSdp.description)
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                Log.d(TAG, "SDP Answer sent to Firebase successfully");
+                            } else {
+                                Log.e(TAG, "Failed to send SDP Answer to Firebase", task.getException());
+                            }
+                        });
+            }
+        }
     }
 
-    /**
-     * Clean up resources when the session ends.
-     */
     public void dispose() {
         if (peerConnection != null) {
             peerConnection.dispose();
         }
     }
 }
-
 
 
 

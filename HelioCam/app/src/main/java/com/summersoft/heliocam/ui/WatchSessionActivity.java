@@ -120,7 +120,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                     }
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Error parsing ICE candidates JSON", e);
+                Log.e(TAG, "Err or parsing ICE candidates JSON", e);
             }
         }
     }

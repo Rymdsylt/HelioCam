@@ -1,465 +1,330 @@
-package com.summersoft.heliocam.webrtc_utils;
+    package com.summersoft.heliocam.webrtc_utils;
 
-import android.content.Context;
-import android.util.Log;
+    import android.content.Context;
+    import android.util.Log;
 
-import org.webrtc.Camera2Enumerator;
-import org.webrtc.CameraVideoCapturer;
-import org.webrtc.EglBase;
-import org.webrtc.IceCandidate;
-import org.webrtc.MediaConstraints;
-import org.webrtc.MediaStream;
-import org.webrtc.PeerConnection;
-import org.webrtc.PeerConnectionFactory;
-import org.webrtc.SessionDescription;
-import org.webrtc.SdpObserver;
-import org.webrtc.SurfaceTextureHelper;
-import org.webrtc.SurfaceViewRenderer;
-import org.webrtc.VideoSource;
-import org.webrtc.VideoTrack;
-import org.webrtc.DefaultVideoDecoderFactory;
-import org.webrtc.DefaultVideoEncoderFactory;
-import org.webrtc.VideoCodecInfo;
-import org.webrtc.VideoCapturer;
-import org.webrtc.VideoCodecInfo;
+    import org.webrtc.Camera2Enumerator;
+    import org.webrtc.CameraVideoCapturer;
+    import org.webrtc.EglBase;
+    import org.webrtc.IceCandidate;
+    import org.webrtc.MediaConstraints;
+    import org.webrtc.MediaStream;
+    import org.webrtc.PeerConnection;
+    import org.webrtc.PeerConnectionFactory;
+    import org.webrtc.SessionDescription;
+    import org.webrtc.SdpObserver;
+    import org.webrtc.SurfaceTextureHelper;
+    import org.webrtc.SurfaceViewRenderer;
+    import org.webrtc.VideoSource;
+    import org.webrtc.VideoTrack;
+    import org.webrtc.DefaultVideoDecoderFactory;
+    import org.webrtc.DefaultVideoEncoderFactory;
+    import org.webrtc.VideoCodecInfo;
+    import org.webrtc.VideoCapturer;
+    import org.webrtc.VideoCodecInfo;
 
-import android.content.Context;
-import android.widget.Toast;
+    import android.content.Context;
+    import android.widget.Toast;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.ValueEventListener;
+    import com.google.firebase.database.DataSnapshot;
+    import com.google.firebase.database.DatabaseError;
+    import com.google.firebase.database.DatabaseReference;
+    import com.google.firebase.database.ValueEventListener;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+    import java.util.Arrays;
+    import java.util.HashMap;
+    import java.util.List;
+    import java.util.Map;
 
-public class WebRTCClient {
-    private static final String TAG = "WebRTCClient";
+    public class WebRTCClient {
+        private static final String TAG = "WebRTCClient";
 
-    private PeerConnectionFactory peerConnectionFactory;
-    private PeerConnection peerConnection;
-    private VideoTrack videoTrack;
-    private VideoSource videoSource;
-    private EglBase rootEglBase;
-
-    private CameraVideoCapturer videoCapturer;
-    private SurfaceViewRenderer localView;
-
-    private DatabaseReference firebaseDatabase;
-    private String stunServer = "stun:stun.relay.metered.ca:80";
-    private String turnServer = "turn:asia.relay.metered.ca:80?transport=tcp";
-    private String turnUsername = "08a10b202c595304495012c2";
-    private String turnPassword = "JnsH2+jc2q3/uGon";
+        private PeerConnectionFactory peerConnectionFactory;
+        private PeerConnection peerConnection;
+        private VideoTrack videoTrack;
+        private VideoSource videoSource;
+        private EglBase rootEglBase;
 
 
-    public WebRTCClient(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
-        this.localView = localView;
-        this.firebaseDatabase = firebaseDatabase;
 
-        // Initialize WebRTC
-        PeerConnectionFactory.InitializationOptions options =
-                PeerConnectionFactory.InitializationOptions.builder(context).createInitializationOptions();
-        PeerConnectionFactory.initialize(options);
+        private CameraVideoCapturer videoCapturer;
+        private SurfaceViewRenderer localView;
 
-        rootEglBase = EglBase.create();
-        localView.init(rootEglBase.getEglBaseContext(), null);
-        localView.setMirror(true);
+        private DatabaseReference firebaseDatabase;
+        private String stunServer = "stun:stun.relay.metered.ca:80";
+        private String turnServer = "turn:asia.relay.metered.ca:80?transport=tcp";
+        private String turnUsername = "08a10b202c595304495012c2";
+        private String turnPassword = "JnsH2+jc2q3/uGon";
 
-        // Enable H264 codec and VP8 codec for maximum device compatibility
-        PeerConnectionFactory.Options peerOptions = new PeerConnectionFactory.Options();
-        peerOptions.disableNetworkMonitor = true;  // Optional for better performance
+        public WebRTCClient(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
+            this.localView = localView;
+            this.firebaseDatabase = firebaseDatabase;
 
-        // Default video encoder factory that supports multiple codecs
-        DefaultVideoEncoderFactory encoderFactory = new DefaultVideoEncoderFactory(rootEglBase.getEglBaseContext(), true, true);
-        DefaultVideoDecoderFactory decoderFactory = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
+            // Initialize WebRTC
+            PeerConnectionFactory.InitializationOptions options =
+                    PeerConnectionFactory.InitializationOptions.builder(context).createInitializationOptions();
+            PeerConnectionFactory.initialize(options);
 
-        // Create the PeerConnectionFactory with custom encoder and decoder
-        peerConnectionFactory = PeerConnectionFactory.builder()
-                .setVideoEncoderFactory(encoderFactory)
-                .setVideoDecoderFactory(decoderFactory)
-                .setOptions(peerOptions)
-                .createPeerConnectionFactory();
+            rootEglBase = EglBase.create();
+            localView.init(rootEglBase.getEglBaseContext(), null);
+            localView.setMirror(true);
 
-        // Check which encoder is being used
-        String codecUsed = "Unknown codec";
-        for (VideoCodecInfo codecInfo : encoderFactory.getSupportedCodecs()) {
-            if (codecInfo.name.equalsIgnoreCase("H264")) {
-                codecUsed = "H.264";
-                break;
-            } else if (codecInfo.name.equalsIgnoreCase("VP8")) {
-                codecUsed = "VP8";
+            // Enable H264 codec and VP8 codec for maximum device compatibility
+            PeerConnectionFactory.Options peerOptions = new PeerConnectionFactory.Options();
+            peerOptions.disableNetworkMonitor = true;  // Optional for better performance
+
+            // Default video encoder factory that supports multiple codecs
+            DefaultVideoEncoderFactory encoderFactory = new DefaultVideoEncoderFactory(rootEglBase.getEglBaseContext(), true, true);
+            DefaultVideoDecoderFactory decoderFactory = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
+
+            // Create the PeerConnectionFactory with custom encoder and decoder
+            peerConnectionFactory = PeerConnectionFactory.builder()
+                    .setVideoEncoderFactory(encoderFactory)
+                    .setVideoDecoderFactory(decoderFactory)
+                    .setOptions(peerOptions)
+                    .createPeerConnectionFactory();
+
+            // Check which encoder is being used
+            String codecUsed = "Unknown codec";
+            for (VideoCodecInfo codecInfo : encoderFactory.getSupportedCodecs()) {
+                if (codecInfo.name.equalsIgnoreCase("H264")) {
+                    codecUsed = "H.264";
+                    break;
+                } else if (codecInfo.name.equalsIgnoreCase("VP8")) {
+                    codecUsed = "VP8";
+                }
+            }
+
+            // Show a toast with the codec being used
+            Toast.makeText(context, "Using codec: " + codecUsed, Toast.LENGTH_LONG).show();
+        }
+
+        // Initialize SurfaceTextureHelper once
+        private SurfaceTextureHelper surfaceTextureHelper;
+
+        public void startCamera(Context context, boolean useFrontCamera) {
+            if (peerConnectionFactory == null) {
+                Log.e(TAG, "PeerConnectionFactory is not initialized.");
+                return;
+            }
+
+            if (videoTrack != null) {
+                // Toast if the streaming has already started
+                Toast.makeText(context, "Streaming has already started. Just adding observers.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Camera2Enumerator cameraEnumerator = new Camera2Enumerator(context);
+            videoCapturer = createCameraCapturer(cameraEnumerator, useFrontCamera);
+
+            if (videoCapturer == null) {
+                Log.e(TAG, "Failed to initialize video capturer.");
+                return;
+            }
+
+            // Create SurfaceTextureHelper once and reuse
+            if (surfaceTextureHelper == null) {
+                surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
+            }
+
+            videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
+            videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
+            videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", videoSource);
+
+            if (videoTrack == null) {
+                Log.e(TAG, "Failed to create video track.");
+                return;
+            }
+
+            videoTrack.addSink(localView);
+
+            try {
+                videoCapturer.startCapture(1280, 720, 30);  // 720p resolution, 30 fps for compatibility
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to start video capturer.", e);
             }
         }
 
-        // Show a toast with the codec being used
-        Toast.makeText(context, "Using codec: " + codecUsed, Toast.LENGTH_LONG).show();
-    }
+        public void initializePeerConnection(String sessionId, String email) {
+            PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(getIceServers());
+            rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
 
+            peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnectionAdapter() {
+                @Override
+                public void onIceCandidate(IceCandidate candidate) {
+                    // Send ICE candidate to Firebase under the specific session with a unique key
+                    String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
+                    DatabaseReference iceCandidatesRef = firebaseDatabase.child("users")
+                            .child(emailKey)
+                            .child("sessions")
+                            .child(sessionId)
+                            .child("ice_candidates");
 
-    // Initialize SurfaceTextureHelper once
-    private SurfaceTextureHelper surfaceTextureHelper;
+                    // Get the next available candidate index
+                    iceCandidatesRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            int candidateCount = (int) dataSnapshot.getChildrenCount();
+                            String candidateKey = "candidate_" + (candidateCount + 4);  // Generate unique key for new candidate
 
-    public void startCamera(Context context, boolean useFrontCamera) {
-        if (peerConnectionFactory == null) {
-            Log.e(TAG, "PeerConnectionFactory is not initialized.");
-            return;
-        }
+                            // Create a map to store the candidate data
+                            Map<String, Object> candidateData = new HashMap<>();
+                            candidateData.put("candidate", candidate.sdp);
+                            candidateData.put("sdpMid", candidate.sdpMid);
+                            candidateData.put("sdpMLineIndex", candidate.sdpMLineIndex);
 
-        if (videoTrack != null) {
-            // Toast if the streaming has already started
-            Toast.makeText(context, "Streaming has already started. Just adding observers.", Toast.LENGTH_SHORT).show();
-            return;
-        }
+                            // Set the candidate data in Firebase under the unique key
+                            iceCandidatesRef.child(candidateKey).setValue(candidateData)
+                                    .addOnCompleteListener(task -> {
+                                        if (task.isSuccessful()) {
+                                            Log.d(TAG, "ICE candidate sent to Firebase.");
+                                        } else {
+                                            Log.e(TAG, "Failed to send ICE candidate to Firebase.", task.getException());
+                                        }
+                                    });
+                        }
 
-        Camera2Enumerator cameraEnumerator = new Camera2Enumerator(context);
-        videoCapturer = createCameraCapturer(cameraEnumerator, useFrontCamera);
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
+                            Log.e(TAG, "Failed to fetch ice candidates: " + databaseError.getMessage());
+                        }
+                    });
+                }
+            });
 
-        if (videoCapturer == null) {
-            Log.e(TAG, "Failed to initialize video capturer.");
-            return;
-        }
-
-        // Create SurfaceTextureHelper once and reuse
-        if (surfaceTextureHelper == null) {
-            surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
-        }
-
-        videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
-        videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
-        videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", videoSource);
-
-        if (videoTrack == null) {
-            Log.e(TAG, "Failed to create video track.");
-            return;
-        }
-
-        videoTrack.addSink(localView);
-
-        try {
-            videoCapturer.startCapture(1280, 720, 30);  // 720p resolution, 30 fps for compatibility
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start video capturer.", e);
-        }
-    }
-
-
-
-    public void initializePeerConnection(String sessionId, String email) {
-        PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(getIceServers());
-        rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
-
-        peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnectionAdapter() {
-            @Override
-            public void onIceCandidate(IceCandidate candidate) {
-                // Example: After creating an offer, start listening for viewer SDP
-                listenForViewerSdp(sessionId, email);
-
-                // Send ICE candidate to Firebase under the specific session and use "HostCandidate" as the key
-                String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
-                DatabaseReference iceCandidatesRef = firebaseDatabase.child("users")
-                        .child(emailKey)
-                        .child("sessions")
-                        .child(sessionId)
-                        .child("HostCandidate");
-
-                // Create a map to store the candidate data
-                Map<String, Object> candidateData = new HashMap<>();
-                candidateData.put("HostSdp", candidate.sdp);
-                candidateData.put("HostSdpMid", candidate.sdpMid);
-                candidateData.put("HostSpdMLineIndex", candidate.sdpMLineIndex);
-
-                // Set the candidate data in Firebase
-                iceCandidatesRef.setValue(candidateData)
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                Log.d(TAG, "ICE candidate sent to Firebase.");
-                            } else {
-                                Log.e(TAG, "Failed to send ICE candidate to Firebase.", task.getException());
-                            }
-                        });
-            }
-        });
-
-        MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
-        localStream.addTrack(videoTrack);
-        peerConnection.addStream(localStream);
-
-        // Start listening for viewer's ICE candidates
-        listenForViewerCandidate(sessionId, email);
-    }
-
-    public void createOffer(String sessionId, String email) {
-        peerConnection.createOffer(new SdpAdapter("CreateOffer") {
-            @Override
-            public void onCreateSuccess(SessionDescription sessionDescription) {
-                // Set local description
-                peerConnection.setLocalDescription(new SdpAdapter("SetLocalDescription"), sessionDescription);
-
-                // Format the offer object
-                String offer = sessionDescription.description;
-
-                // Create a reference to the user's session in Firebase
-                String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
-
-                // Update Firebase with the session offer
-                firebaseDatabase.child("users").child(emailKey).child("sessions").child(sessionId)
-                        .child("Offer").setValue(offer)
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                // Log if the offer was successfully sent to Firebase
-                                Log.d(TAG, "Offer created for session " + sessionId + ": " + offer);
-                            } else {
-                                // Log failure if the operation was unsuccessful
-                                Log.e(TAG, "Failed to send offer to Firebase for session: " + sessionId, task.getException());
-                            }
-                        });
-
-                // Start listening for the answer from the remote peer
-                startListeningForAnswer(sessionId, email);
-            }
-
-            @Override
-            public void onCreateFailure(String error) {
-                Log.e(TAG, "Failed to create offer: " + error);
-            }
-        }, new MediaConstraints());
-    }
-
-
-    public void onReceiveAnswer(SessionDescription answer) {
-        if (peerConnection != null) {
-            if (answer != null) {
-                // Set the remote description once the answer is received
-                peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), answer);
-
-                // Show a toast when the answer is received
-                Toast.makeText(localView.getContext(), "Answer received, streaming starts now!", Toast.LENGTH_SHORT).show();
-
-                // Start streaming your local media to the remote peer
-                startStreaming();
-            } else {
-                Log.e(TAG, "Received invalid answer: null");
-            }
-        } else {
-            Log.e(TAG, "PeerConnection is null, cannot set remote description.");
-        }
-    }
-
-    private void startStreaming() {
-        // Ensure video capture is started and videoTrack is available
-        if (peerConnection != null && videoTrack != null) {
-            // Create a local media stream and add the video track
             MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
             localStream.addTrack(videoTrack);
-
-            // Add the media stream to the peer connection
             peerConnection.addStream(localStream);
-            Log.d(TAG, "Started streaming to remote peer.");
-
-            // If the camera view (camera_view) is available, set it as the sink for the video track
-            if (localView != null) {
-                videoTrack.addSink(localView);
-            } else {
-                Log.e(TAG, "Local view is not available to render the camera stream.");
-            }
-        } else {
-            Log.e(TAG, "Error: PeerConnection or videoTrack is null. Cannot start streaming.");
         }
-    }
 
+        public void createOffer(String sessionId, String email) {
+            peerConnection.createOffer(new SdpAdapter("CreateOffer") {
+                @Override
+                public void onCreateSuccess(SessionDescription sessionDescription) {
+                    // Set local description
+                    peerConnection.setLocalDescription(new SdpAdapter("SetLocalDescription"), sessionDescription);
 
+                    // Format the offer object
+                    String offer = sessionDescription.description;
 
+                    // Create a reference to the user's session in Firebase
+                    String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
 
-    public void startListeningForAnswer(String sessionId, String email) {
-        listenForAnswer(sessionId, email);
-    }
+                    // Update Firebase with the session offer
+                    firebaseDatabase.child("users").child(emailKey).child("sessions").child(sessionId)
+                            .child("Offer").setValue(offer)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    Log.d(TAG, "Offer created for session " + sessionId + ": " + offer);
+                                } else {
+                                    Log.e(TAG, "Failed to send offer to Firebase for session: " + sessionId, task.getException());
+                                }
+                            });
 
+                    // Start listening for the answer from the remote peer
+                    startListeningForAnswer(sessionId, email);
+                }
 
-    public void listenForAnswer(String sessionId, String email) {
-        String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
+                @Override
+                public void onCreateFailure(String error) {
+                    Log.e(TAG, "Failed to create offer: " + error);
+                }
+            }, new MediaConstraints());
+        }
 
-        DatabaseReference answerRef = firebaseDatabase.child("users")
-                .child(emailKey)
-                .child("sessions")
-                .child(sessionId)
-                .child("Answer");
-
-        // Listen for changes to the answer in real-time
-        answerRef.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                // Get the answer value
-                String answer = dataSnapshot.getValue(String.class);
-
+        public void onReceiveAnswer(SessionDescription answer) {
+            if (peerConnection != null) {
                 if (answer != null) {
-                    // Once the answer is received, create the SessionDescription and call onReceiveAnswer
-                    SessionDescription sessionDescription = new SessionDescription(SessionDescription.Type.ANSWER, answer);
-                    onReceiveAnswer(sessionDescription);
+                    // Set the remote description once the answer is received
+                    peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), answer);
 
-                    // Optionally, remove the listener after receiving the answer to prevent further updates
-                    answerRef.removeEventListener(this);
-                }
-            }
+                    // Show a toast when the answer is received
+                    Toast.makeText(localView.getContext(), "Answer received, streaming starts now!", Toast.LENGTH_SHORT).show();
 
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-                // Handle error in case the database operation is canceled or fails
-                Log.e(TAG, "Failed to listen for answer: " + databaseError.getMessage());
-            }
-        });
-    }
-
-
-
-
-    public void listenForViewerSdp(String sessionId, String email) {
-        String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
-
-        // Reference to the Firebase node where ViewerSdp is stored
-        DatabaseReference sdpRef = firebaseDatabase.child("users")
-                .child(emailKey)
-                .child("sessions")
-                .child(sessionId)
-                .child("ViewerCandidate")
-                .child("ViewerSdp");
-
-        // Listen for changes to the ViewerSdp in real-time
-        sdpRef.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                // Get the SDP string
-                String sdpString = dataSnapshot.getValue(String.class);
-
-                if (sdpString != null) {
-                    // Create a SessionDescription from the received SDP string
-                    SessionDescription sessionDescription = new SessionDescription(SessionDescription.Type.ANSWER, sdpString);
-                    onReceiveViewerSdp(sessionDescription);
+                    // Start streaming your local media to the remote peer
+                    startStreaming();
                 } else {
-                    Log.e(TAG, "Received null SDP string.");
+                    Log.e(TAG, "Received invalid answer: null");
                 }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-                // Handle error if the database operation is canceled or fails
-                Log.e(TAG, "Failed to listen for ViewerSdp: " + databaseError.getMessage());
-            }
-        });
-    }
-
-
-    public void listenForViewerCandidate(String sessionId, String email) {
-        String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
-
-        DatabaseReference candidateRef = firebaseDatabase.child("users")
-                .child(emailKey)
-                .child("sessions")
-                .child(sessionId)
-                .child("ViewerCandidate");
-
-        // Listen for ICE candidate changes in real-time
-        candidateRef.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                IceCandidateData candidateData = dataSnapshot.getValue(IceCandidateData.class);
-                if (candidateData != null) {
-                    // Create the IceCandidate and add it to the peer connection
-                    IceCandidate candidate = new IceCandidate(candidateData.sdpMid, candidateData.sdpMLineIndex, candidateData.candidate);
-                    peerConnection.addIceCandidate(candidate);
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-                // Handle error if the database operation is cancelled or fails
-                Log.e(TAG, "Failed to listen for ViewerCandidate: " + databaseError.getMessage());
-            }
-        });
-    }
-
-    // Handle the remote SDP (ViewerSdp) when it’s received
-    public void onReceiveViewerSdp(SessionDescription sessionDescription) {
-        if (peerConnection != null) {
-            if (sessionDescription != null) {
-                // Set the remote description for the Viewer
-                peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), sessionDescription);
-
-                // Show a toast when the Viewer SDP is received
-                Toast.makeText(localView.getContext(), "Viewer SDP received, streaming to the viewer!", Toast.LENGTH_SHORT).show();
-
-                // Start streaming the camera view to the remote peer (Viewer)
-                startStreaming();
-
             } else {
-                Log.e(TAG, "Received invalid ViewerSdp: null");
-            }
-        } else {
-            Log.e(TAG, "PeerConnection is null, cannot set remote description.");
-        }
-    }
-
-
-
-    private CameraVideoCapturer createCameraCapturer(Camera2Enumerator enumerator, boolean useFrontCamera) {
-        for (String deviceName : enumerator.getDeviceNames()) {
-            if (useFrontCamera && enumerator.isFrontFacing(deviceName)) {
-                return enumerator.createCapturer(deviceName, null);
-            } else if (!useFrontCamera && enumerator.isBackFacing(deviceName)) {
-                return enumerator.createCapturer(deviceName, null);
+                Log.e(TAG, "PeerConnection is null, cannot set remote description.");
             }
         }
-        return null;
-    }
 
-    private List<PeerConnection.IceServer> getIceServers() {
-        return Arrays.asList(
-                PeerConnection.IceServer.builder(stunServer).createIceServer(),
-                PeerConnection.IceServer.builder(turnServer)
-                        .setUsername(turnUsername)
-                        .setPassword(turnPassword)
-                        .createIceServer()
-        );
-    }
+        public void startListeningForAnswer(String sessionId, String email) {
+            listenForAnswer(sessionId, email);
+        }
 
 
-    public void release() {
-        if (videoCapturer != null) {
-            try {
-                videoCapturer.stopCapture();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+        public void listenForAnswer(String sessionId, String email) {
+            String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
+
+            DatabaseReference answerRef = firebaseDatabase.child("users")
+                    .child(emailKey)
+                    .child("sessions")
+                    .child(sessionId)
+                    .child("Answer");
+
+            // Listen for changes to the answer in real-time
+            answerRef.addValueEventListener(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    // Get the answer value
+                    String answer = dataSnapshot.getValue(String.class);
+
+                    if (answer != null) {
+                        // Once the answer is received, create the SessionDescription and call onReceiveAnswer
+                        SessionDescription sessionDescription = new SessionDescription(SessionDescription.Type.ANSWER, answer);
+                        onReceiveAnswer(sessionDescription);
+
+                        // Optionally, remove the listener after receiving the answer to prevent further updates
+                        answerRef.removeEventListener(this);
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    // Handle error in case the database operation is canceled or fails
+                    Log.e(TAG, "Failed to listen for answer: " + databaseError.getMessage());
+                }
+            });
+        }
+
+        private void startStreaming() {
+            // Assuming you already have the local video track and media stream set up
+            if (peerConnection != null && videoTrack != null) {
+                MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
+                localStream.addTrack(videoTrack);
+
+                peerConnection.addStream(localStream);
             }
-            videoCapturer.dispose();
         }
-        if (peerConnection != null) {
-            peerConnection.dispose();
+
+        private List<PeerConnection.IceServer> getIceServers() {
+            String StunServer = "stun:stun.relay.metered.ca:80";
+            String TurnServer = "turn:asia.relay.metered.ca:80?transport=tcp";
+
+            PeerConnection.IceServer stunServer = PeerConnection.IceServer.builder(StunServer).createIceServer();
+            PeerConnection.IceServer turnServer = PeerConnection.IceServer.builder(TurnServer)
+                    .setUsername(turnUsername)
+                    .setPassword(turnPassword)
+                    .createIceServer();
+            return Arrays.asList(stunServer, turnServer);
         }
-        if (peerConnectionFactory != null) {
-            peerConnectionFactory.dispose();
-        }
-        if (rootEglBase != null) {
-            rootEglBase.release();
+
+        private CameraVideoCapturer createCameraCapturer(Camera2Enumerator enumerator, boolean useFrontCamera) {
+            // This method returns the camera capturer based on user preference for front or rear camera
+            CameraVideoCapturer capturer = null;
+            for (String deviceName : enumerator.getDeviceNames()) {
+                if (useFrontCamera && enumerator.isFrontFacing(deviceName)) {
+                    capturer = enumerator.createCapturer(deviceName, null);
+                    break;
+                } else if (!useFrontCamera && enumerator.isBackFacing(deviceName)) {
+                    capturer = enumerator.createCapturer(deviceName, null);
+                    break;
+                }
+            }
+            return capturer;
         }
     }
-
-    // IceCandidate data class
-    public static class IceCandidateData {
-        public String candidate;
-        public String sdpMid;
-        public int sdpMLineIndex;
-
-        // Default constructor for Firebase
-        public IceCandidateData() {}
-
-        public IceCandidateData(String candidate, String sdpMid, int sdpMLineIndex) {
-            this.candidate = candidate;
-            this.sdpMid = sdpMid;
-            this.sdpMLineIndex = sdpMLineIndex;
-        }
-    }
-}
-
 

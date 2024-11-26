@@ -7,271 +7,32 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     >
+    <!-- Container to host fragments -->
+    <FrameLayout
+        android:id="@+id/fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
 
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="253dp"
-        android:layout_height="30dp"
-        android:layout_gravity="left|center"
-        android:paddingLeft="32dp"
-        android:text="All Sessions"
-        android:textColor="@color/black"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.101"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.164" />
-    <!-- Horizontal Line -->
-    <View
-        android:id="@+id/view"
-        android:layout_width="0dp"
-        android:layout_height="4dp"
-        android:background="@color/black"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.22" />
-
-    <!-- Bottom Navigation Bar -->
-    <LinearLayout
-        android:id="@+id/session_card_container"
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp"
-        app:layout_constraintTop_toBottomOf="@id/view"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="20dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginBottom="30dp"
+        android:layout_marginTop="30dp"
+        android:background="@drawable/bottom_background"
+        android:elevation="2dp"
+        android:padding="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintVertical_bias="0.0">
-    </LinearLayout>
+        app:itemIconSize="30dp"
+        app:itemIconTint="@drawable/item_selector"
+        app:itemRippleColor="@android:color/transparent"
+        app:labelVisibilityMode="unlabeled"
+        app:menu="@menu/bottom_menu" />
 
-
-    <!-- Bottom Navigation Bar -->
-<FrameLayout
-android:id="@+id/bottomBar"
-android:layout_width="0dp"
-android:layout_height="96dp"
-android:background="@color/orange"
-android:padding="8dp"
-app:layout_constraintBottom_toBottomOf="parent"
-app:layout_constraintEnd_toEndOf="parent"
-app:layout_constraintStart_toStartOf="parent">
-
-<LinearLayout
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="horizontal"
-    android:weightSum="6">
-
-    <!-- Home Button -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:gravity="center"
-        android:orientation="vertical">
-
-        <ImageButton
-            android:id="@+id/homeButton"
-            android:layout_width="55dp"
-            android:layout_height="55dp"
-            android:contentDescription="Home"
-            android:background="@drawable/baseline_home_24"
-            app:srcCompat="@drawable/ic_trash" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Home"
-            android:textColor="@color/black"
-            android:textStyle="bold"
-            android:textSize="15sp" />
-    </LinearLayout>
-
-    <!-- Notification Button -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:gravity="center"
-        android:orientation="vertical">
-
-        <ImageButton
-            android:id="@+id/notifButton"
-            android:layout_width="55dp"
-            android:layout_height="55dp"
-            android:contentDescription="Notification"
-            android:background="@drawable/baseline_notifications_24"
-            app:srcCompat="@drawable/ic_trash" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Notification"
-            android:textColor="@color/black"
-            android:textStyle="bold"
-            android:textSize="12sp" />
-    </LinearLayout>
-
-    <!-- History Button -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:gravity="center"
-        android:orientation="vertical">
-
-        <ImageButton
-            android:id="@+id/historyButton"
-            android:layout_width="55dp"
-            android:layout_height="55dp"
-            android:contentDescription="History"
-            android:background="@drawable/baseline_history_24"
-            app:srcCompat="@drawable/ic_trash" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="History"
-            android:textColor="@color/black"
-            android:textStyle="bold"
-            android:textSize="15sp" />
-    </LinearLayout>
-
-    <!-- Help Button -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:gravity="center"
-        android:orientation="vertical">
-
-        <ImageButton
-            android:id="@+id/helpButton"
-            android:layout_width="55dp"
-            android:layout_height="55dp"
-            android:contentDescription="Help"
-            android:background="@drawable/baseline_help_24"
-            app:srcCompat="@drawable/ic_trash"
-            tools:ignore="TouchTargetSizeCheck" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Help"
-            android:textColor="@color/black"
-            android:textStyle="bold"
-            android:textSize="15sp" />
-    </LinearLayout>
-
-    <!-- Settings Button -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:gravity="center"
-        android:orientation="vertical">
-
-        <ImageButton
-            android:id="@+id/settingButton"
-            android:layout_width="55dp"
-            android:layout_height="55dp"
-            android:contentDescription="Setting"
-            android:background="@drawable/baseline_settings_24"
-            app:srcCompat="@drawable/ic_trash"
-            />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Settings"
-            android:textColor="@color/black"
-            android:textStyle="bold"
-            android:textSize="15sp" />
-    </LinearLayout>
-
-    <!-- Profile Button -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:gravity="center"
-        android:orientation="vertical">
-
-        <ImageButton
-            android:id="@+id/profileButton"
-            android:layout_width="55dp"
-            android:layout_height="55dp"
-            android:contentDescription="Profile"
-            android:background="@drawable/baseline_person_24"
-            app:srcCompat="@drawable/ic_trash"
-            />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Profile"
-            android:textColor="@color/black"
-            android:textStyle="bold"
-            android:textSize="15sp" />
-    </LinearLayout>
-
-</LinearLayout>
-</FrameLayout>
-
-    <!-- Top Bar -->
-<FrameLayout
-android:id="@+id/TopBar"
-android:layout_width="0dp"
-android:layout_height="96dp"
-android:background="@color/orange"
-android:padding="18dp"
-app:layout_constraintEnd_toEndOf="parent"
-app:layout_constraintStart_toStartOf="parent"
-app:layout_constraintTop_toTopOf="parent">
-
-<ImageButton
-    android:id="@+id/hamburgerButton"
-    android:layout_width="48dp"
-    android:layout_height="48dp"
-    android:layout_gravity="left|center"
-    android:contentDescription="Hamburger"
-    android:background="@drawable/ic_trash"
-    app:srcCompat="@drawable/ic_trash"
-    app:layout_constraintStart_toStartOf="parent" />
-
-<TextView
-    android:layout_width="0dp"
-    android:layout_height="43dp"
-    android:layout_gravity="left|center"
-    android:paddingLeft="60dp"
-    android:text="Home"
-    android:textSize="24sp"
-    android:textStyle="bold"
-    app:layout_constraintStart_toEndOf="@id/hamburgerButton"
-    app:layout_constraintEnd_toEndOf="parent" />
-
-<ImageButton
-    android:id="@+id/addSession"
-    android:layout_width="48dp"
-    android:layout_height="48dp"
-    android:layout_gravity="right|center"
-    android:contentDescription="Add Session"
-    android:background="@drawable/ic_add_button"
-    app:srcCompat="@drawable/ic_add_session" />
-</FrameLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>

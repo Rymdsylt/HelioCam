@@ -51,7 +51,8 @@
 <activity
  android:name=".ui.HomeActivity"
  android:exported="false" />
-        -->
+
+
         <activity
             android:name=".ui.SignupActivity"
             android:exported="false" />

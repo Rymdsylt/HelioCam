@@ -195,7 +195,7 @@ public class RTCHost {
         }, new MediaConstraints());
     }
 
-    public void onReceiveAnswer(SessionDescription answer) {
+    public void onReceiveAnswer(SessionDescription answer) {//a
         if (peerConnection != null) {
             if (answer != null) {
                 // Set the remote description once the answer is received

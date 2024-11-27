@@ -35,6 +35,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
+            android:layout_gravity="center"
             android:text="History"
             android:textColor="@color/black"
             android:textSize="48dp"
@@ -161,17 +162,10 @@
         android:layout_marginStart="20dp"
         android:layout_marginBottom="30dp"
         android:layout_marginTop="30dp"
-        android:background="@drawable/bottom_background"
-        android:elevation="2dp"
-        android:padding="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:itemIconSize="30dp"
-        app:itemIconTint="@drawable/item_selector"
-        app:itemRippleColor="@android:color/transparent"
-        app:labelVisibilityMode="unlabeled"
-        app:menu="@menu/bottom_menu" />
+
+        />
 
 
 

@@ -8,10 +8,13 @@
     android:layout_height="match_parent"
     android:gravity="center"
     android:orientation="vertical"
-    tools:context=".ui.ProfileFragment">
+    tools:context=".ui.ProfileFragment"
+    android:background="@color/orange"
+   >
 
 
     <FrameLayout
+
         android:id="@+id/fragment_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
@@ -42,23 +45,18 @@
 
 
             <Button
-                android:layout_width="55dp"
-                android:layout_height="55dp"
-                android:text="Edit"
-                android:textSize="18sp"
-                android:textColor="@color/black"
-                android:textStyle="bold"
-                android:textAlignment="center"
-                android:background="@drawable/roundbutton"
+                android:layout_width="50dp"
+                android:layout_height="45dp"
+                android:background="@drawable/baseline_edit_24"
                 android:layout_gravity="right"
                 android:layout_marginTop="55dp"
-                tools:ignore="RtlCompat" />
+                />
 
 
             <ImageView
-                android:layout_width="150dp"
-                android:layout_height="150dp"
-                android:background="@drawable/boy"
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:background="@drawable/baseline_profile_icon_24"
                 android:layout_gravity="center"
                 android:layout_marginTop="25dp"/>
 
@@ -79,8 +77,9 @@
         <!-- Main Content Details -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_gravity="center"
+            android:background="@drawable/bg_white_squircle_24"
             android:padding="20dp">
 
             <TextView
@@ -92,7 +91,7 @@
                 android:textColor="@color/black"
                 />
 
-            <EditText
+            <TextView
                 android:id="@+id/fullname"
                 android:layout_width="360dp"
                 android:layout_height="55dp"
@@ -104,7 +103,7 @@
                 android:textColorHint="@color/black"
                 android:textSize="18sp"/>
 
-            <EditText
+            <TextView
                 android:id="@+id/username"
                 android:layout_width="360dp"
                 android:layout_height="55dp"
@@ -116,7 +115,7 @@
                 android:textColorHint="@color/black"
                 android:textSize="18sp"/>
 
-            <EditText
+            <TextView
                 android:id="@+id/contact"
                 android:layout_width="360dp"
                 android:layout_height="55dp"
@@ -128,7 +127,7 @@
                 android:textColorHint="@color/black"
                 android:textSize="18sp"/>
 
-            <EditText
+            <TextView
                 android:id="@+id/email"
                 android:layout_width="360dp"
                 android:layout_height="55dp"

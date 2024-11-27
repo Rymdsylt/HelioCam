@@ -38,6 +38,7 @@
                 android:layout_marginTop="44dp"
                 android:drawableEnd="@drawable/notifcation1"
                 android:drawablePadding="12dp"
+                android:layout_gravity="center"
                 android:text="Notification"
                 android:textColor="#000000"
                 android:textSize="48dp"
@@ -69,8 +70,10 @@
                 android:id="@+id/lineUnderSubheading"
                 android:layout_width="match_parent"
                 android:layout_height="2dp"
+                android:layout_marginTop="16dp"
                 android:layout_marginBottom="16dp"
-                android:background="@color/black" />
+                android:background="@color/black"
+                />
 
             <!-- Notification Cards -->
             <LinearLayout
@@ -89,8 +92,9 @@
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
+                    android:layout_gravity="center_vertical"
                     android:contentDescription="Notification Icon"
-                    android:src="@drawable/ic_trash" />
+                    android:src="@drawable/baseline_notifications_24" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -145,8 +149,9 @@
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
+                    android:layout_gravity="center_vertical"
                     android:contentDescription="Notification Icon"
-                    android:src="@drawable/ic_trash" />
+                    android:src="@drawable/baseline_notifications_24" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -156,7 +161,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Notification 1"
+                        android:text="Notification 2"
                         android:textColor="#000000"
                         android:textSize="24sp"
                         android:textStyle="bold" />
@@ -202,8 +207,9 @@
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
+                    android:layout_gravity="center_vertical"
                     android:contentDescription="Notification Icon"
-                    android:src="@drawable/ic_trash" />
+                    android:src="@drawable/baseline_sound_detect_24" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -255,16 +261,9 @@
         android:layout_marginStart="20dp"
         android:layout_marginBottom="30dp"
         android:layout_marginTop="30dp"
-        android:background="@drawable/bottom_background"
-        android:elevation="2dp"
-        android:padding="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:itemIconSize="30dp"
-        app:itemIconTint="@drawable/item_selector"
-        app:itemRippleColor="@android:color/transparent"
-        app:labelVisibilityMode="unlabeled"
-        app:menu="@menu/bottom_menu" />
+
+         />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

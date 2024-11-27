@@ -60,6 +60,9 @@
             android:name=".ui.AddSessionActivity"
             android:exported="false" />
         <activity
+            android:name=".ui.DevicesLoginActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.UsePhoneActivity"
             android:exported="false" />
         <activity
@@ -69,6 +72,10 @@
         <activity
             android:name=".ui.WatchSessionActivity"
             android:exported="false"/>
+
+        <activity
+            android:name=".ui.NotificationSettingsActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

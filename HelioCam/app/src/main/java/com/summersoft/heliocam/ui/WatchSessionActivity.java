@@ -1,9 +1,7 @@
 package com.summersoft.heliocam.ui;
 
-import android.graphics.SurfaceTexture;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Surface;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -14,7 +12,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.summersoft.heliocam.R;
-import com.summersoft.heliocam.webrtc_utils.RTCJoin;
+import com.summersoft.heliocam.webrtc_utils.RTCJoiner;
 
 import org.webrtc.IceCandidate;
 import org.webrtc.PeerConnectionFactory;
@@ -33,7 +31,7 @@ public class WatchSessionActivity extends AppCompatActivity {
 
     private static final String TAG = "WatchSessionActivity";
     private TextView cameraDisabledMessage;
-    private RTCJoin rtcJoin;
+    private RTCJoiner rtcJoin;
     private SurfaceViewRenderer feedView;
     private EglBase eglBase;
 
@@ -97,7 +95,7 @@ public class WatchSessionActivity extends AppCompatActivity {
 
         // Parse and process the received session data
         if (sdpOffer != null) {
-            rtcJoin = new RTCJoin(this, peerConnectionFactory, iceServers, sessionKey, feedView);  // Pass sessionKey and feedView
+            rtcJoin = new RTCJoiner(this, peerConnectionFactory, iceServers, sessionKey, feedView);  // Pass sessionKey and feedView
             rtcJoin.joinSession();
         }
 

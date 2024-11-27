@@ -12,7 +12,6 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
-import org.webrtc.SdpObserver;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoSource;
@@ -20,10 +19,7 @@ import org.webrtc.VideoTrack;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.VideoCodecInfo;
-import org.webrtc.VideoCapturer;
-import org.webrtc.VideoCodecInfo;
 
-import android.content.Context;
 import android.widget.Toast;
 
 import com.google.firebase.database.ChildEventListener;
@@ -33,11 +29,9 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-public class WebRTCClient {
+public class RTCHost {
     private static final String TAG = "WebRTCClient";
 
     private PeerConnectionFactory peerConnectionFactory;
@@ -57,7 +51,7 @@ public class WebRTCClient {
     private String turnUsername = "08a10b202c595304495012c2";
     private String turnPassword = "JnsH2+jc2q3/uGon";
 
-    public WebRTCClient(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
+    public RTCHost(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
         this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
 
@@ -341,3 +335,4 @@ public class WebRTCClient {
         return capturer;
     }
 }
+

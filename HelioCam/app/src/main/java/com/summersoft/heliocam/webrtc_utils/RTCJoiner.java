@@ -20,10 +20,9 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
-import android.widget.Toast;
 
 
-public class RTCJoin {
+public class RTCJoiner {
 
     private static final String TAG = "RTCJoin";
     private static boolean candidateSent = false; // Track if the candidate is already sent
@@ -34,7 +33,7 @@ public class RTCJoin {
     private final String sessionKey;
     private final SurfaceViewRenderer feedView; // View to show the remote feed
 
-    public RTCJoin(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers, String sessionKey, SurfaceViewRenderer feedView) {
+    public RTCJoiner(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers, String sessionKey, SurfaceViewRenderer feedView) {
         this.context = context;
         this.peerConnectionFactory = peerConnectionFactory;
         this.sessionKey = sessionKey;
@@ -308,6 +307,4 @@ public class RTCJoin {
         }
     }
 }
-
-
 

@@ -372,5 +372,67 @@ public class RTCHost {
         }
         return capturer;
     }
+
+    public void dispose(String sessionId, String email) {
+        // Clean up the peer connection if it's not already null
+        if (peerConnection != null) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+
+        // Release the video capturer
+        if (videoCapturer != null) {
+            videoCapturer = null;
+        }
+
+        // Clean up video source and track
+        if (videoSource != null) {
+            videoSource.dispose();
+            videoSource = null;
+        }
+
+        if (videoTrack != null) {
+            videoTrack.setEnabled(false);
+            videoTrack = null;
+        }
+
+        // Remove the surface view renderer
+        if (localView != null) {
+            localView.release();
+            localView = null;
+        }
+
+        // Optionally, stop streaming or release any other resources
+
+        // Remove session data from Firebase (e.g., disconnect signal or session info)
+        String emailKey = email.replace(".", "_");
+        DatabaseReference sessionRef = firebaseDatabase.child("users")
+                .child(emailKey)
+                .child("sessions")
+                .child(sessionId);
+
+        sessionRef.removeValue().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                Log.d(TAG, "Session " + sessionId + " deleted successfully.");
+            } else {
+                Log.e(TAG, "Failed to delete session " + sessionId);
+            }
+        });
+
+        // Finally, cleanup WebRTC resources
+        if (rootEglBase != null) {
+            rootEglBase.release();
+            rootEglBase = null;
+        }
+
+        if (peerConnectionFactory != null) {
+            peerConnectionFactory.dispose();
+            peerConnectionFactory = null;
+        }
+
+        // Optionally, you can show a toast confirming that the session is disposed of
+        Toast.makeText(localView.getContext(), "Session disposed of and resources released.", Toast.LENGTH_SHORT).show();
+    }
+
 }
 

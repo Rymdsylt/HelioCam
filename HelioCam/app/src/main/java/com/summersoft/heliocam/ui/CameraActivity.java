@@ -47,6 +47,41 @@ public class CameraActivity extends AppCompatActivity {
 
     private RTCHost webRTCClient;
 
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        // Ensure you have sessionId and userEmail available, as they are required by dispose().
+        String sessionId = getIntent().getStringExtra("session_id");
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+
+        // Dispose of the WebRTC client resources and video capturer
+        if (webRTCClient != null) {
+            webRTCClient.dispose(sessionId, userEmail);  // Pass sessionId and userEmail to dispose()
+        }
+
+        if (videoCapturer != null) {
+            try {
+                videoCapturer.stopCapture();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            videoCapturer.dispose(); // Clean up the video capturer
+        }
+
+        // Dispose of other resources
+        if (peerConnectionFactory != null) {
+            peerConnectionFactory.dispose(); // Clean up the peer connection factory
+        }
+
+        if (rootEglBase != null) {
+            rootEglBase.release(); // Release the EGL context
+        }
+    }
+ 
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

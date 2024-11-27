@@ -35,13 +35,13 @@
             android:padding="20dp">
 
             <TextView
-                android:layout_width="140dp"
-                android:layout_height="50dp"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="20dp"
                 android:text="Profile"
-                android:textSize="42sp"
-                android:textStyle="bold"
                 android:textColor="@color/black"
-                android:layout_marginTop="20dp"/>
+                android:textSize="42sp"
+                android:textStyle="bold" />
 
 
             <Button
@@ -49,7 +49,7 @@
                 android:layout_height="45dp"
                 android:background="@drawable/baseline_edit_24"
                 android:layout_gravity="right"
-                android:layout_marginTop="55dp"
+                android:layout_marginTop="60dp"
                 />
 
 
@@ -58,19 +58,19 @@
                 android:layout_height="120dp"
                 android:background="@drawable/baseline_profile_icon_24"
                 android:layout_gravity="center"
-                android:layout_marginTop="25dp"/>
+                android:layout_marginTop="18dp"/>
 
 
             <TextView
                 android:layout_width="120dp"
-                android:layout_height="50dp"
+                android:layout_height="wrap_content"
                 android:text="Username"
                 android:textColor="@color/black"
                 android:textSize="24sp"
                 android:textAlignment="center"
                 android:textStyle="bold"
                 android:layout_gravity="center"
-                android:layout_marginTop="120dp"/>
+                android:layout_marginTop="110dp"/>
 
         </FrameLayout>
 
@@ -93,7 +93,7 @@
 
             <TextView
                 android:id="@+id/fullname"
-                android:layout_width="360dp"
+                android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:layout_marginTop="52dp"
                 android:background="@drawable/custom_edittext"
@@ -105,7 +105,7 @@
 
             <TextView
                 android:id="@+id/username"
-                android:layout_width="360dp"
+                android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:layout_marginTop="119dp"
                 android:background="@drawable/custom_edittext"
@@ -117,7 +117,7 @@
 
             <TextView
                 android:id="@+id/contact"
-                android:layout_width="360dp"
+                android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:layout_marginTop="186dp"
                 android:background="@drawable/custom_edittext"
@@ -129,7 +129,7 @@
 
             <TextView
                 android:id="@+id/email"
-                android:layout_width="360dp"
+                android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:layout_marginTop="253dp"
                 android:background="@drawable/custom_edittext"

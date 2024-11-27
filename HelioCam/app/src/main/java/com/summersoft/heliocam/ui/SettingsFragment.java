@@ -8,6 +8,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.summersoft.heliocam.R;
 
@@ -29,16 +30,50 @@ public class SettingsFragment extends Fragment {
 
         // Set OnClickListener for btnNotification
         btnNotification.setOnClickListener(v -> {
-            // Start NotificationSettingsActivity when the btnNotification is clicked
-            Intent intent = new Intent(getActivity(), NotificationSettingsActivity.class);
-            startActivity(intent);
+            // Create an instance of DevicesLoginFragment
+            NotificationSettings notificationSettings = new NotificationSettings();
+
+            // Begin a fragment transaction
+            FragmentTransaction transaction = getFragmentManager().beginTransaction();
+
+            // Set the custom animations
+            transaction.setCustomAnimations(
+                    R.anim.slide_in_right,   // Enter animation
+                    0
+            );
+
+            // Replace the current fragment with DevicesLoginFragment
+            transaction.replace(R.id.fragment_container, notificationSettings);
+
+            // Optionally add to back stack
+            transaction.addToBackStack(null);
+
+            // Commit the transaction
+            transaction.commit();
         });
 
         // Set OnClickListener for btDevicesLogin
         btDevicesLogin.setOnClickListener(v -> {
-            // Start DevicesLoginActivity when btDevicesLogin is clicked
-            Intent intent = new Intent(getActivity(), DevicesLoginActivity.class);
-            startActivity(intent);
+            // Create an instance of DevicesLoginFragment
+            DevicesLoginFragment devicesLoginFragment = new DevicesLoginFragment();
+
+            // Begin a fragment transaction
+            FragmentTransaction transaction = getFragmentManager().beginTransaction();
+
+            // Set the custom animations
+            transaction.setCustomAnimations(
+                    R.anim.slide_in_right,   // Enter animation
+                    0
+            );
+
+            // Replace the current fragment with DevicesLoginFragment
+            transaction.replace(R.id.fragment_container, devicesLoginFragment);
+
+            // Optionally add to back stack
+            transaction.addToBackStack(null);
+
+            // Commit the transaction
+            transaction.commit();
         });
 
         return rootView;

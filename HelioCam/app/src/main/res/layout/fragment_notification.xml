@@ -6,7 +6,8 @@
     android:id="@+id/Notification"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.NotificationFragment">
+    tools:context=".ui.NotificationFragment"
+    android:background="@color/white">
 
 
     <!-- Main Content Layout -->
@@ -36,7 +37,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="44dp"
-                android:drawableEnd="@drawable/notifcation1"
+
                 android:drawablePadding="12dp"
                 android:layout_gravity="center"
                 android:text="Notification"
@@ -254,6 +255,7 @@
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigation"
+        android:background="@color/white"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"

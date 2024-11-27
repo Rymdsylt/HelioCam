@@ -4,15 +4,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
 import androidx.cardview.widget.CardView;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -22,7 +21,6 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.summersoft.heliocam.R;
-import com.summersoft.heliocam.status.LoginStatus;
 
 import java.io.IOException;
 import java.util.Date;
@@ -32,28 +30,27 @@ import java.util.Locale;
 import android.location.Address;
 import android.location.Geocoder;
 
+public class DevicesLoginFragment extends Fragment {
 
-
-public class DevicesLoginActivity extends AppCompatActivity {
-
-    private static final String TAG = "DevicesLoginActivity";
+    private static final String TAG = "DevicesLoginFragment";
     private DatabaseReference databaseReference;
     private LinearLayout currentlyLoggedInContainer;
 
+    public DevicesLoginFragment() {
+        // Required empty public constructor
+    }
+
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_devices_log_in);
-
-        LoginStatus.checkLoginStatus(this);
-
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        // Inflate the fragment layout
+        View rootView = inflater.inflate(R.layout.fragment_devices_login, container, false);
 
         // Initialize Firebase Database reference
         databaseReference = FirebaseDatabase.getInstance().getReference("users");
 
         // Get container for adding device cards
-        currentlyLoggedInContainer = findViewById(R.id.currently_logged_in_container);
+        currentlyLoggedInContainer = rootView.findViewById(R.id.currently_logged_in_container);
 
         // Get the logged-in user's email from Firebase Authentication
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -72,12 +69,7 @@ public class DevicesLoginActivity extends AppCompatActivity {
             Log.e(TAG, "No logged-in user found.");
         }
 
-        // Window inset handling (system bar padding)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.DevicesLogin), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
-        });
+        return rootView;
     }
 
     private void fetchDevicesForUser(String sanitizedEmail) {
@@ -88,8 +80,6 @@ public class DevicesLoginActivity extends AppCompatActivity {
                 currentlyLoggedInContainer.removeAllViews();
 
                 if (userSnapshot.exists()) {
-                    String expectedDeviceName = null;
-
                     // Loop through the child nodes
                     for (DataSnapshot childSnapshot : userSnapshot.getChildren()) {
                         if (childSnapshot.getKey() != null && childSnapshot.getKey().startsWith("logininfo_")) {
@@ -99,7 +89,7 @@ public class DevicesLoginActivity extends AppCompatActivity {
 
                             // Populate the card only if all required data is available
                             if (deviceName != null && location != null && lastActiveTimestamp != null) {
-                                addDeviceCard(deviceName, location, lastActiveTimestamp, expectedDeviceName);
+                                addDeviceCard(deviceName, location, lastActiveTimestamp);
                             } else {
                                 Log.w(TAG, "Missing data (deviceName, location, or lastActive) for a login session.");
                             }
@@ -117,14 +107,14 @@ public class DevicesLoginActivity extends AppCompatActivity {
         });
     }
 
-    private void addDeviceCard(String deviceName, String location, Long lastActiveTimestamp, String expectedDeviceName) {
+    private void addDeviceCard(String deviceName, String location, Long lastActiveTimestamp) {
         // Inflate the device_info_card layout
         CardView deviceCardView = (CardView) getLayoutInflater().inflate(R.layout.device_info_card, currentlyLoggedInContainer, false);
 
         // Set the device name
         TextView deviceNameTextView = deviceCardView.findViewById(R.id.device_1_name);
 
-        // Check if the device name matches Build.MANUFACTURER + Build.DEVICE or the expected device name
+        // Check if the device name matches Build.MANUFACTURER + Build.DEVICE
         String currentDeviceName = Build.MANUFACTURER + " " + Build.DEVICE;
 
         // Check if the current device matches the device in the database
@@ -163,9 +153,8 @@ public class DevicesLoginActivity extends AppCompatActivity {
         lastActiveTextView.setText("Last Active: " + formattedDate);
     }
 
-
     private String getCityAndCountryFromLatLng(double latitude, double longitude) {
-        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        Geocoder geocoder = new Geocoder(getContext(), Locale.getDefault());
         try {
             List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
             if (addresses != null && !addresses.isEmpty()) {

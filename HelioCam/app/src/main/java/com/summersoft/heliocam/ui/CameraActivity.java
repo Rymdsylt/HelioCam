@@ -25,15 +25,12 @@ import org.webrtc.SurfaceTextureHelper;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 import com.summersoft.heliocam.R;
-import com.summersoft.heliocam.databinding.ActivityCameraBinding;  // Import the generated binding class
 import com.summersoft.heliocam.status.LoginStatus;
 
-import com.summersoft.heliocam.webrtc_utils.WebRTCClient;
+import com.summersoft.heliocam.webrtc_utils.RTCHost;
 
 public class CameraActivity extends AppCompatActivity {
     private DatabaseReference mDatabase;
@@ -48,7 +45,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private boolean isCameraOn = true;
 
-    private WebRTCClient webRTCClient;
+    private RTCHost webRTCClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,7 +61,7 @@ public class CameraActivity extends AppCompatActivity {
         ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
         ImageButton videoButton = findViewById(R.id.video_button);
 
-        webRTCClient = new WebRTCClient(this, cameraView, mDatabase);
+        webRTCClient = new RTCHost(this, cameraView, mDatabase);
 
         // Get the user's email
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
@@ -80,7 +77,7 @@ public class CameraActivity extends AppCompatActivity {
         fetchSessionName();
     }
 
-    private void initializeWebRTC(String sessionId, String email) {
+    private void initializeWebRTC(String sessionId, String email) { //a
         webRTCClient.startCamera(this, isUsingFrontCamera); // Start camera first
         webRTCClient.initializePeerConnection(sessionId, email);  // Pass sessionId and email
         webRTCClient.createOffer(sessionId, email);        // Create and send the offer with sessionId and email

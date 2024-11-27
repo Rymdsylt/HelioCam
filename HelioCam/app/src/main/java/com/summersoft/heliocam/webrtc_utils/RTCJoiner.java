@@ -20,10 +20,9 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
-import android.widget.Toast;
 
 
-public class RTCJoin {
+public class RTCJoiner {
 
     private static final String TAG = "RTCJoin";
     private static boolean candidateSent = false; // Track if the candidate is already sent
@@ -34,7 +33,7 @@ public class RTCJoin {
     private final String sessionKey;
     private final SurfaceViewRenderer feedView; // View to show the remote feed
 
-    public RTCJoin(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers, String sessionKey, SurfaceViewRenderer feedView) {
+    public RTCJoiner(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers, String sessionKey, SurfaceViewRenderer feedView) {
         this.context = context;
         this.peerConnectionFactory = peerConnectionFactory;
         this.sessionKey = sessionKey;
@@ -304,10 +303,33 @@ public class RTCJoin {
 
     public void dispose() {
         if (peerConnection != null) {
+            // Send the "disconnect" status to Firebase before disposing the peer connection
+            String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+            if (email != null && sessionKey != null) {
+                String formattedEmail = email.replace(".", "_");  // Format email for Firebase paths
+
+                DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
+                        .child(formattedEmail)
+                        .child("sessions")
+                        .child(sessionKey);
+
+                // Set "disconnect": 1 to indicate the user has disconnected
+                sessionRef.child("disconnect").setValue(1)
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                sessionRef.child("Answer").removeValue();
+                                Log.d(TAG, "Disconnect status sent to Firebase successfully.");
+                            } else {
+                                Log.e(TAG, "Failed to send disconnect status to Firebase", task.getException());
+                            }
+                        });
+            }
+
+            // Dispose the peer connection
             peerConnection.dispose();
+            Log.d(TAG, "PeerConnection disposed.");
         }
     }
+
 }
-
-
 

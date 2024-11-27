@@ -12,7 +12,6 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
-import org.webrtc.SdpObserver;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoSource;
@@ -20,10 +19,7 @@ import org.webrtc.VideoTrack;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.VideoCodecInfo;
-import org.webrtc.VideoCapturer;
-import org.webrtc.VideoCodecInfo;
 
-import android.content.Context;
 import android.widget.Toast;
 
 import com.google.firebase.database.ChildEventListener;
@@ -33,11 +29,9 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-public class WebRTCClient {
+public class RTCHost {
     private static final String TAG = "WebRTCClient";
 
     private PeerConnectionFactory peerConnectionFactory;
@@ -57,7 +51,7 @@ public class WebRTCClient {
     private String turnUsername = "08a10b202c595304495012c2";
     private String turnPassword = "JnsH2+jc2q3/uGon";
 
-    public WebRTCClient(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
+    public RTCHost(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
         this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
 
@@ -149,7 +143,7 @@ public class WebRTCClient {
     public void initializePeerConnection(String sessionId, String email) {
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(getIceServers());
         rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
-
+        listenForDisconnect(sessionId, email);
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnectionAdapter() {
             @Override
             public void onIceCandidate(IceCandidate candidate) {
@@ -201,7 +195,45 @@ public class WebRTCClient {
         }, new MediaConstraints());
     }
 
-    public void onReceiveAnswer(SessionDescription answer) {
+    public void listenForDisconnect(String sessionId, String email) {
+        String emailKey = email.replace(".", "_"); // Firebase key formatting
+
+        DatabaseReference disconnectRef = firebaseDatabase.child("users")
+                .child(emailKey)
+                .child("sessions")
+                .child(sessionId)
+                .child("disconnect");
+
+        // Listen for changes to the "disconnect" signal in real-time
+        disconnectRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // Check if "disconnect" value is 1
+                if (dataSnapshot.exists() && dataSnapshot.getValue(Integer.class) == 1) {
+                    Log.d(TAG, "Received disconnect signal. Generating new SDP offer...");
+
+                    // Generate a fresh SDP offer
+                    generateNewSdpOffer(sessionId, email);
+
+                    // Remove the "disconnect" flag from Firebase to acknowledge the event
+                    disconnectRef.removeValue();
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                // Handle error in case the database operation is canceled or fails
+                Log.e(TAG, "Failed to listen for disconnect signal: " + databaseError.getMessage());
+            }
+        });
+    }
+    public void generateNewSdpOffer(String sessionId, String email) {
+        // Call the existing createOffer method to generate the new SDP offer
+        createOffer(sessionId, email);
+    }
+
+
+    public void onReceiveAnswer(SessionDescription answer) {//a
         if (peerConnection != null) {
             if (answer != null) {
                 // Set the remote description once the answer is received
@@ -341,3 +373,4 @@ public class WebRTCClient {
         return capturer;
     }
 }
+

@@ -27,6 +27,7 @@ public class SettingsFragment extends Fragment {
         // Get reference to the buttons in the layout
         Button btnNotification = rootView.findViewById(R.id.btnNotification);
         Button btDevicesLogin = rootView.findViewById(R.id.btDevicesLogin);
+        Button btnAccountSettings = rootView.findViewById(R.id.btnAccountSetting);
 
         // Set OnClickListener for btnNotification
         btnNotification.setOnClickListener(v -> {
@@ -68,6 +69,29 @@ public class SettingsFragment extends Fragment {
 
             // Replace the current fragment with DevicesLoginFragment
             transaction.replace(R.id.fragment_container, devicesLoginFragment);
+
+            // Optionally add to back stack
+            transaction.addToBackStack(null);
+
+            // Commit the transaction
+            transaction.commit();
+        });
+
+        btnAccountSettings.setOnClickListener(v -> {
+            // Create an instance of DevicesLoginFragment
+           AccountSettingsFragment accountSettingsFragment = new  AccountSettingsFragment();
+
+            // Begin a fragment transaction
+            FragmentTransaction transaction = getFragmentManager().beginTransaction();
+
+            // Set the custom animations
+            transaction.setCustomAnimations(
+                    R.anim.slide_in_right,   // Enter animation
+                    0
+            );
+
+            // Replace the current fragment with DevicesLoginFragment
+            transaction.replace(R.id.fragment_container,  accountSettingsFragment);
 
             // Optionally add to back stack
             transaction.addToBackStack(null);

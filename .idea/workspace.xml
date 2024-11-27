@@ -50,6 +50,11 @@
           <theme>@style/Theme.HelioCam</theme>
         </config>
       </layout>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_account_settings.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
       <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_devices_login.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
@@ -107,27 +112,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/DevicesLoginFragment.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/NotificationSettings.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/anim/slide_in_left.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/anim/slide_out_right.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_devices_login.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_notification_settings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/AccountSettingsFragment.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_account_settings.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/DevicesLoginActivity.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/HomeActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/HomeActivity.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/NotificationSettingsActivity.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/AndroidManifest.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/SettingsFragment.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/SettingsFragment.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/anim/slide_in_right.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/anim/slide_in_right.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/anim/slide_out_left.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/anim/slide_out_left.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_devices_log_in.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_notification_settings.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_history.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_history.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_notification.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_notification.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_profile.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_profile.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_settings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/values/strings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/values/strings.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -137,7 +126,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\david\.android\avd\Medium_Phone_API_35_1.avd)]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=PhysicalDevice, isTemplate=false, identifier=serial=R5CRB2GF6DZ)]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$/HelioCam">
       <ProjectState />

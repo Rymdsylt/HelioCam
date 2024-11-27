@@ -59,9 +59,7 @@
         <activity
             android:name=".ui.AddSessionActivity"
             android:exported="false" />
-        <activity
-            android:name=".ui.DevicesLoginActivity"
-            android:exported="false" />
+
         <activity
             android:name=".ui.UsePhoneActivity"
             android:exported="false" />

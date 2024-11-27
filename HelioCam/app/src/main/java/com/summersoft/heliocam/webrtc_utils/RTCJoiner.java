@@ -303,8 +303,33 @@ public class RTCJoiner {
 
     public void dispose() {
         if (peerConnection != null) {
+            // Send the "disconnect" status to Firebase before disposing the peer connection
+            String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+            if (email != null && sessionKey != null) {
+                String formattedEmail = email.replace(".", "_");  // Format email for Firebase paths
+
+                DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
+                        .child(formattedEmail)
+                        .child("sessions")
+                        .child(sessionKey);
+
+                // Set "disconnect": 1 to indicate the user has disconnected
+                sessionRef.child("disconnect").setValue(1)
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                sessionRef.child("Answer").removeValue();
+                                Log.d(TAG, "Disconnect status sent to Firebase successfully.");
+                            } else {
+                                Log.e(TAG, "Failed to send disconnect status to Firebase", task.getException());
+                            }
+                        });
+            }
+
+            // Dispose the peer connection
             peerConnection.dispose();
+            Log.d(TAG, "PeerConnection disposed.");
         }
     }
+
 }
 

@@ -143,7 +143,7 @@ public class RTCHost {
     public void initializePeerConnection(String sessionId, String email) {
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(getIceServers());
         rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
-
+        listenForDisconnect(sessionId, email);
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnectionAdapter() {
             @Override
             public void onIceCandidate(IceCandidate candidate) {
@@ -194,6 +194,44 @@ public class RTCHost {
             }
         }, new MediaConstraints());
     }
+
+    public void listenForDisconnect(String sessionId, String email) {
+        String emailKey = email.replace(".", "_"); // Firebase key formatting
+
+        DatabaseReference disconnectRef = firebaseDatabase.child("users")
+                .child(emailKey)
+                .child("sessions")
+                .child(sessionId)
+                .child("disconnect");
+
+        // Listen for changes to the "disconnect" signal in real-time
+        disconnectRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // Check if "disconnect" value is 1
+                if (dataSnapshot.exists() && dataSnapshot.getValue(Integer.class) == 1) {
+                    Log.d(TAG, "Received disconnect signal. Generating new SDP offer...");
+
+                    // Generate a fresh SDP offer
+                    generateNewSdpOffer(sessionId, email);
+
+                    // Remove the "disconnect" flag from Firebase to acknowledge the event
+                    disconnectRef.removeValue();
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                // Handle error in case the database operation is canceled or fails
+                Log.e(TAG, "Failed to listen for disconnect signal: " + databaseError.getMessage());
+            }
+        });
+    }
+    public void generateNewSdpOffer(String sessionId, String email) {
+        // Call the existing createOffer method to generate the new SDP offer
+        createOffer(sessionId, email);
+    }
+
 
     public void onReceiveAnswer(SessionDescription answer) {//a
         if (peerConnection != null) {

@@ -77,7 +77,7 @@ public class CameraActivity extends AppCompatActivity {
         fetchSessionName();
     }
 
-    private void initializeWebRTC(String sessionId, String email) {
+    private void initializeWebRTC(String sessionId, String email) { //a
         webRTCClient.startCamera(this, isUsingFrontCamera); // Start camera first
         webRTCClient.initializePeerConnection(sessionId, email);  // Pass sessionId and email
         webRTCClient.createOffer(sessionId, email);        // Create and send the offer with sessionId and email

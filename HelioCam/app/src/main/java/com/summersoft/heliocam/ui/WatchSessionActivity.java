@@ -27,7 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-public class WatchSessionActivity extends AppCompatActivity {
+public class WatchSessionActivity extends AppCompatActivity { //a
 
     private static final String TAG = "WatchSessionActivity";
     private TextView cameraDisabledMessage;

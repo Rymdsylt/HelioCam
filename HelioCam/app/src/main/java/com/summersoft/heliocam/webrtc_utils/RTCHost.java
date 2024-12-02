@@ -20,6 +20,7 @@ import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.VideoCodecInfo;
 
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.firebase.database.ChildEventListener;
@@ -51,9 +52,11 @@ public class RTCHost {
     private String turnUsername = "08a10b202c595304495012c2";
     private String turnPassword = "JnsH2+jc2q3/uGon";
 
+
     public RTCHost(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
         this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
+
 
         // Initialize WebRTC
         PeerConnectionFactory.InitializationOptions options =
@@ -94,7 +97,6 @@ public class RTCHost {
         Toast.makeText(context, "Using codec: " + codecUsed, Toast.LENGTH_LONG).show();
     }
 
-    // Initialize SurfaceTextureHelper once
     private SurfaceTextureHelper surfaceTextureHelper;
 
     public void startCamera(Context context, boolean useFrontCamera) {
@@ -433,6 +435,48 @@ public class RTCHost {
         // Optionally, you can show a toast confirming that the session is disposed of
         Toast.makeText(localView.getContext(), "Session disposed of and resources released.", Toast.LENGTH_SHORT).show();
     }
+
+
+
+    // Switch between front and rear cameras
+    public void switchCamera() {
+        if (videoCapturer != null && videoCapturer instanceof CameraVideoCapturer) {
+            CameraVideoCapturer cameraCapturer = (CameraVideoCapturer) videoCapturer;
+            try {
+                cameraCapturer.switchCamera(new CameraVideoCapturer.CameraSwitchHandler() {
+                    @Override
+                    public void onCameraSwitchDone(boolean isFrontCamera) {
+                        Log.d(TAG, "Camera switched successfully. Front Camera: " + isFrontCamera);
+                    }
+
+                    @Override
+                    public void onCameraSwitchError(String error) {
+                        Log.e(TAG, "Error switching camera: " + error);
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to switch camera.", e);
+            }
+        } else {
+            Log.e(TAG, "CameraVideoCapturer is not initialized or not a valid instance.");
+        }
+    }
+
+    // Toggle video capture on or off
+    private boolean isVideoEnabled = true; // Track video state
+
+    public void toggleVideo() {
+        if (videoTrack != null) {
+            isVideoEnabled = !isVideoEnabled;
+            videoTrack.setEnabled(isVideoEnabled); // Enable or disable video track
+            String message = isVideoEnabled ? "Video enabled" : "Video disabled";
+            Log.d(TAG, message);
+            Toast.makeText(localView.getContext(), message, Toast.LENGTH_SHORT).show();
+        } else {
+            Log.e(TAG, "VideoTrack is not initialized.");
+        }
+    }
+
 
 }
 

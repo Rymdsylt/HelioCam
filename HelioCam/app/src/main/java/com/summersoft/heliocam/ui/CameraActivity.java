@@ -79,7 +79,7 @@ public class CameraActivity extends AppCompatActivity {
             rootEglBase.release(); // Release the EGL context
         }
     }
- 
+
 
 
     @Override
@@ -94,7 +94,11 @@ public class CameraActivity extends AppCompatActivity {
 
         cameraView = findViewById(R.id.camera_view);
         ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
-        ImageButton videoButton = findViewById(R.id.video_button);
+        ImageButton toggleCameraButton = findViewById(R.id.video_button);
+        TextView cameraStatusText = findViewById(R.id.cameraStatusText);  // Initialize the cameraStatusText view
+
+        // Find the TextView for camera disabled (optional, in case you want to show it when the camera is disabled)
+        TextView cameraDisabledText = findViewById(R.id.camera_disabled_text);
 
         webRTCClient = new RTCHost(this, cameraView, mDatabase);
 
@@ -104,13 +108,48 @@ public class CameraActivity extends AppCompatActivity {
         // Initialize WebRTC with sessionId and userEmail
         initializeWebRTC(sessionId, userEmail);
 
-        switchCameraButton.setOnClickListener(v -> webRTCClient.startCamera(this, !isUsingFrontCamera));
-        videoButton.setOnClickListener(v -> toggleCamera(videoButton));
-
         LoginStatus.checkLoginStatus(this);
-
         fetchSessionName();
+
+        // Set up the switch camera button click listener
+        switchCameraButton.setOnClickListener(v -> {
+            webRTCClient.switchCamera();  // Switch between front and back camera
+        });
+
+        // Set up the toggle camera button click listener
+        toggleCameraButton.setOnClickListener(v -> {
+            webRTCClient.toggleVideo();  // Toggle camera on/off
+
+            // Show or hide camera status text based on the camera state
+            if (isCameraOn) {
+                cameraStatusText.setVisibility(View.VISIBLE);  // Show "Camera Off" text
+                cameraStatusText.setText("Camera Off");
+
+                // Update Firebase to indicate camera is off
+                if (sessionId != null && !sessionId.isEmpty()) {
+                    mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                            .child("camera_off").setValue(1);  // Set the camera_off flag to 1 when camera is off
+                }
+            } else {
+                cameraStatusText.setVisibility(View.GONE);  // Hide text when camera is on
+
+                // Remove the camera_off flag from Firebase when camera is on
+                if (sessionId != null && !sessionId.isEmpty()) {
+                    mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                            .child("camera_off").removeValue();  // Remove the camera_off flag when camera is on
+                }
+            }
+
+            // Toggle the camera state
+            isCameraOn = !isCameraOn;
+        });
+
+
+
     }
+
+
+
 
     private void initializeWebRTC(String sessionId, String email) { //a
         webRTCClient.startCamera(this, isUsingFrontCamera); // Start camera first
@@ -120,73 +159,12 @@ public class CameraActivity extends AppCompatActivity {
 
 
 
-    private void toggleCamera(ImageButton videoButton) {
-        if (videoCapturer == null) {
-            Toast.makeText(this, "Camera is not initialized.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        TextView cameraDisabledText = findViewById(R.id.camera_disabled_text);
-
-        if (isCameraOn) {
-            // Stop video feed
-            try {
-                videoCapturer.stopCapture();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            videoTrack.setEnabled(false);
-            videoButton.setImageResource(R.drawable.ic_baseline_videocam_off_24);
-
-
-            cameraDisabledText.setVisibility(View.VISIBLE);
-            cameraView.setVisibility(View.INVISIBLE);
-        } else {
-            try {
-                videoCapturer.startCapture(1280, 720, 30);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            videoTrack.setEnabled(true);
-            videoButton.setImageResource(R.drawable.ic_baseline_videocam_24);
-
-
-            cameraDisabledText.setVisibility(View.GONE);
-            cameraView.setVisibility(View.VISIBLE);
-        }
-        isCameraOn = !isCameraOn;
-    }
-
-
-    private void initializePeerConnectionFactory() {
-        PeerConnectionFactory.InitializationOptions options =
-                PeerConnectionFactory.InitializationOptions.builder(this)
-                        .createInitializationOptions();
-        PeerConnectionFactory.initialize(options);
-        peerConnectionFactory = PeerConnectionFactory.builder().createPeerConnectionFactory();
-
-        rootEglBase = EglBase.create();
-        cameraView.init(rootEglBase.getEglBaseContext(), null);
-        cameraView.setMirror(true);
-    }
-
-    private void checkCameraPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA},
-                    100);
-        } else {
-            initializeCamera();
-        }
-    }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 100) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                initializeCamera();
             } else {
                 Toast.makeText(this, "Camera permission is required to use this feature.", Toast.LENGTH_SHORT).show();
             }
@@ -221,29 +199,7 @@ public class CameraActivity extends AppCompatActivity {
 
 
 
-    private void initializeCamera() {
-        Camera2Enumerator cameraEnumerator = new Camera2Enumerator(this);
 
-        videoCapturer = createCameraCapturer(cameraEnumerator, isUsingFrontCamera);
-        if (videoCapturer == null) {
-            Toast.makeText(this, "Camera initialization failed.", Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        VideoSource videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
-        videoCapturer.initialize(SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext()),
-                getApplicationContext(), videoSource.getCapturerObserver());
-        videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", videoSource);
-
-        cameraView.post(() -> {
-            videoTrack.addSink(cameraView);
-            try {
-                videoCapturer.startCapture(1280, 720, 30);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-    }
 
     private CameraVideoCapturer createCameraCapturer(Camera2Enumerator cameraEnumerator, boolean useFrontCamera) {
         for (String deviceName : cameraEnumerator.getDeviceNames()) {
@@ -254,21 +210,6 @@ public class CameraActivity extends AppCompatActivity {
             }
         }
         return null;
-    }
-
-    private void switchCamera() {
-        if (videoCapturer != null) {
-            try {
-                videoCapturer.stopCapture();
-                videoCapturer.dispose();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            // Switch the camera
-            isUsingFrontCamera = !isUsingFrontCamera;
-            initializeCamera();
-        }
     }
 
     @Override

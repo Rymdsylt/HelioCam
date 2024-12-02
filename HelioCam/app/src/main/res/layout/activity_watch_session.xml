@@ -68,18 +68,20 @@
             <!-- Video Toggle Button -->
 
             <!-- Switch Camera Button -->
-            <ImageButton
-                android:id="@+id/switch_camera_button"
+            <ImageView
+                android:id="@+id/settings_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="16dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
-                android:contentDescription="Switch Camera"
+                android:contentDescription="Microphone"
                 android:focusable="true"
                 android:padding="12dp"
                 app:backgroundTint="@color/cardview_dark_background"
-                tools:src="@drawable/baseline_settings_24" />
+                tools:srcCompat="@drawable/baseline_settings_white_24" />
+
+
         </LinearLayout>
     </RelativeLayout>
 </RelativeLayout>

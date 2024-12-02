@@ -6,6 +6,7 @@
     android:keepScreenOn="true"
     android:background="#808080">
 
+
     <!-- Camera View Layout -->
     <RelativeLayout
         android:id="@+id/surveillanceLayout"
@@ -16,6 +17,16 @@
             android:id="@+id/camera_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
+
+        <TextView
+            android:id="@+id/cameraStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Camera Off"
+            android:textSize="18sp"
+            android:textColor="#FFFFFF"
+            android:visibility="gone"
+            android:layout_centerInParent="true"/>
 
         <!-- Camera Disabled Text -->
         <TextView
@@ -91,18 +102,22 @@
                 app:srcCompat="@drawable/ic_baseline_videocam_24" />
 
             <!-- Switch Camera Button -->
-            <ImageButton
+            <ImageView
                 android:id="@+id/switch_camera_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="47dp"
+                android:layout_height="49dp"
                 android:layout_margin="16dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
-                android:contentDescription="Switch Camera"
+                android:contentDescription="SwitchCamera"
                 android:focusable="true"
-                android:padding="12dp"
+                android:padding="1dp"
                 app:backgroundTint="@color/cardview_dark_background"
-                tools:src="@drawable/baseline_settings_24" />
+                app:srcCompat="@drawable/ic_rotate" />
+
+
         </LinearLayout>
+
+
     </RelativeLayout>
 </RelativeLayout>

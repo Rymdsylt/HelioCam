@@ -2,6 +2,7 @@ package com.summersoft.heliocam.ui;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -9,6 +10,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.FirebaseDatabase;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.summersoft.heliocam.R;
@@ -27,7 +30,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-public class WatchSessionActivity extends AppCompatActivity { //a
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.ValueEventListener;
+
+public class WatchSessionActivity extends AppCompatActivity {
 
     private static final String TAG = "WatchSessionActivity";
     private TextView cameraDisabledMessage;
@@ -35,11 +43,12 @@ public class WatchSessionActivity extends AppCompatActivity { //a
     private SurfaceViewRenderer feedView;
     private EglBase eglBase;
 
-    // Add TURN and STUN server details
     private String stunServer = "stun:stun.relay.metered.ca:80";
     private String turnServer = "turn:asia.relay.metered.ca:80?transport=tcp";
     private String turnUsername = "08a10b202c595304495012c2";
     private String turnPassword = "JnsH2+jc2q3/uGon";
+
+    private DatabaseReference mDatabase;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,13 +72,15 @@ public class WatchSessionActivity extends AppCompatActivity { //a
             return insets;
         });
 
+        // Initialize Firebase Database
+        mDatabase = FirebaseDatabase.getInstance().getReference();
+
         // Initialize PeerConnectionFactory with video encoder/decoder
         PeerConnectionFactory.InitializationOptions options =
                 PeerConnectionFactory.InitializationOptions.builder(this)
                         .createInitializationOptions();
         PeerConnectionFactory.initialize(options);
 
-        // Set up video encoder and decoder factories
         PeerConnectionFactory peerConnectionFactory = PeerConnectionFactory.builder()
                 .setVideoEncoderFactory(new DefaultVideoEncoderFactory(eglBase.getEglBaseContext(), true, true))
                 .setVideoDecoderFactory(new DefaultVideoDecoderFactory(eglBase.getEglBaseContext()))
@@ -118,9 +129,40 @@ public class WatchSessionActivity extends AppCompatActivity { //a
                     }
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Err or parsing ICE candidates JSON", e);
+                Log.e(TAG, "Error parsing ICE candidates JSON", e);
             }
         }
+
+        // Set up Firebase listener for camera_off flag
+        listenForCameraStatus(sessionKey);
+    }
+
+    private void listenForCameraStatus(String sessionKey) {
+        String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
+
+        // Add listener to the session's camera_off flag
+        mDatabase.child("users").child(userEmail).child("sessions").child(sessionKey)
+                .child("camera_off")
+                .addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        if (dataSnapshot.exists()) {
+                            Integer cameraOffFlag = dataSnapshot.getValue(Integer.class);
+                            if (cameraOffFlag != null && cameraOffFlag == 1) {
+                                // Display "Camera Off" message
+                                cameraDisabledMessage.setText("Camera Off");
+                                cameraDisabledMessage.setVisibility(View.VISIBLE);
+                            }
+                        } else {
+                            cameraDisabledMessage.setVisibility(View.GONE);  // Hide the message if camera_off is not set
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+                        Log.e(TAG, "Failed to read camera_off status", databaseError.toException());
+                    }
+                });
     }
 
     @Override

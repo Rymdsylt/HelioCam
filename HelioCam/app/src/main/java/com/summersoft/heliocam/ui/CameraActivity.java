@@ -4,10 +4,17 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.ContextMenu;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MenuInflater;
 import android.view.View;
 import android.widget.ImageButton;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
+
+
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -48,6 +55,9 @@ public class CameraActivity extends AppCompatActivity {
     private boolean isCameraOn = true;
 
     private RTCHost webRTCClient;
+
+
+
 
 
     @Override
@@ -115,57 +125,71 @@ public class CameraActivity extends AppCompatActivity {
         ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
         ImageButton toggleCameraButton = findViewById(R.id.video_button);
         TextView cameraStatusText = findViewById(R.id.cameraStatusText);  // Initialize the cameraStatusText view
-
-        // Find the TextView for camera disabled (optional, in case you want to show it when the camera is disabled)
         TextView cameraDisabledText = findViewById(R.id.camera_disabled_text);
 
         webRTCClient = new RTCHost(this, cameraView, mDatabase);
 
-        // Get the user's email
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
 
-        // Initialize WebRTC with sessionId and userEmail
         initializeWebRTC(sessionId, userEmail);
 
         LoginStatus.checkLoginStatus(this);
         fetchSessionName();
 
-        // Set up the switch camera button click listener
+        // Switch camera button
         switchCameraButton.setOnClickListener(v -> {
             webRTCClient.switchCamera();  // Switch between front and back camera
         });
 
-        // Set up the toggle camera button click listener
+        // Toggle camera button
         toggleCameraButton.setOnClickListener(v -> {
             webRTCClient.toggleVideo();  // Toggle camera on/off
 
-            // Show or hide camera status text based on the camera state
             if (isCameraOn) {
-                cameraStatusText.setVisibility(View.VISIBLE);  // Show "Camera Off" text
+                cameraStatusText.setVisibility(View.VISIBLE);
                 cameraStatusText.setText("Camera Off");
 
-                // Update Firebase to indicate camera is off
                 if (sessionId != null && !sessionId.isEmpty()) {
                     mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                            .child("camera_off").setValue(1);  // Set the camera_off flag to 1 when camera is off
+                            .child("camera_off").setValue(1);
                 }
             } else {
-                cameraStatusText.setVisibility(View.GONE);  // Hide text when camera is on
+                cameraStatusText.setVisibility(View.GONE);
 
-                // Remove the camera_off flag from Firebase when camera is on
                 if (sessionId != null && !sessionId.isEmpty()) {
                     mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                            .child("camera_off").removeValue();  // Remove the camera_off flag when camera is on
+                            .child("camera_off").removeValue();
                 }
             }
 
-            // Toggle the camera state
             isCameraOn = !isCameraOn;
+        });
+
+
+        ImageButton settingsButton = findViewById(R.id.settings_button);
+
+// Register for the context menu
+        registerForContextMenu(settingsButton);
+
+        settingsButton.setOnClickListener(v -> {
+            Log.d("CameraActivity", "Settings button clicked!");
+            v.showContextMenu();  // Show the context menu
         });
 
 
     }
 
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+        super.onCreateContextMenu(menu, v, menuInfo);
+
+        // Check if the clicked view is the settings button
+        if (v.getId() == R.id.settings_button) {
+            MenuInflater inflater = getMenuInflater();
+            inflater.inflate(R.menu.camera_audio, menu);  // Inflate the context menu layout (camera_audio.xml)
+        }
+    }
 
 
 

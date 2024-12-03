@@ -115,7 +115,7 @@
                 app:backgroundTint="@color/cardview_dark_background"
                 />
 
-            <ImageView
+            <ImageButton
                 android:id="@+id/settings_button"
                 android:layout_width="47dp"
                 android:layout_height="50dp"

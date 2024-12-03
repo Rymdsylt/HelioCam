@@ -26,7 +26,7 @@ public class SoundNotifListener {
     private static final String CHANNEL_NAME = "Sound Notifications";
     private List<String> sessionKeys = new ArrayList<>();
 
-    private void fetchSessionKeys() {
+    private void fetchSessionKeys(Callback callback) {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
         if (currentUser != null) {
@@ -60,6 +60,9 @@ public class SoundNotifListener {
                                     }
                                 }
                             }
+
+                            // Once session keys are fetched, invoke the callback
+                            callback.onSessionKeysFetched();
                         } else {
                             Log.w(TAG, "No data found for user: " + formattedEmail);
                         }
@@ -77,34 +80,28 @@ public class SoundNotifListener {
 
     public void startListeningForNotifications(Context context) {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        fetchSessionKeys(); // Fetch session keys before proceeding
-
         if (currentUser != null) {
             String email = currentUser.getEmail();
             if (email != null) {
                 String formattedEmail = email.replace(".", "_");
 
-                // Use the session keys fetched earlier to listen for notifications
-                DatabaseReference userRef = FirebaseDatabase.getInstance()
-                        .getReference("users")
-                        .child(formattedEmail)
-                        .child("sessions");
-
-                userRef.get().addOnCompleteListener(task -> {
-                    if (task.isSuccessful() && task.getResult() != null) {
-                        // Iterate through all session keys fetched and listen to notifications for each session
-                        for (String sessionKey : sessionKeys) {
-                            listenToSessionNotifications(context, formattedEmail, sessionKey);
-                        }
-                    } else {
-                        Log.e(TAG, "Failed to fetch sessions: ", task.getException());
-                    }
+                // Fetch session keys asynchronously and then start listening for notifications
+                fetchSessionKeys(() -> {
+                    // Now that sessionKeys are fetched, we can start listening for notifications
+                    listenToSessions(context, formattedEmail);
                 });
             } else {
                 Log.e(TAG, "User email is null.");
             }
         } else {
             Log.e(TAG, "No user is logged in.");
+        }
+    }
+
+    private void listenToSessions(Context context, String formattedEmail) {
+        // Now that sessionKeys are populated, we can use them
+        for (String sessionKey : sessionKeys) {
+            listenToSessionNotifications(context, formattedEmail, sessionKey);
         }
     }
 
@@ -127,6 +124,8 @@ public class SoundNotifListener {
                 if (reason != null && time != null && date != null) {
                     String notificationText = reason + ", " + time + " at " + sessionKey + " on " + date;
                     showNotification(context, sessionKey, notificationText);
+
+                    Log.d(TAG, "Notification added: " + notificationText);
                 }
             }
 
@@ -152,7 +151,6 @@ public class SoundNotifListener {
         });
     }
 
-
     private void showNotification(Context context, String title, String message) {
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
@@ -170,5 +168,10 @@ public class SoundNotifListener {
                 .build();
 
         notificationManager.notify((int) System.currentTimeMillis(), notification);
+    }
+
+    // Callback interface for when session keys are fetched
+    interface Callback {
+        void onSessionKeysFetched();
     }
 }

@@ -70,16 +70,15 @@
             <!-- Switch Camera Button -->
             <ImageView
                 android:id="@+id/settings_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="47dp"
+                android:layout_height="50dp"
                 android:layout_margin="16dp"
-                android:background="@drawable/circle_background"
+                android:background="@drawable/baseline_settings_24"
                 android:clickable="true"
                 android:contentDescription="Microphone"
                 android:focusable="true"
                 android:padding="12dp"
-                app:backgroundTint="@color/cardview_dark_background"
-                tools:srcCompat="@drawable/baseline_settings_white_24" />
+                app:backgroundTint="@color/cardview_dark_background" />
 
 
         </LinearLayout>

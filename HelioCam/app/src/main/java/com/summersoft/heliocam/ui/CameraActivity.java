@@ -28,6 +28,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.detection.SoundDetection;
 import com.summersoft.heliocam.status.LoginStatus;
 
 import com.summersoft.heliocam.webrtc_utils.RTCHost;
@@ -35,6 +36,7 @@ import com.summersoft.heliocam.webrtc_utils.RTCHost;
 public class CameraActivity extends AppCompatActivity {
     private DatabaseReference mDatabase;
     private FirebaseAuth mAuth;
+    private SoundDetection soundDetection;
 
     private SurfaceViewRenderer cameraView;
     private PeerConnectionFactory peerConnectionFactory;
@@ -51,6 +53,10 @@ public class CameraActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
+        if (soundDetection != null) {
+            soundDetection.stopDetection();
+        }
 
         // Ensure you have sessionId and userEmail available, as they are required by dispose().
         String sessionId = getIntent().getStringExtra("session_id");
@@ -89,6 +95,19 @@ public class CameraActivity extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
+
+        soundDetection = new SoundDetection(this);
+        soundDetection.setSoundThreshold(3000);
+        soundDetection.setDetectionLatency(3000);
+        soundDetection.startDetection();
+
+        // Check and request permissions for camera and audio (microphone)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, 100);
+        }
 
         String sessionId = getIntent().getStringExtra("session_id");
 
@@ -145,7 +164,6 @@ public class CameraActivity extends AppCompatActivity {
         });
 
 
-
     }
 
 
@@ -164,9 +182,12 @@ public class CameraActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 100) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED &&
+                    grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Permissions granted. You can now use the camera and audio.", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "Camera permission is required to use this feature.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Camera and audio permissions are required to use this feature.", Toast.LENGTH_SHORT).show();
+                finish(); // Close the activity if permissions are not granted
             }
         }
     }

@@ -16,4 +16,6 @@
     <color name="blue">#007AFF</color>
     <color name="thumb_color">#ede9e4</color>
     <color name="track_color">#996c18</color>
+    <color name="dirty_white">#c7c6c5</color>
+    <color name="dark_background">#121212</color>
 </resources>

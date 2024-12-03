@@ -10,25 +10,42 @@
     <!-- Account Settings Title -->
     <TextView
         android:id="@+id/tvSettingsTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
         android:text="Account Settings"
         android:textColor="@color/black"
         android:textSize="36sp"
         android:textStyle="bold"
-        android:layout_gravity="center_horizontal" />
+        android:layout_marginTop="20dp"
+
+
+/>
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:background="@color/black" />
 
     <!-- Account Name Section -->
     <TextView
-        android:id="@+id/tvAccountName"
-        android:layout_width="wrap_content"
+        android:id="@+id/tvEditAccount"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Account Name"
+        android:text="Edit Account Details:"
         android:textColor="@color/black"
         android:textSize="20sp"
         android:textStyle="bold"
         android:layout_marginTop="16dp"
-        android:layout_gravity="center_horizontal" />
+        android:gravity="start|center_vertical"
+        android:textAlignment="viewStart"
+
+
+  />
+    <View
+        android:layout_width="wrap_content"
+        android:layout_height="1dp"
+        android:layout_marginTop="5dp"
+        android:background="@color/black" />
 
     <!-- First Name Section -->
     <LinearLayout
@@ -39,21 +56,27 @@
 
         <TextView
             android:id="@+id/Fname"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="0.5"
             android:text="First Name:"
             android:textColor="@color/black"
-            android:textSize="15sp"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:layout_marginEnd="8dp" />
+            android:gravity="center_vertical"
+            android:padding="8dp" />
 
-        <TextView
-            android:id="@+id/tvFirstName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Juan Karlos"
+        <EditText
+            android:id="@+id/EtFirstName"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="Juan Karlitos"
             android:textColor="@color/black"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_grey_squircle_24"
+            android:padding="8dp" />
     </LinearLayout>
 
     <!-- Last Name Section -->
@@ -65,21 +88,28 @@
 
         <TextView
             android:id="@+id/Lname"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="0.5"
             android:text="Last Name:"
             android:textColor="@color/black"
-            android:textSize="15sp"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:layout_marginEnd="8dp" />
+            android:gravity="center_vertical"
 
-        <TextView
-            android:id="@+id/tvLastName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:padding="8dp" />
+
+        <EditText
+            android:id="@+id/EtLastName"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
             android:text="Dela Cruz"
             android:textColor="@color/black"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_grey_squircle_24"
+            android:padding="8dp" />
     </LinearLayout>
 
     <!-- Username Section -->
@@ -91,21 +121,28 @@
 
         <TextView
             android:id="@+id/Username"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="0.5"
             android:text="Username:"
             android:textColor="@color/black"
-            android:textSize="15sp"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:layout_marginEnd="8dp" />
+            android:gravity="center_vertical"
 
-        <TextView
-            android:id="@+id/tvUsername"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:padding="8dp" />
+
+        <EditText
+            android:id="@+id/EtUsername"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
             android:text="Jeyki123"
             android:textColor="@color/black"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_grey_squircle_24"
+            android:padding="8dp" />
     </LinearLayout>
 
     <!-- Contact Section -->
@@ -122,21 +159,28 @@
 
             <TextView
                 android:id="@+id/tvEmail"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="0.5"
                 android:text="Email:"
                 android:textColor="@color/black"
-                android:textSize="15sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                android:layout_marginEnd="8dp" />
+                android:gravity="center_vertical"
 
-            <TextView
-                android:id="@+id/tvEmailValue"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:padding="8dp" />
+
+            <EditText
+                android:id="@+id/EtEmailValue"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
                 android:text="jk2004@gmail.com"
                 android:textColor="@color/black"
-                android:textSize="16sp" />
+                android:textSize="16sp"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_grey_squircle_24"
+                android:padding="8dp" />
         </LinearLayout>
 
         <LinearLayout
@@ -146,34 +190,48 @@
             android:layout_marginTop="16dp">
 
             <TextView
-                android:id="@+id/tvContact"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:id="@+id/contact"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="0.5"
                 android:text="Contact #:"
                 android:textColor="@color/black"
-                android:textSize="15sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                android:layout_marginEnd="8dp" />
+                android:gravity="center_vertical"
+                android:padding="8dp" />
 
-            <TextView
-                android:id="@+id/tvContactValue"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+            <EditText
+                android:id="@+id/EtContactValue"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
                 android:text="09** - *** - 2432"
                 android:textColor="@color/black"
-                android:textSize="16sp" />
+                android:textSize="16sp"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_grey_squircle_24"
+                android:padding="8dp" />
         </LinearLayout>
+        <View
+            android:layout_width="wrap_content"
+            android:layout_height="1dp"
+            android:layout_marginTop="8dp"
+            android:background="@color/black" />
+
 
         <!-- Edit Button for Contact -->
         <Button
-            android:id="@+id/btnEditContact"
-            android:layout_width="wrap_content"
+            android:id="@+id/btnSave"
+            android:layout_width="150dp"
             android:layout_height="wrap_content"
-            android:text="Edit"
-            android:textColor="@android:color/white"
+            android:text="Save"
+            android:textColor="@android:color/black"
             android:backgroundTint="@color/orange"
             android:layout_marginTop="8dp"
-            android:layout_gravity="center_horizontal"/>
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:layout_gravity="center_horizontal" />
     </LinearLayout>
 
     <!-- Security Section -->
@@ -183,32 +241,73 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp">
 
-        <TextView
-            android:id="@+id/tvSecurity"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Security:"
-            android:textColor="@color/black"
-            android:textSize="15sp"
-            android:textStyle="bold" />
+            android:layout_marginTop="16dp">
 
-        <TextView
-            android:id="@+id/tvChangePassword"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Change password"
-            android:textColor="@color/blue"
-            android:textSize="16sp"
-            android:layout_marginTop="8dp" />
+            <TextView
+                android:id="@+id/security"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="0.5"
+                android:text="Security:"
+                android:textColor="@color/black"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center_vertical"
+                android:padding="8dp"
+                tools:ignore="DuplicateIds" />
 
-        <TextView
-            android:id="@+id/tvPassword"
+            <Button
+                android:id="@+id/btnChangePassword"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:padding="8dp"
+                android:text="Change Password"
+                android:textColor="@color/blue"
+                android:textSize="16sp"
+                android:layout_marginLeft="140dp"/>
+        </LinearLayout>
+        <View
             android:layout_width="wrap_content"
+            android:layout_height="1dp"
+            android:layout_marginTop="5dp"
+            android:background="@color/black" />
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="************"
-            android:textColor="@color/black"
-            android:textSize="16sp"
-            android:layout_marginTop="8dp" />
+            android:layout_marginTop="16dp">
+
+            <TextView
+                android:id="@+id/Password"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="0.5"
+                android:text="Password:"
+                android:textColor="@color/black"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:gravity="center_vertical"
+                android:padding="8dp" />
+
+            <EditText
+                android:id="@+id/EtPassword"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="****************
+"
+                android:textColor="@color/black"
+                android:textSize="16sp"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_grey_squircle_24"
+                android:padding="8dp" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/btnShowPassword"
@@ -216,7 +315,9 @@
             android:layout_height="wrap_content"
             android:text="Show"
             android:textColor="@color/blue"
-            android:layout_marginTop="8dp"
-            android:layout_gravity="center_horizontal"/>
+
+           android:layout_marginLeft="280dp"
+
+            />
     </LinearLayout>
 </LinearLayout>

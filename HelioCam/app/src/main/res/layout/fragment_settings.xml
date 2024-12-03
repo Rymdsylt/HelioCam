@@ -9,8 +9,6 @@
     android:background="@color/white"
     tools:context=".ui.SettingsFragment">
 
-    <!-- Main Content Layout -->
-
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -23,14 +21,13 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="1.0">
 
-        <!-- Title Section -->
         <TextView
             android:id="@+id/tvSettingsTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="16dp"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="20dp"
             android:text="Settings"
             android:textColor="@color/black"
             android:textSize="48dp"
@@ -42,7 +39,6 @@
             android:layout_marginBottom="8dp"
             android:background="#BDBDBD" />
 
-        <!-- Notification Button -->
         <Button
             android:id="@+id/btnNotification"
             android:layout_width="match_parent"
@@ -50,6 +46,7 @@
             android:layout_marginBottom="8dp"
             android:background="?attr/selectableItemBackground"
             android:contentDescription="Notification Row"
+            android:drawableLeft ="@drawable/baseline_notifications_24"
             android:drawablePadding="16dp"
             android:gravity="center_vertical|start"
             android:padding="12dp"
@@ -63,7 +60,6 @@
             android:layout_marginBottom="8dp"
             android:background="#BDBDBD" />
 
-        <!-- Devices Logged In Button -->
         <Button
             android:id="@+id/btDevicesLogin"
             android:layout_width="match_parent"
@@ -71,6 +67,7 @@
             android:layout_marginBottom="8dp"
             android:background="?attr/selectableItemBackground"
             android:contentDescription="Devices Log In Row"
+            android:drawableLeft ="@drawable/baseline_device_24"
             android:drawablePadding="16dp"
             android:gravity="center_vertical|start"
             android:padding="12dp"
@@ -84,7 +81,6 @@
             android:layout_marginBottom="8dp"
             android:background="#BDBDBD" />
 
-        <!-- Account Setting Button -->
         <Button
             android:id="@+id/btnAccountSetting"
             android:layout_width="match_parent"
@@ -92,6 +88,7 @@
             android:layout_marginBottom="8dp"
             android:background="?attr/selectableItemBackground"
             android:contentDescription="Account Settings Row"
+            android:drawableLeft ="@drawable/baseline_account_circle_24"
             android:drawablePadding="16dp"
             android:gravity="center_vertical|start"
             android:padding="12dp"
@@ -105,7 +102,6 @@
             android:layout_marginBottom="8dp"
             android:background="#BDBDBD" />
 
-        <!-- Session Setting Button -->
         <Button
             android:id="@+id/btnSessionSetting"
             android:layout_width="match_parent"
@@ -113,6 +109,7 @@
             android:layout_marginBottom="8dp"
             android:background="?attr/selectableItemBackground"
             android:contentDescription="Session Settings Row"
+            android:drawableLeft ="@drawable/baseline_session_settings_24"
             android:drawablePadding="16dp"
             android:gravity="center_vertical|start"
             android:padding="12dp"
@@ -126,7 +123,6 @@
             android:layout_marginBottom="8dp"
             android:background="#BDBDBD" />
 
-        <!-- About Button -->
         <Button
             android:id="@+id/btnAbout"
             android:layout_width="match_parent"
@@ -134,6 +130,7 @@
             android:layout_marginBottom="8dp"
             android:background="?attr/selectableItemBackground"
             android:contentDescription="About Row"
+            android:drawableLeft ="@drawable/baseline_about_24"
             android:drawablePadding="16dp"
             android:gravity="center_vertical|start"
             android:padding="12dp"
@@ -147,14 +144,14 @@
             android:layout_marginBottom="8dp"
             android:background="#BDBDBD" />
 
-        <!-- About Button -->
         <Button
             android:id="@+id/btnLogout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
             android:background="?attr/selectableItemBackground"
-            android:contentDescription="About Row"
+            android:contentDescription="Logout Row"
+            android:drawableLeft ="@drawable/baseline_logout_24"
             android:drawablePadding="16dp"
             android:gravity="center_vertical|start"
             android:padding="12dp"
@@ -168,9 +165,6 @@
             android:layout_height="match_parent" />
     </LinearLayout>
 
-
-
-    <!-- Bottom Navigation Bar -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
@@ -183,7 +177,4 @@
         android:layout_marginTop="30dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
-
-
-
 </androidx.constraintlayout.widget.ConstraintLayout>

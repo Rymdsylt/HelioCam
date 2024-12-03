@@ -16,6 +16,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.notifs.SoundNotifListener;
 
 import java.security.SecureRandom;
 
@@ -56,6 +57,8 @@ public class UsePhoneActivity extends AppCompatActivity {
         findViewById(R.id.generateButton).setOnClickListener(view -> generateRandomPasskey());
         findViewById(R.id.cancelButton).setOnClickListener(view -> onBackPressed());
         findViewById(R.id.addButton).setOnClickListener(view -> addSession());
+
+
     }
 
     private void generateRandomPasskey() {

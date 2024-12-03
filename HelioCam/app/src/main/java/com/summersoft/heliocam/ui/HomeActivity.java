@@ -1,5 +1,10 @@
 package com.summersoft.heliocam.ui;
 
+import android.app.NotificationManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -8,6 +13,12 @@ import androidx.fragment.app.FragmentManager;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.notifs.SoundNotifListener;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import com.summersoft.heliocam.notifs.SoundNotifListener;
+import com.summersoft.heliocam.notifs.SoundNotifService;
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -24,6 +35,9 @@ public class HomeActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
+
+        // Check for notification permission
+        checkNotificationPermission();
 
         // Set up Bottom Navigation
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavigation);
@@ -72,6 +86,15 @@ public class HomeActivity extends AppCompatActivity {
                     .replace(R.id.fragment_container, new HomeFragment())
                     .commit();
         }
+
+
+
+
+
+        Intent serviceIntent = new Intent(this, SoundNotifService.class);
+        this.startService(serviceIntent);
+
+
     }
 
     // Helper method to get the index of a fragment based on its menu ID
@@ -99,6 +122,34 @@ public class HomeActivity extends AppCompatActivity {
                 return new ProfileFragment();
             default:
                 return null;
+        }
+    }
+
+    /**
+     * Check and request notification permission if necessary
+     */
+    private void checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Check if notification permission is granted
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null && !notificationManager.areNotificationsEnabled()) {
+                // Request permission if notifications are not enabled
+                requestNotificationPermission();
+            }
+        }
+    }
+
+    /**
+     * Request notification permission for Android 13 and above
+     */
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                        1); // 1 is the request code
+            }
         }
     }
 }

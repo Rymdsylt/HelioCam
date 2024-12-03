@@ -5,18 +5,22 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.ContextMenu;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MenuInflater;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.PopupMenu;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -191,6 +195,95 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    public boolean onContextItemSelected(@NonNull MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.option_1: // Sound Detection Threshold
+                showThresholdDialog();
+                return true;
+            case R.id.option_2: // Sound Detection Notification Latency
+                showLatencyDialog();
+                return true;
+            default:
+                return super.onContextItemSelected(item);
+        }
+    }
+
+
+    private void showThresholdDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Adjust Sound Threshold");
+
+        // Inflate custom layout
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_threshold, null);
+        SeekBar seekBar = view.findViewById(R.id.seekBar);
+        TextView valueText = view.findViewById(R.id.valueText);
+
+        // Initialize SeekBar
+        seekBar.setMax(10000); // Example: max threshold value
+        seekBar.setProgress(soundDetection.getSoundThreshold());
+        valueText.setText(String.valueOf(soundDetection.getSoundThreshold()));
+
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                valueText.setText(String.valueOf(progress));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        });
+
+        builder.setView(view);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            int threshold = seekBar.getProgress();
+            soundDetection.setSoundThreshold(threshold);
+            Toast.makeText(this, "Threshold updated to " + threshold, Toast.LENGTH_SHORT).show();
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        builder.create().show();
+    }
+
+
+    private void showLatencyDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Adjust Detection Latency (in Seconds)");
+
+        // Inflate custom layout
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_latency, null);
+        EditText latencyInput = view.findViewById(R.id.latencyInput);
+
+        // Initialize with current latency
+        latencyInput.setText(String.valueOf(soundDetection.getDetectionLatency()));
+
+        builder.setView(view);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            try {
+                int latency = Integer.parseInt(latencyInput.getText().toString());
+                soundDetection.setDetectionLatency(latency * 1000);
+                Toast.makeText(this, "Latency updated to " + latency, Toast.LENGTH_SHORT).show();
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Invalid input", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        builder.create().show();
+    }
+
+
+
+
 
 
     private void initializeWebRTC(String sessionId, String email) { //a
@@ -270,5 +363,9 @@ public class CameraActivity extends AppCompatActivity {
         }
         peerConnectionFactory.dispose();
         rootEglBase.release();
+    }
+
+    public String getSessionId() {
+        return getIntent().getStringExtra("session_id");
     }
 }

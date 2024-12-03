@@ -16,6 +16,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.notifs.SoundNotifListener;
 
 import java.util.Map;
 
@@ -45,6 +46,7 @@ public class AddSessionActivity extends AppCompatActivity {
             Intent intent = new Intent(AddSessionActivity.this, UsePhoneActivity.class);
             startActivity(intent);
         });
+
     }
 
     private void addSession() {

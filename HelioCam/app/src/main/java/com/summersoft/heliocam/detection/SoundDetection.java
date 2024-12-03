@@ -6,9 +6,21 @@ import android.content.pm.PackageManager;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Handler;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.summersoft.heliocam.ui.CameraActivity;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 public class SoundDetection {
     private static final int SAMPLE_RATE = 44100; // Sampling rate in Hz
@@ -116,6 +128,61 @@ public class SoundDetection {
     }
 
     private void triggerSoundDetected() {
-        handler.post(() -> Toast.makeText(context, "Sound Detected!", Toast.LENGTH_SHORT).show());
+        handler.post(() -> {
+            Toast.makeText(context, "Sound Detected!", Toast.LENGTH_SHORT).show();
+
+            // Get Firebase references
+            DatabaseReference database = FirebaseDatabase.getInstance().getReference();
+            String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
+            String sessionId = ((CameraActivity) context).getSessionId(); // Assuming context is CameraActivity
+
+            if (userEmail != null && sessionId != null) {
+                // Create the notification structure
+                String notificationId = "notification_" + System.currentTimeMillis();
+                Map<String, Object> notificationData = new HashMap<>();
+                notificationData.put("date", new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date()));
+                notificationData.put("time", new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date()));
+                notificationData.put("reason", "Sound Detected");
+
+                // Update Firebase
+                database.child("users")
+                        .child(userEmail)
+                        .child("sessions")
+                        .child(sessionId)
+                        .child("notifications")
+                        .child(notificationId)
+                        .setValue(notificationData)
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                Log.d("SoundDetection", "Notification logged in Firebase");
+                            } else {
+                                Log.e("SoundDetection", "Failed to log notification in Firebase", task.getException());
+                            }
+                        });
+            } else {
+                Log.w("SoundDetection", "User email or session ID is null. Cannot log notification.");
+            }
+        });
     }
+
+
+    /**
+     * Get the current sound detection threshold.
+     *
+     * @return the threshold value for detecting sound
+     */
+    public int getSoundThreshold() {
+        return soundThreshold;
+    }
+
+    /**
+     * Get the current detection latency.
+     *
+     * @return the latency in milliseconds
+     */
+    public long getDetectionLatency() {
+        return detectionLatency/1000;
+    }
+
+
 }

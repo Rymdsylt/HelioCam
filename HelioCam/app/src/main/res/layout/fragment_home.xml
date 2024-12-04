@@ -44,7 +44,7 @@
 
     <!-- Bottom Navigation Bar -->
     <LinearLayout
-        android:id="@+id/session_card_container"
+        android:id="@+id/notification_card_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"

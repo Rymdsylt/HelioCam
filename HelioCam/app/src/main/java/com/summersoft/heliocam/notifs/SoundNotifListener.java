@@ -15,6 +15,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -106,50 +107,68 @@ public class SoundNotifListener {
     }
 
     private void listenToSessionNotifications(Context context, String formattedEmail, String sessionKey) {
-        DatabaseReference notificationsRef = FirebaseDatabase.getInstance()
+        DatabaseReference sessionRef = FirebaseDatabase.getInstance()
                 .getReference("users")
                 .child(formattedEmail)
                 .child("sessions")
-                .child(sessionKey)
-                .child("notifications");
+                .child(sessionKey);
 
-        // Attach a persistent listener for real-time notifications
-        notificationsRef.addChildEventListener(new com.google.firebase.database.ChildEventListener() {
+        // Fetch session details (including session_name)
+        sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
-            public void onChildAdded(DataSnapshot snapshot, String previousChildName) {
-                String reason = snapshot.child("reason").getValue(String.class);
-                String time = snapshot.child("time").getValue(String.class);
-                String date = snapshot.child("date").getValue(String.class);
+            public void onDataChange(DataSnapshot sessionSnapshot) {
+                String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
 
-                if (reason != null && time != null && date != null) {
-                    String notificationText = reason + ", " + time + " at " + sessionKey + " on " + date;
-                    showNotification(context, sessionKey, notificationText);
+                if (sessionName != null) {
+                    DatabaseReference notificationsRef = sessionRef.child("notifications");
 
-                    Log.d(TAG, "Notification added: " + notificationText);
+                    // Attach a persistent listener for real-time notifications
+                    notificationsRef.addChildEventListener(new com.google.firebase.database.ChildEventListener() {
+                        @Override
+                        public void onChildAdded(DataSnapshot snapshot, String previousChildName) {
+                            String reason = snapshot.child("reason").getValue(String.class);
+                            String time = snapshot.child("time").getValue(String.class);
+                            String date = snapshot.child("date").getValue(String.class);
+
+                            if (reason != null && time != null && date != null) {
+                                // Create the notification text in the desired format
+                                String notificationText = reason + ", " + time + " at " + sessionName + " on " + date;
+                                showNotification(context, sessionName, notificationText);
+
+                                Log.d(TAG, "Notification added: " + notificationText);
+                            }
+                        }
+
+                        @Override
+                        public void onChildChanged(DataSnapshot snapshot, String previousChildName) {
+                            // Handle changes, if needed
+                        }
+
+                        @Override
+                        public void onChildRemoved(DataSnapshot snapshot) {
+                            // Handle removal, if needed
+                        }
+
+                        @Override
+                        public void onChildMoved(DataSnapshot snapshot, String previousChildName) {
+                            // Handle move, if needed
+                        }
+
+                        @Override
+                        public void onCancelled(DatabaseError error) {
+                            Log.e(TAG, "Notification listener cancelled: " + error.getMessage());
+                        }
+                    });
                 }
             }
 
             @Override
-            public void onChildChanged(DataSnapshot snapshot, String previousChildName) {
-                // Handle changes, if needed
-            }
-
-            @Override
-            public void onChildRemoved(DataSnapshot snapshot) {
-                // Handle removal, if needed
-            }
-
-            @Override
-            public void onChildMoved(DataSnapshot snapshot, String previousChildName) {
-                // Handle move, if needed
-            }
-
-            @Override
             public void onCancelled(DatabaseError error) {
-                Log.e(TAG, "Notification listener cancelled: " + error.getMessage());
+                Log.e(TAG, "Error fetching session details: " + error.getMessage());
             }
         });
     }
+
 
     private void showNotification(Context context, String title, String message) {
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);

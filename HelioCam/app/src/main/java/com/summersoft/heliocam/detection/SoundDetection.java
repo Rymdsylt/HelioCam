@@ -3,8 +3,10 @@ package com.summersoft.heliocam.detection;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
 import android.widget.Toast;
@@ -14,8 +16,12 @@ import androidx.core.app.ActivityCompat;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 import com.summersoft.heliocam.ui.CameraActivity;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -159,10 +165,47 @@ public class SoundDetection {
                                 Log.e("SoundDetection", "Failed to log notification in Firebase", task.getException());
                             }
                         });
+
+                // Capture and upload a screenshot
+                captureAndUploadScreenshot(sessionId);
             } else {
                 Log.w("SoundDetection", "User email or session ID is null. Cannot log notification.");
             }
         });
+    }
+
+    private void captureAndUploadScreenshot(String sessionId) {
+        CameraActivity cameraActivity = (CameraActivity) context;
+
+        // Capture the camera view as a bitmap
+        cameraActivity.captureCameraView(bitmap -> {
+            if (bitmap != null) {
+                try {
+                    // Save the bitmap to a temporary file
+                    File tempFile = File.createTempFile("screenshot", ".png", context.getCacheDir());
+                    FileOutputStream fos = new FileOutputStream(tempFile);
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                    fos.close();
+
+                    // Upload the file to Firebase Storage
+                    uploadScreenshotToFirebase(sessionId, tempFile);
+                } catch (Exception e) {
+                    Log.e("SoundDetection", "Error saving screenshot", e);
+                }
+            } else {
+                Log.w("SoundDetection", "Failed to capture camera view.");
+            }
+        });
+    }
+
+    private void uploadScreenshotToFirebase(String sessionId, File file) {
+        String storagePath = "screenshots/" + sessionId + ".png";
+        FirebaseStorage storage = FirebaseStorage.getInstance();
+        StorageReference storageRef = storage.getReference(storagePath);
+
+        storageRef.putFile(Uri.fromFile(file))
+                .addOnSuccessListener(taskSnapshot -> Log.d("SoundDetection", "Screenshot uploaded successfully."))
+                .addOnFailureListener(e -> Log.e("SoundDetection", "Failed to upload screenshot", e));
     }
 
 

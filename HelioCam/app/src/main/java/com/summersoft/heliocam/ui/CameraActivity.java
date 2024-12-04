@@ -2,6 +2,8 @@ package com.summersoft.heliocam.ui;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.ContextMenu;
@@ -182,6 +184,23 @@ public class CameraActivity extends AppCompatActivity {
 
 
     }
+
+    public void captureCameraView(OnBitmapCapturedListener listener) {
+        View cameraView = findViewById(R.id.camera_view); // Replace with your camera preview ID
+        if (cameraView != null) {
+            Bitmap bitmap = Bitmap.createBitmap(cameraView.getWidth(), cameraView.getHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            cameraView.draw(canvas);
+            listener.onBitmapCaptured(bitmap);
+        } else {
+            listener.onBitmapCaptured(null);
+        }
+    }
+
+    public interface OnBitmapCapturedListener {
+        void onBitmapCaptured(Bitmap bitmap);
+    }
+
 
 
     @Override

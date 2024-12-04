@@ -45,7 +45,7 @@ public class HomeFragment extends Fragment {
         mAuth = FirebaseAuth.getInstance();
 
         // Initialize UI components
-        sessionCardContainer = rootView.findViewById(R.id.session_card_container);
+        sessionCardContainer = rootView.findViewById(R.id.notification_card_container);
 
         // Set padding for window insets
         ViewCompat.setOnApplyWindowInsetsListener(rootView.findViewById(R.id.mainpage), (v, insets) -> {
@@ -99,6 +99,8 @@ public class HomeFragment extends Fragment {
         };
 
         return rootView;
+
+
 
     }
 

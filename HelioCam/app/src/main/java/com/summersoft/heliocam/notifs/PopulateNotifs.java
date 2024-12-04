@@ -1,13 +1,13 @@
 package com.summersoft.heliocam.notifs;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -19,11 +19,17 @@ import com.google.firebase.database.ValueEventListener;
 import com.summersoft.heliocam.R;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class PopulateNotifs {
 
     private static final String TAG = "PopulateNotifs";
+    private static final String PREFS_NAME = "NotificationPrefs";
+    private static final String SHOWN_NOTIFICATIONS_KEY = "shown_notifications";
+    private static final String FIRST_LAUNCH_KEY = "first_launch";
+
     private List<String> sessionKeys = new ArrayList<>();
 
     public void startPopulatingNotifs(Context context, ViewGroup notificationContainer) {
@@ -61,13 +67,12 @@ public class PopulateNotifs {
                                         if (sessions.exists()) {
                                             for (DataSnapshot session : sessions.getChildren()) {
                                                 String sessionKey = session.getKey();
-                                                sessionKeys.add(sessionKey); // Add session key to the list
+                                                sessionKeys.add(sessionKey);
                                             }
                                         }
                                     }
                                 }
                             }
-                            // Once session keys are fetched, invoke the callback
                             callback.onSessionKeysFetched();
                         } else {
                             Log.w(TAG, "No data found for user.");
@@ -87,6 +92,15 @@ public class PopulateNotifs {
             if (email != null) {
                 String formattedEmail = email.replace(".", "_");
 
+                SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                boolean isFirstLaunch = prefs.getBoolean(FIRST_LAUNCH_KEY, true);
+
+                // Get the set of already shown notifications
+                Set<String> shownNotifications = prefs.getStringSet(SHOWN_NOTIFICATIONS_KEY, new HashSet<>());
+                // Get the set of deleted notifications
+                Set<String> deletedNotifs = prefs.getStringSet("deleted_notifs", new HashSet<>());
+                Set<String> allNotificationIds = new HashSet<>();
+
                 for (String sessionKey : sessionKeys) {
                     DatabaseReference sessionRef = FirebaseDatabase.getInstance()
                             .getReference("users")
@@ -94,7 +108,6 @@ public class PopulateNotifs {
                             .child("sessions")
                             .child(sessionKey);
 
-                    // Fetch session details (including session_name) and notifications
                     sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot sessionSnapshot) {
@@ -103,35 +116,67 @@ public class PopulateNotifs {
                                 if (sessionName != null) {
                                     DatabaseReference notificationsRef = sessionRef.child("notifications");
 
-                                    // Fetch notifications for the given session
                                     notificationsRef.addListenerForSingleValueEvent(new ValueEventListener() {
                                         @Override
                                         public void onDataChange(DataSnapshot dataSnapshot) {
                                             if (dataSnapshot.exists()) {
+                                                SharedPreferences.Editor editor = prefs.edit();
+                                                boolean newNotificationFound = false;
+
                                                 for (DataSnapshot notificationSnapshot : dataSnapshot.getChildren()) {
-                                                    String where = notificationSnapshot.child("session_name").getValue(String.class);
+                                                    String notificationId = notificationSnapshot.getKey();
                                                     String reason = notificationSnapshot.child("reason").getValue(String.class);
                                                     String time = notificationSnapshot.child("time").getValue(String.class);
                                                     String date = notificationSnapshot.child("date").getValue(String.class);
 
-                                                    if (reason != null && time != null && date != null) {
-                                                        // Inflate notification card and populate it
-                                                        View notificationCard = LayoutInflater.from(context)
-                                                                .inflate(R.layout.notifications_card, notificationContainer, false);
+                                                    if (notificationId != null && reason != null && time != null && date != null) {
+                                                        allNotificationIds.add(notificationId);
 
-                                                        TextView titleView = notificationCard.findViewById(R.id.notification_title);
-                                                        TextView dateView = notificationCard.findViewById(R.id.notification_date);
-                                                        TextView timeView = notificationCard.findViewById(R.id.notification_time);
+                                                        // Skip this notification if it is in the "deleted_notifs" set
+                                                        if (deletedNotifs.contains(notificationId)) {
+                                                            continue;
+                                                        }
 
-                                                        // Set the data
-                                                        titleView.setText(reason + "  at " + sessionName);
-                                                        dateView.setText("Date: " + date);
-                                                        timeView.setText("Time: " + time);
+                                                        // On first launch, save all notification IDs
+                                                        if (isFirstLaunch) {
+                                                            shownNotifications.add(notificationId);
+                                                        }
 
-                                                        // Add the card to the container
-                                                        notificationContainer.addView(notificationCard);
+                                                        // Only show notifications not already shown
+                                                        if (!shownNotifications.contains(notificationId)) {
+                                                            // Inflate notification card and populate it
+                                                            View notificationCard = LayoutInflater.from(context)
+                                                                    .inflate(R.layout.notifications_card, notificationContainer, false);
+
+                                                            TextView titleView = notificationCard.findViewById(R.id.notification_title);
+                                                            TextView dateView = notificationCard.findViewById(R.id.notification_date);
+                                                            TextView timeView = notificationCard.findViewById(R.id.notification_time);
+                                                            ImageView deleteButton = notificationCard.findViewById(R.id.delete_button);
+
+                                                            titleView.setText(reason + " at " + sessionName);
+                                                            dateView.setText("Date: " + date);
+                                                            timeView.setText("Time: " + time);
+
+                                                            // Set the delete button click listener
+                                                            deleteButton.setOnClickListener(v -> onDeleteNotification(context, notificationId, notificationContainer));
+
+                                                            notificationContainer.addView(notificationCard);
+                                                            newNotificationFound = true;
+                                                        }
                                                     }
                                                 }
+
+                                                if (newNotificationFound) {
+                                                    editor.putStringSet(SHOWN_NOTIFICATIONS_KEY, shownNotifications);
+                                                }
+
+                                                if (isFirstLaunch) {
+                                                    // Save all notification IDs during the first launch
+                                                    editor.putStringSet(SHOWN_NOTIFICATIONS_KEY, allNotificationIds);
+                                                    editor.putBoolean(FIRST_LAUNCH_KEY, false);
+                                                }
+
+                                                editor.apply();
                                             }
                                         }
 
@@ -154,7 +199,30 @@ public class PopulateNotifs {
         }
     }
 
-    // Callback interface for when session keys are fetched
+    private void onDeleteNotification(Context context, String notificationId, ViewGroup notificationContainer) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+
+        // Add the notificationId to "deleted_notifs"
+        Set<String> deletedNotifs = prefs.getStringSet("deleted_notifs", new HashSet<>());
+        deletedNotifs.add(notificationId);
+        editor.putStringSet("deleted_notifs", deletedNotifs);
+        editor.apply();
+
+        // Optionally, you can log for debugging purposes
+        Log.d(TAG, "Notification added to deleted_notifs: " + notificationId);
+
+        // Refresh the notifications by clearing the container and fetching the notifications again
+        notificationContainer.removeAllViews();
+        fetchNotificationsForSessions(context, notificationContainer);
+    }
+
+
+
+
+
+
+
     interface Callback {
         void onSessionKeysFetched();
     }

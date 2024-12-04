@@ -52,19 +52,6 @@
                 app:layout_constraintVertical_bias="0.5" />
 
             <!-- Today Subheading -->
-            <TextView
-                android:id="@+id/today_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="Today :"
-                android:textColor="#000000"
-                android:textSize="32sp"
-                android:textStyle="bold"
-                app:layout_constraintBottom_toTopOf="@+id/divider"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/notification_title"
-                app:layout_constraintVertical_bias="0.5" />
 
             <!-- Line Under Subheading -->
             <View

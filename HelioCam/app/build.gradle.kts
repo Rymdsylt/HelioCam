@@ -66,6 +66,8 @@ dependencies {
     implementation ("com.mesibo.api:webrtc:1.0.5")
     implementation("com.guolindev.permissionx:permissionx:1.6.1")
     implementation("com.google.android.gms:play-services-location:21.0.1")
+    implementation ("androidx.lifecycle:lifecycle-service:2.8.0" )
+
 
     //navigation
     implementation("com.google.android.material:material:1.8.0")

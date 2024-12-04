@@ -119,6 +119,8 @@ public class SoundNotifListener {
             public void onDataChange(DataSnapshot sessionSnapshot) {
                 String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
 
+                Log.d(TAG, "shesh added: " + sessionName);
+
                 if (sessionName != null) {
                     DatabaseReference notificationsRef = sessionRef.child("notifications");
 
@@ -168,6 +170,7 @@ public class SoundNotifListener {
             }
         });
     }
+
 
 
     private void showNotification(Context context, String title, String message) {

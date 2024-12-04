@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.util.Log;
 
@@ -20,18 +21,27 @@ import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class SoundNotifService extends LifecycleService {
 
     private static final String TAG = "SoundNotifService";
     private static final String CHANNEL_ID = "SoundNotifChannel";
     private static final String CHANNEL_NAME = "Sound Notifications";
+    private static final String PREFS_NAME = "SoundNotifPrefs";
+    private static final String PREF_KEY_OLD_NOTIFS = "old_notifs";
     private List<String> sessionKeys = new ArrayList<>();
+    private SharedPreferences sharedPreferences;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        // Initialize SharedPreferences
+        sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+
         // Start the service as a foreground service with a persistent notification
         startForegroundService();
+
+        // Start listening for notifications
         startListeningForNotifications();
         return super.onStartCommand(intent, flags, startId);
     }
@@ -125,8 +135,13 @@ public class SoundNotifService extends LifecycleService {
     }
 
     private void listenToSessions(String formattedEmail) {
+        Set<String> oldNotifKeys = sharedPreferences.getStringSet(PREF_KEY_OLD_NOTIFS, null);
+
+        // Only listen to new sessions and notifications
         for (String sessionKey : sessionKeys) {
-            listenToSessionNotifications(formattedEmail, sessionKey);
+            if (oldNotifKeys == null || !oldNotifKeys.contains(sessionKey)) {
+                listenToSessionNotifications(formattedEmail, sessionKey);
+            }
         }
     }
 
@@ -150,14 +165,22 @@ public class SoundNotifService extends LifecycleService {
                         notificationsRef.addChildEventListener(new com.google.firebase.database.ChildEventListener() {
                             @Override
                             public void onChildAdded(DataSnapshot snapshot, String previousChildName) {
+                                String notificationKey = snapshot.getKey();
                                 String reason = snapshot.child("reason").getValue(String.class);
                                 String time = snapshot.child("time").getValue(String.class);
                                 String date = snapshot.child("date").getValue(String.class);
 
-                                if (reason != null && time != null && date != null) {
-                                    // Format the notification text
-                                    String notificationText = reason + ", " + time + " at " + sessionName + " on " + date;
-                                    showNotification(notificationText);
+                                if (notificationKey != null && reason != null && time != null && date != null) {
+                                    // Only show notifications that are not already in old notifications
+                                    Set<String> oldNotifKeys = sharedPreferences.getStringSet(PREF_KEY_OLD_NOTIFS, null);
+                                    if (oldNotifKeys == null || !oldNotifKeys.contains(notificationKey)) {
+                                        // Format the notification text
+                                        String notificationText = reason + ", " + time + " at " + sessionName + " on " + date;
+                                        showNotification(notificationText, notificationKey);
+
+                                        // Add this new notificationKey to SharedPreferences
+                                        addToOldNotifications(notificationKey);
+                                    }
                                 }
                             }
 
@@ -183,10 +206,36 @@ public class SoundNotifService extends LifecycleService {
         });
     }
 
-    private void showNotification(String message) {
+    private void showNotification(String message, String notificationKey) {
+        // Get SharedPreferences to check for existing notifications
+        Set<String> oldNotifKeys = sharedPreferences.getStringSet(PREF_KEY_OLD_NOTIFS, null);
+
+        // If the notification key already exists in old_notifs, don't show the notification
+        if (oldNotifKeys != null && oldNotifKeys.contains(notificationKey)) {
+            Log.d(TAG, "Notification already shown, skipping: " + notificationKey);
+            return;
+        }
+
+        // Create a secondary notification channel if it doesn't exist
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+            // Check if the channel already exists
+            NotificationChannel secondaryChannel = notificationManager.getNotificationChannel("secondary_channel_id");
+            if (secondaryChannel == null) {
+                secondaryChannel = new NotificationChannel(
+                        "secondary_channel_id", // Channel ID
+                        "Secondary Notifications", // Channel Name
+                        NotificationManager.IMPORTANCE_LOW // Set the importance as per your need
+                );
+                notificationManager.createNotificationChannel(secondaryChannel);
+            }
+        }
+
+        // Proceed with showing the notification in the secondary channel
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+        Notification notification = new NotificationCompat.Builder(this, "secondary_channel_id") // Use the secondary channel ID
                 .setContentTitle("HelioCam")
                 .setContentText(message)
                 .setSmallIcon(android.R.drawable.ic_notification_overlay)
@@ -194,11 +243,27 @@ public class SoundNotifService extends LifecycleService {
                 .build();
 
         notificationManager.notify((int) System.currentTimeMillis(), notification);
+
+        // After showing the notification, add the notificationKey to old_notifs to avoid showing it again
+        addToOldNotifications(notificationKey);
+    }
+
+
+
+    private void addToOldNotifications(String notificationKey) {
+        Set<String> oldNotifKeys = sharedPreferences.getStringSet(PREF_KEY_OLD_NOTIFS, null);
+        if (oldNotifKeys != null) {
+            oldNotifKeys.add(notificationKey);
+        } else {
+            oldNotifKeys = Set.of(notificationKey);
+        }
+
+        sharedPreferences.edit()
+                .putStringSet(PREF_KEY_OLD_NOTIFS, oldNotifKeys)
+                .apply();
     }
 
     interface Callback {
         void onSessionKeysFetched();
     }
 }
-
-

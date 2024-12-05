@@ -32,6 +32,10 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.Arrays;
 import java.util.List;
 
+import org.webrtc.AudioSource;
+import org.webrtc.AudioTrack;
+
+
 public class RTCHost {
     private static final String TAG = "WebRTCClient";
 
@@ -40,6 +44,11 @@ public class RTCHost {
     private VideoTrack videoTrack;
     private VideoSource videoSource;
     private EglBase rootEglBase;
+
+    private AudioSource audioSource;
+    private AudioTrack audioTrack;
+
+
 
 
 
@@ -156,10 +165,33 @@ public class RTCHost {
         // Listen for incoming ICE candidates from Firebase in real-time
         listenForIceCandidates(sessionId, email);
 
+        // Create audio source and track
+        MediaConstraints audioConstraints = new MediaConstraints();
+        audioSource = peerConnectionFactory.createAudioSource(audioConstraints);
+        audioTrack = peerConnectionFactory.createAudioTrack("audioTrack", audioSource);
+
+        // Create the local media stream and add both audio and video tracks
         MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
-        localStream.addTrack(videoTrack);
+        localStream.addTrack(videoTrack);  // Add video track
+        localStream.addTrack(audioTrack);  // Add audio track
         peerConnection.addStream(localStream);
     }
+
+
+    public boolean isAudioEnabled = true; // Track audio state
+
+    public void toggleAudio() {
+        if (audioTrack != null) {
+            isAudioEnabled = !isAudioEnabled;
+            audioTrack.setEnabled(isAudioEnabled); // Enable or disable audio track
+            String message = isAudioEnabled ? "Audio enabled" : "Audio disabled";
+            Log.d(TAG, message);
+            Toast.makeText(localView.getContext(), message, Toast.LENGTH_SHORT).show();
+        } else {
+            Log.e(TAG, "AudioTrack is not initialized.");
+        }
+    }
+
 
 
     public void createOffer(String sessionId, String email) {
@@ -404,9 +436,17 @@ public class RTCHost {
             localView = null;
         }
 
-        // Optionally, stop streaming or release any other resources
+        if (audioSource != null) {
+            audioSource.dispose();
+            audioSource = null;
+        }
 
-        // Remove session data from Firebase (e.g., disconnect signal or session info)
+        if (audioTrack != null) {
+            audioTrack.setEnabled(false);
+            audioTrack = null;
+        }
+
+
         String emailKey = email.replace(".", "_");
         DatabaseReference sessionRef = firebaseDatabase.child("users")
                 .child(emailKey)

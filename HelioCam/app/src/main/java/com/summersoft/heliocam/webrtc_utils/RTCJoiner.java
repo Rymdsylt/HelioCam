@@ -3,6 +3,8 @@ package com.summersoft.heliocam.webrtc_utils;
 import android.content.Context;
 import android.util.Log;
 
+import org.webrtc.AudioSource;
+import org.webrtc.AudioTrack;
 import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnection;
@@ -33,6 +35,9 @@ public class RTCJoiner {
     private final String sessionKey;
     private final SurfaceViewRenderer feedView; // View to show the remote feed
 
+    private AudioTrack localAudioTrack;
+    private AudioSource localAudioSource;
+
     public RTCJoiner(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers, String sessionKey, SurfaceViewRenderer feedView) {
         this.context = context;
         this.peerConnectionFactory = peerConnectionFactory;
@@ -43,6 +48,12 @@ public class RTCJoiner {
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
         rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
 
+        localAudioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
+
+        // Create local audio track
+        localAudioTrack = peerConnectionFactory.createAudioTrack("audioTrack", localAudioSource);
+
+        // Create the PeerConnection with media constraints
         this.peerConnection = peerConnectionFactory.createPeerConnection(
                 rtcConfig,
                 new PeerConnectionAdapter() {
@@ -53,50 +64,9 @@ public class RTCJoiner {
 
                         // Send the ICE candidate to Firebase as soon as it is available
                         if (candidate != null) {
-                            String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-                            if (email != null && sessionKey != null) {
-                                String formattedEmail = email.replace(".", "_");  // Format email for Firebase paths
-
-                                // Send ICE candidate to Firebase under the specific session with a unique key
-                                DatabaseReference iceCandidatesRef = FirebaseDatabase.getInstance().getReference("users")
-                                        .child(formattedEmail)
-                                        .child("sessions")
-                                        .child(sessionKey)
-                                        .child("ice_candidates");
-
-                                // Get the next available candidate index
-                                iceCandidatesRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                                    @Override
-                                    public void onDataChange(DataSnapshot dataSnapshot) {
-                                        int candidateCount = (int) dataSnapshot.getChildrenCount();
-                                        String candidateKey = "candidate_" + (candidateCount + 1);  // Generate unique key for new candidate
-
-                                        // Create a map to store the candidate data
-                                        Map<String, Object> candidateData = new HashMap<>();
-                                        candidateData.put("candidate", candidate.sdp);
-                                        candidateData.put("sdpMid", candidate.sdpMid);
-                                        candidateData.put("sdpMLineIndex", candidate.sdpMLineIndex);
-
-                                        // Set the candidate data in Firebase under the unique key
-                                        iceCandidatesRef.child(candidateKey).setValue(candidateData)
-                                                .addOnCompleteListener(task -> {
-                                                    if (task.isSuccessful()) {
-                                                        Log.d(TAG, "ICE candidate sent to Firebase.");
-                                                    } else {
-                                                        Log.e(TAG, "Failed to send ICE candidate to Firebase.", task.getException());
-                                                    }
-                                                });
-                                    }
-
-                                    @Override
-                                    public void onCancelled(DatabaseError databaseError) {
-                                        Log.e(TAG, "Failed to fetch ice candidates: " + databaseError.getMessage());
-                                    }
-                                });
-                            }
+                            sendIceCandidateToFirebase(candidate);
                         }
                     }
-
 
                     @Override
                     public void onAddStream(org.webrtc.MediaStream stream) {
@@ -108,6 +78,12 @@ public class RTCJoiner {
                             stream.videoTracks.get(0).addSink(feedView);  // Add video to SurfaceViewRenderer
                             Log.d(TAG, "Remote Video Stream Started");
                         }
+
+                        // Handling Audio Stream
+                        if (stream.audioTracks.size() > 0) {
+                            // Add audio track to local playback if needed
+                            Log.d(TAG, "Remote Audio Stream Started");
+                        }
                     }
                 }
         );
@@ -116,30 +92,56 @@ public class RTCJoiner {
             throw new IllegalStateException("Failed to create PeerConnection");
         }
 
+        // Add local audio track to media stream and add stream to peer connection
+        org.webrtc.MediaStream mediaStream = peerConnectionFactory.createLocalMediaStream("mediaStream");
+        mediaStream.addTrack(localAudioTrack);
+        peerConnection.addStream(mediaStream);
+
         // Load HostCandidate and HostSdp from Firebase when joining the session
         loadHostCandidateAndSdp(sessionKey);
     }
 
-    private void sendIceCandidateToFirebase(IceCandidate candidate, String formattedEmail) {
-        DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
-                .child(formattedEmail)
-                .child("sessions")
-                .child(sessionKey)
-                .child("ViewerCandidate");
+    private void sendIceCandidateToFirebase(IceCandidate candidate) {
+        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+        if (email != null && sessionKey != null) {
+            String formattedEmail = email.replace(".", "_");  // Format email for Firebase paths
 
-        Map<String, Object> candidateData = new HashMap<>();
-        candidateData.put("ViewerSdp", candidate.sdp);
-        candidateData.put("ViewerSdpMid", candidate.sdpMid);
-        candidateData.put("ViewerSdpMLineIndex", candidate.sdpMLineIndex);
+            DatabaseReference iceCandidatesRef = FirebaseDatabase.getInstance().getReference("users")
+                    .child(formattedEmail)
+                    .child("sessions")
+                    .child(sessionKey)
+                    .child("ice_candidates");
 
-        sessionRef.setValue(candidateData)
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Log.d(TAG, "ICE candidate sent to Firebase successfully.");
-                    } else {
-                        Log.e(TAG, "Failed to send ICE candidate to Firebase", task.getException());
-                    }
-                });
+            // Get the next available candidate index
+            iceCandidatesRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    int candidateCount = (int) dataSnapshot.getChildrenCount();
+                    String candidateKey = "candidate_" + (candidateCount + 1);  // Generate unique key for new candidate
+
+                    // Create a map to store the candidate data
+                    Map<String, Object> candidateData = new HashMap<>();
+                    candidateData.put("candidate", candidate.sdp);
+                    candidateData.put("sdpMid", candidate.sdpMid);
+                    candidateData.put("sdpMLineIndex", candidate.sdpMLineIndex);
+
+                    // Set the candidate data in Firebase under the unique key
+                    iceCandidatesRef.child(candidateKey).setValue(candidateData)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    Log.d(TAG, "ICE candidate sent to Firebase.");
+                                } else {
+                                    Log.e(TAG, "Failed to send ICE candidate to Firebase.", task.getException());
+                                }
+                            });
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    Log.e(TAG, "Failed to fetch ice candidates: " + databaseError.getMessage());
+                }
+            });
+        }
     }
 
     private void loadHostCandidateAndSdp(String sessionKey) {
@@ -330,6 +332,7 @@ public class RTCJoiner {
             Log.d(TAG, "PeerConnection disposed.");
         }
     }
+
 
 }
 

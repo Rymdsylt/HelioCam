@@ -50,7 +50,7 @@
             android:orientation="horizontal">
 
             <!-- Microphone Button -->
-            <ImageView
+            <ImageButton
                 android:id="@+id/microphone_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

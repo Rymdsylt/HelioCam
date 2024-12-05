@@ -95,7 +95,7 @@
         android:clickable="true"
         android:focusable="true"
         android:onClick="onPrivacyClicked"
-        android:layout_marginBottom="20dp">>
+        android:layout_marginBottom="20dp">
 
         <ImageView
             android:layout_width="24dp"
@@ -127,9 +127,7 @@
         android:padding="16dp"
         android:background="@drawable/bg_grey_squircle_24"
         android:gravity="center_vertical"
-        android:clickable="true"
-        android:focusable="true"
-        android:onClick="onLicensesClicked">
+       >
 
         <ImageView
             android:layout_width="24dp"

@@ -1,66 +1,84 @@
 package com.summersoft.heliocam.ui;
 
+import android.content.Intent;
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.Toast;
+
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.summersoft.heliocam.R;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link AboutFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
 public class AboutFragment extends Fragment {
-
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
 
     public AboutFragment() {
         // Required empty public constructor
-    }
-
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment fragment_about.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static AboutFragment newInstance(String param1, String param2) {
-        AboutFragment fragment = new AboutFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_about, container, false);
+        View rootView = inflater.inflate(R.layout.fragment_about, container, false);
+
+
+        LinearLayout layoutterms = rootView.findViewById(R.id.terms);
+        LinearLayout layoutprivacy = rootView.findViewById(R.id.privacy);
+        LinearLayout layoutLicense = rootView.findViewById(R.id.licenses);
+
+// Set click listeners for each LinearLayout
+        layoutterms.setOnClickListener(v -> {
+            // Create an instance of DevicesLoginFragment
+           TOSFragment tosFragment = new TOSFragment();
+
+            // Begin a fragment transaction
+            FragmentTransaction transaction = getFragmentManager().beginTransaction();
+
+            // Set the custom animations
+            transaction.setCustomAnimations(
+                    R.anim.slide_in_right,   // Enter animation
+                    0
+            );
+
+            // Replace the current fragment with DevicesLoginFragment
+            transaction.replace(R.id.fragment_container, tosFragment);
+
+            // Optionally add to back stack
+            transaction.addToBackStack(null);
+
+            // Commit the transaction
+            transaction.commit();
+        });
+        layoutprivacy.setOnClickListener(v -> {
+            // Create an instance of DevicesLoginFragment
+            PrivacyFragment privacyFragment = new PrivacyFragment();
+
+            // Begin a fragment transaction
+            FragmentTransaction transaction = getFragmentManager().beginTransaction();
+
+            // Set the custom animations
+            transaction.setCustomAnimations(
+                    R.anim.slide_in_right,   // Enter animation
+                    0
+            );
+
+            // Replace the current fragment with DevicesLoginFragment
+            transaction.replace(R.id.fragment_container, privacyFragment);
+
+            // Optionally add to back stack
+            transaction.addToBackStack(null);
+
+            // Commit the transaction
+            transaction.commit();
+        });
+
+
+        return rootView;
     }
+
 }

@@ -157,10 +157,22 @@ public class RTCHost {
         listenForDisconnect(sessionId, email);
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnectionAdapter() {
             @Override
-            public void onIceCandidate(IceCandidate candidate) {
-                // Send ICE candidate to Firebase (this part already exists)
+            public void onAddStream(MediaStream mediaStream) {
+                super.onAddStream(mediaStream);
+                // Retrieve the remote audio track
+                AudioTrack remoteAudioTrack = mediaStream.audioTracks.get(0); // Assuming only one audio track
+
+                if (remoteAudioTrack != null) {
+                    // Enable the remote audio track
+                    remoteAudioTrack.setEnabled(true);
+
+                    // You can further add the audio track to an audio renderer if necessary
+                    // The audio playback should be handled by WebRTC internally
+                }
             }
         });
+
+
 
         // Listen for incoming ICE candidates from Firebase in real-time
         listenForIceCandidates(sessionId, email);
@@ -176,6 +188,9 @@ public class RTCHost {
         localStream.addTrack(audioTrack);  // Add audio track
         peerConnection.addStream(localStream);
     }
+
+
+
 
 
     public boolean isAudioEnabled = true; // Track audio state

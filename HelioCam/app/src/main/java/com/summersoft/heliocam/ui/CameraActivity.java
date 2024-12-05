@@ -1,28 +1,41 @@
 package com.summersoft.heliocam.ui;
 
+import static com.summersoft.heliocam.status.IMEI_Util.TAG;
+
+import static java.lang.Math.log;
+
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MenuInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
-import android.widget.PopupMenu;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import android.app.AlertDialog;
+import android.content.Context;
+import android.os.Environment;
+import android.os.StatFs;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+
 
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -31,10 +44,8 @@ import org.webrtc.Camera2Enumerator;
 import org.webrtc.CameraVideoCapturer;
 import org.webrtc.EglBase;
 import org.webrtc.SurfaceViewRenderer;
-import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.SurfaceTextureHelper;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -42,9 +53,13 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.detection.SoundDetection;
-import com.summersoft.heliocam.status.LoginStatus;
 
+import com.summersoft.heliocam.recording.RecordHost;
 import com.summersoft.heliocam.webrtc_utils.RTCHost;
+
+import java.io.File;
+import android.os.StatFs;
+
 
 public class CameraActivity extends AppCompatActivity {
     private DatabaseReference mDatabase;
@@ -61,6 +76,8 @@ public class CameraActivity extends AppCompatActivity {
     private boolean isCameraOn = true;
 
     private RTCHost webRTCClient;
+
+    private RecordHost recordHost;
 
     private boolean isMicOn = true;  // Flag for microphone state
 
@@ -173,6 +190,20 @@ public class CameraActivity extends AppCompatActivity {
             toggleMic();
         });
 
+
+        recordHost = new RecordHost(this);
+
+        ImageButton settingsButton = findViewById(R.id.settings_button);
+
+// Register for the context menu
+        registerForContextMenu(settingsButton);
+
+        settingsButton.setOnClickListener(v -> {
+            Log.d("CameraActivity", "Settings button clicked!");
+            v.showContextMenu();  // Show the context menu
+        });
+
+
     }
 
     public void captureCameraView(OnBitmapCapturedListener listener) {
@@ -199,9 +230,14 @@ public class CameraActivity extends AppCompatActivity {
 
         // Check if the clicked view is the settings button
         if (v.getId() == R.id.settings_button) {
+
+            Log.w(TAG, "Im opened");
+
             MenuInflater inflater = getMenuInflater();
-            inflater.inflate(R.menu.camera_audio, menu);  // Inflate the context menu layout (camera_audio.xml)
+            inflater.inflate(R.menu.host_settings, menu);  // Inflate the context menu layout (camera_audio.xml)
         }
+
+
     }
 
     @Override
@@ -213,8 +249,71 @@ public class CameraActivity extends AppCompatActivity {
             case R.id.option_2: // Sound Detection Notification Latency
                 showLatencyDialog();
                 return true;
+            case R.id.option_3: // Start/Stop Recording
+                showRecordDialog();
+                return true;
             default:
                 return super.onContextItemSelected(item);
+        }
+    }
+
+
+    private void showRecordDialog() {
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_record_options, null);
+        TextView tvSelectedPath = dialogView.findViewById(R.id.tv_selected_path);
+        Button btnSelectPath = dialogView.findViewById(R.id.btn_select_path);
+        TextView tvSpaceLeft = dialogView.findViewById(R.id.tv_space_left);
+        Button btnRecordNow = dialogView.findViewById(R.id.btn_record_now);
+
+        // Set default path
+        String selectedPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/NewFolder";
+        tvSelectedPath.setText("Selected Path: " + selectedPath);
+
+        // Update space left in storage
+        updateSpaceLeft(tvSpaceLeft, selectedPath);
+
+        // Handle path selection
+        btnSelectPath.setOnClickListener(v -> {
+            // Declare selectedPath as final inside this scope
+            final String newSelectedPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/UpdatedFolder";
+            tvSelectedPath.setText("Selected Path: " + newSelectedPath);
+            updateSpaceLeft(tvSpaceLeft, newSelectedPath);
+        });
+
+        // Handle recording start/stop
+        btnRecordNow.setOnClickListener(v -> {
+            // Toggle recording (start or stop based on the current state)
+            recordHost.toggleRecording(videoTrack, null); // Pass actual VideoTrack and helper here
+
+            if (recordHost.isRecording()) {
+                btnRecordNow.setText("Stop Recording");
+                Toast.makeText(this, "Recording started.", Toast.LENGTH_SHORT).show();
+            } else {
+                btnRecordNow.setText("Record Now");
+                Toast.makeText(this, "Recording stopped.", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Record Options")
+                .setView(dialogView)
+                .setCancelable(true)
+                .create();
+
+        dialog.show();
+    }
+
+
+    private void updateSpaceLeft(TextView tvSpaceLeft, String path) {
+        try {
+            File storagePath = new File(path);
+            StatFs stat = new StatFs(storagePath.getPath());
+            long bytesAvailable = stat.getBlockSizeLong() * stat.getAvailableBlocksLong();
+            long megabytesAvailable = bytesAvailable / (1024 * 1024);
+            tvSpaceLeft.setText("Space Left: " + megabytesAvailable + " MB");
+        } catch (Exception e) {
+            tvSpaceLeft.setText("Space Left: Error calculating");
+            Log.e(TAG, "Error calculating space left: " + e.getMessage());
         }
     }
 

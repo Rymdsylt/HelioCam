@@ -7,7 +7,7 @@ import org.webrtc.SessionDescription;
 public class SdpAdapter implements SdpObserver {
     private String tag = "SDPAdapter";
 
-    // Constructor accepting a String parameter
+
     public SdpAdapter(String tag) {
         this.tag = tag;
     }

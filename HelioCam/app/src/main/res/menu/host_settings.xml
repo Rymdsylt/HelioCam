@@ -6,4 +6,11 @@
     <item
         android:id="@+id/option_2"
         android:title="Sound Detection Notification Latency" />
+    <item
+        android:id="@+id/option_3"
+        android:title="Record (Normal)" />
+    <item
+        android:id="@+id/option_4"
+        android:title="Record (Replay Buffer)" />
+
 </menu>

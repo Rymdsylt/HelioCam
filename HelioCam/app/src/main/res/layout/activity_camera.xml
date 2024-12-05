@@ -122,7 +122,7 @@
                 android:layout_margin="16dp"
                 android:background="@drawable/baseline_settings_24"
                 android:clickable="true"
-                android:contentDescription="Microphone"
+                android:contentDescription="Setting"
                 android:focusable="true"
                 android:padding="12dp"
                 app:backgroundTint="@color/cardview_dark_background" />

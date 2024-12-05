@@ -74,7 +74,7 @@ public class RTCHost {
 
         rootEglBase = EglBase.create();
         localView.init(rootEglBase.getEglBaseContext(), null);
-        localView.setMirror(true);
+        localView.setMirror(false);
 
         // Enable H264 codec and VP8 codec for maximum device compatibility
         PeerConnectionFactory.Options peerOptions = new PeerConnectionFactory.Options();

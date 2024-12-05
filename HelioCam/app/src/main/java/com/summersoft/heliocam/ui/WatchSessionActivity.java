@@ -3,6 +3,7 @@ package com.summersoft.heliocam.ui;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -37,6 +38,7 @@ import com.google.firebase.database.ValueEventListener;
 
 public class WatchSessionActivity extends AppCompatActivity {
 
+    private FirebaseAuth mAuth;
     private static final String TAG = "WatchSessionActivity";
     private TextView cameraDisabledMessage;
     private RTCJoiner rtcJoin;
@@ -50,6 +52,8 @@ public class WatchSessionActivity extends AppCompatActivity {
 
     private DatabaseReference mDatabase;
 
+    private boolean isMicOn = true;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -61,7 +65,7 @@ public class WatchSessionActivity extends AppCompatActivity {
 
         // Initialize the EglBase for OpenGL rendering
         eglBase = EglBase.create();
-
+        ImageButton micButton = findViewById(R.id.microphone_button);
         // Initialize the SurfaceViewRenderer for video feed
         feedView.init(eglBase.getEglBaseContext(), null);
 
@@ -135,6 +139,34 @@ public class WatchSessionActivity extends AppCompatActivity {
 
         // Set up Firebase listener for camera_off flag
         listenForCameraStatus(sessionKey);
+
+
+        micButton.setOnClickListener(v -> {
+            toggleMic();
+        });
+
+        // Call the listener to monitor mic status
+        listenForMicStatus(sessionKey);
+
+    }
+
+    private void toggleMic() {
+        isMicOn = !isMicOn;
+
+        ImageButton micButton = findViewById(R.id.microphone_button);
+
+        if (isMicOn) {
+            micButton.setImageResource(R.drawable.ic_baseline_mic_24);  // Mic on icon
+            if (rtcJoin != null) {
+                rtcJoin.unmuteMic();
+            }
+        }
+        else {
+            micButton.setImageResource(R.drawable.ic_baseline_mic_off_24);
+            if (rtcJoin != null) {
+                rtcJoin.muteMic();
+            }
+        }
     }
 
     private void listenForCameraStatus(String sessionKey) {
@@ -176,4 +208,36 @@ public class WatchSessionActivity extends AppCompatActivity {
             eglBase.release();
         }
     }
+
+    private void listenForMicStatus(String sessionKey) {
+        String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
+
+        // Add listener to the session's mic_on flag
+        mDatabase.child("users").child(userEmail).child("sessions").child(sessionKey)
+                .child("mic_on")
+                .addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        if (dataSnapshot.exists()) {
+                            Integer micOnFlag = dataSnapshot.getValue(Integer.class);
+                            if (micOnFlag != null && micOnFlag == 0) {
+                                // Display "Host's Mic is off" message
+                                TextView micStatusMessage = findViewById(R.id.mic_status_message);
+                                micStatusMessage.setVisibility(View.VISIBLE);
+                            } else {
+                                // Hide the message if mic_on is not 0
+                                TextView micStatusMessage = findViewById(R.id.mic_status_message);
+                                micStatusMessage.setVisibility(View.GONE);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+                        Log.e(TAG, "Failed to read mic_on status", databaseError.toException());
+                    }
+                });
+    }
+
+
 }

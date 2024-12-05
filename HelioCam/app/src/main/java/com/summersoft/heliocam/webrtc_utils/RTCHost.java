@@ -532,6 +532,17 @@ public class RTCHost {
         }
     }
 
+    public void muteMic() {
+        if (audioTrack != null) {
+            audioTrack.setEnabled(false);  // Disables the microphone
+        }
+    }
+
+    public void unmuteMic() {
+        if (audioTrack != null) {
+            audioTrack.setEnabled(true);  // Enables the microphone
+        }
+    }
 
 }
 

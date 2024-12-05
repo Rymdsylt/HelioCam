@@ -333,6 +333,19 @@ public class RTCJoiner {
         }
     }
 
+    public void muteMic() {
+        if (localAudioTrack != null) {
+            localAudioTrack.setEnabled(false);  // Disables the microphone
+        }
+    }
+
+    public void unmuteMic() {
+        if (localAudioTrack != null) {
+            localAudioTrack.setEnabled(true);  // Enables the microphone
+        }
+    }
+
+
 
 }
 

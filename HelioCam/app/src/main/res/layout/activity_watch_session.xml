@@ -13,6 +13,18 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+        <TextView
+            android:id="@+id/mic_status_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Host's Mic is off."
+            android:textSize="16sp"
+            android:textColor="@android:color/white"
+            android:visibility="gone"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentTop="true"
+            android:padding="10dp"/>
+
         <org.webrtc.SurfaceViewRenderer
             android:id="@+id/feed_view"
             android:layout_width="match_parent"
@@ -79,6 +91,9 @@
                 android:focusable="true"
                 android:padding="12dp"
                 app:backgroundTint="@color/cardview_dark_background" />
+
+
+
 
 
         </LinearLayout>

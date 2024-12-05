@@ -62,6 +62,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private RTCHost webRTCClient;
 
+    private boolean isMicOn = true;  // Flag for microphone state
 
 
 
@@ -112,12 +113,13 @@ public class CameraActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
 
+        // Initialize your camera and WebRTC components
         soundDetection = new SoundDetection(this);
         soundDetection.setSoundThreshold(3000);
         soundDetection.setDetectionLatency(3000);
         soundDetection.startDetection();
 
-        // Check and request permissions for camera and audio (microphone)
+        // Check permissions and other setup code
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
                 ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
 
@@ -130,37 +132,32 @@ public class CameraActivity extends AppCompatActivity {
         cameraView = findViewById(R.id.camera_view);
         ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
         ImageButton toggleCameraButton = findViewById(R.id.video_button);
-        TextView cameraStatusText = findViewById(R.id.cameraStatusText);  // Initialize the cameraStatusText view
-        TextView cameraDisabledText = findViewById(R.id.camera_disabled_text);
+        ImageButton micButton = findViewById(R.id.mic_button);  // Add mic button
 
+        // Your existing WebRTC setup
         webRTCClient = new RTCHost(this, cameraView, mDatabase);
-
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-
         initializeWebRTC(sessionId, userEmail);
 
-        LoginStatus.checkLoginStatus(this);
-        fetchSessionName();
+        // Setup buttons
 
         // Switch camera button
         switchCameraButton.setOnClickListener(v -> {
-            webRTCClient.switchCamera();  // Switch between front and back camera
+            webRTCClient.switchCamera();
         });
 
         // Toggle camera button
         toggleCameraButton.setOnClickListener(v -> {
-            webRTCClient.toggleVideo();  // Toggle camera on/off
+            webRTCClient.toggleVideo();
 
             if (isCameraOn) {
-                cameraStatusText.setVisibility(View.VISIBLE);
-                cameraStatusText.setText("Camera Off");
 
                 if (sessionId != null && !sessionId.isEmpty()) {
                     mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
                             .child("camera_off").setValue(1);
                 }
             } else {
-                cameraStatusText.setVisibility(View.GONE);
+
 
                 if (sessionId != null && !sessionId.isEmpty()) {
                     mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
@@ -171,17 +168,10 @@ public class CameraActivity extends AppCompatActivity {
             isCameraOn = !isCameraOn;
         });
 
-
-        ImageButton settingsButton = findViewById(R.id.settings_button);
-
-// Register for the context menu
-        registerForContextMenu(settingsButton);
-
-        settingsButton.setOnClickListener(v -> {
-            Log.d("CameraActivity", "Settings button clicked!");
-            v.showContextMenu();  // Show the context menu
+        // Toggle mic button
+        micButton.setOnClickListener(v -> {
+            toggleMic();
         });
-
 
     }
 
@@ -311,7 +301,33 @@ public class CameraActivity extends AppCompatActivity {
         webRTCClient.createOffer(sessionId, email);        // Create and send the offer with sessionId and email
     }
 
+    private void toggleMic() {
+        // Toggle the microphone state
+        isMicOn = !isMicOn;
 
+        // Update the microphone state in Firebase
+        String sessionId = getSessionId();
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+
+        if (sessionId != null && !sessionId.isEmpty()) {
+            mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                    .child("mic_on").setValue(isMicOn ? 1 : 0);
+        }
+
+        // Update the mic button icon based on the state
+        ImageButton micButton = findViewById(R.id.mic_button);
+        if (isMicOn) {
+            micButton.setImageResource(R.drawable.ic_baseline_mic_24);  // Mic on icon
+            if (webRTCClient != null) {
+                webRTCClient.unmuteMic(); // Unmute the WebRTC audio
+            }
+        } else {
+            micButton.setImageResource(R.drawable.ic_baseline_mic_off_24);  // Mic off icon
+            if (webRTCClient != null) {
+                webRTCClient.muteMic(); // Mute the WebRTC audio
+            }
+        }
+    }
 
 
     @Override

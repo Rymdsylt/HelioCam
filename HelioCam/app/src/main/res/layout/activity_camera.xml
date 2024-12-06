@@ -85,7 +85,7 @@
                 android:focusable="true"
                 android:padding="12dp"
                 app:backgroundTint="@android:color/holo_red_dark"
-                app:srcCompat="@drawable/ic_baseline_call_end_24" />
+                app:srcCompat="@drawable/baseline_stop_white_24" />
 
             <!-- Video Button -->
             <ImageButton

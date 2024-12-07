@@ -1,6 +1,7 @@
 package com.summersoft.heliocam.webrtc_utils;
 
 import android.content.Context;
+import android.os.Environment;
 import android.util.Log;
 
 import org.webrtc.Camera2Enumerator;
@@ -19,6 +20,8 @@ import org.webrtc.VideoTrack;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.VideoCodecInfo;
+import org.webrtc.VideoFileRenderer;
+import org.webrtc.YuvHelper;
 
 import android.widget.TextView;
 import android.widget.Toast;
@@ -47,6 +50,7 @@ public class RTCHost {
 
     private AudioSource audioSource;
     private AudioTrack audioTrack;
+    private VideoFileRenderer videoFileRenderer;
 
 
 
@@ -543,6 +547,65 @@ public class RTCHost {
             audioTrack.setEnabled(true);  // Enables the microphone
         }
     }
+    public VideoTrack getVideoTrack() {
+        return videoTrack;
+    }
+    public SurfaceTextureHelper getSurface() {
+        return surfaceTextureHelper;
+    }
+    public SurfaceViewRenderer getRenderer(){
+        return localView;
+    }
+
+    public boolean isRecording = false;
+
+    public void startRecording() {
+        if (isRecording) {
+            Log.d(TAG, "Recording is already in progress.");
+            return;  // Exit if already recording
+        }
+
+        int width = 1280;
+        int height = 720;
+        String filePath = Environment.getExternalStorageDirectory().getPath() + "/recorded_video.mp4";
+
+        try {
+            // Initialize VideoFileRenderer
+            videoFileRenderer = new VideoFileRenderer(filePath, width, height, rootEglBase.getEglBaseContext());
+
+            // Add video track as a sink to render video frames to the file
+            if (videoTrack != null) {
+                videoTrack.addSink(videoFileRenderer);
+                isRecording = true;  // Set the flag to indicate that recording has started
+                Log.d(TAG, "Recording started. Saving to: " + filePath);
+            } else {
+                Log.e(TAG, "Video track is not initialized, cannot start recording.");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start recording.", e);
+        }
+    }
+    public void stopRecording() {
+        if (!isRecording) {
+            Log.d(TAG, "No recording is in progress.");
+            return;  // Exit if no recording is ongoing
+        }
+
+        try {
+            // Stop the video track and file renderer
+            videoTrack.removeSink(videoFileRenderer);
+            videoFileRenderer.release(); // Release the resources
+            isRecording = false; // Reset the recording state
+            Log.d(TAG, "Recording stopped.");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to stop recording.", e);
+        }
+    }
+
+
+
 
 }
+
+
 

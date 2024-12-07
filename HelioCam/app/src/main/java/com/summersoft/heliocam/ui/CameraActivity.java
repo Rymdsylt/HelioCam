@@ -153,6 +153,7 @@ public class CameraActivity extends AppCompatActivity {
 
         // Your existing WebRTC setup
         webRTCClient = new RTCHost(this, cameraView, mDatabase);
+
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
         initializeWebRTC(sessionId, userEmail);
 
@@ -282,17 +283,22 @@ public class CameraActivity extends AppCompatActivity {
 
         // Handle recording start/stop
         btnRecordNow.setOnClickListener(v -> {
-            // Toggle recording (start or stop based on the current state)
-            recordHost.toggleRecording(videoTrack, null); // Pass actual VideoTrack and helper here
 
-            if (recordHost.isRecording()) {
+            //Toggle recording (start or stop based on the current state)
+            boolean isRecording = webRTCClient.isRecording;
+
+            if (isRecording) {
+                webRTCClient.startRecording();
+
                 btnRecordNow.setText("Stop Recording");
                 Toast.makeText(this, "Recording started.", Toast.LENGTH_SHORT).show();
             } else {
+                webRTCClient.stopRecording();
                 btnRecordNow.setText("Record Now");
                 Toast.makeText(this, "Recording stopped.", Toast.LENGTH_SHORT).show();
             }
         });
+
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Record Options")

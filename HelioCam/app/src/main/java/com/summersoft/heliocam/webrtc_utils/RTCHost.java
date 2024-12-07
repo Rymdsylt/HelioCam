@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Environment;
 import android.util.Log;
 
+
 import org.webrtc.Camera2Enumerator;
 import org.webrtc.CameraVideoCapturer;
 import org.webrtc.EglBase;
@@ -32,6 +33,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 
@@ -559,7 +561,8 @@ public class RTCHost {
 
     public boolean isRecording = false;
 
-    public void startRecording() {
+    public void startRecording(String filePath) {
+
         if (isRecording) {
             Log.d(TAG, "Recording is already in progress.");
             return;  // Exit if already recording
@@ -567,22 +570,24 @@ public class RTCHost {
 
         int width = 1280;
         int height = 720;
-        String filePath = Environment.getExternalStorageDirectory().getPath() + "/recorded_video.mp4";
 
-        try {
-            // Initialize VideoFileRenderer
-            videoFileRenderer = new VideoFileRenderer(filePath, width, height, rootEglBase.getEglBaseContext());
 
-            // Add video track as a sink to render video frames to the file
-            if (videoTrack != null) {
-                videoTrack.addSink(videoFileRenderer);
-                isRecording = true;  // Set the flag to indicate that recording has started
-                Log.d(TAG, "Recording started. Saving to: " + filePath);
-            } else {
-                Log.e(TAG, "Video track is not initialized, cannot start recording.");
+        if (filePath != null) {
+            try {
+                // Initialize VideoFileRenderer with the correct path
+                videoFileRenderer = new VideoFileRenderer(filePath, width, height, rootEglBase.getEglBaseContext());
+
+                // Start recording
+                if (videoTrack != null) {
+                    videoTrack.addSink(videoFileRenderer);
+                    isRecording = true;
+                    Log.d(TAG, "Recording started. Saving to: " + filePath);
+                } else {
+                    Log.e(TAG, "Video track is not initialized, cannot start recording.");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to start recording.", e);
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start recording.", e);
         }
     }
     public void stopRecording() {

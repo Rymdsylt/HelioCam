@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -143,6 +144,9 @@ public class CameraActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, 100);
         }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+        }
 
         String sessionId = getIntent().getStringExtra("session_id");
 
@@ -163,6 +167,7 @@ public class CameraActivity extends AppCompatActivity {
         switchCameraButton.setOnClickListener(v -> {
             webRTCClient.switchCamera();
         });
+
 
         // Toggle camera button
         toggleCameraButton.setOnClickListener(v -> {
@@ -286,9 +291,19 @@ public class CameraActivity extends AppCompatActivity {
 
             //Toggle recording (start or stop based on the current state)
             boolean isRecording = webRTCClient.isRecording;
-
+            String filePath;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Scoped storage: Use app-specific directory
+                File downloadDirectory = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                filePath = downloadDirectory != null ? downloadDirectory.getAbsolutePath() + "/recorded_video.mp4" : null;
+            } else {
+                // Legacy storage: Use general external storage
+                filePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/Download/recorded_video.mp4";
+            }
             if (isRecording) {
-                webRTCClient.startRecording();
+
+
+                webRTCClient.startRecording(filePath);
 
                 btnRecordNow.setText("Stop Recording");
                 Toast.makeText(this, "Recording started.", Toast.LENGTH_SHORT).show();

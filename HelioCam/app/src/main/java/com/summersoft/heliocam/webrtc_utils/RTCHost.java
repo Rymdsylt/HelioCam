@@ -12,6 +12,7 @@ import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.util.Log;
 
@@ -584,31 +585,6 @@ public class RTCHost {
             return;
         }
 
-        // Safely extract the Activity from the Context
-        Activity activity = null;
-        if (context instanceof Activity) {
-            activity = (Activity) context;
-        }
-
-        if (activity == null) {
-            Log.e(TAG, "Failed to start recording. Context is not an instance of Activity.");
-            return;  // Exit if the context is not an activity
-        }
-
-        // Check and request permissions
-        Log.d(TAG, "Checking WRITE_EXTERNAL_STORAGE permission.");
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            Log.d(TAG, "Permission not granted. Requesting permission.");
-            ActivityCompat.requestPermissions(activity,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    WRITE_EXTERNAL_STORAGE_REQUEST_CODE);
-            return;  // Wait for the user to grant permission
-        } else {
-            Log.d(TAG, "WRITE_EXTERNAL_STORAGE permission already granted.");
-        }
-
-        // Proceed with starting recording if permission is granted
         try {
             Log.d(TAG, "Preparing file path for recording.");
             // File path for raw YUV file (using external storage, but adjust as needed)
@@ -616,75 +592,83 @@ public class RTCHost {
             String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
             Log.d(TAG, "Recording file path: " + filePath);
 
-            int width = 1280;  // Adjust as needed
-            int height = 720;  // Adjust as needed
+            int width = 640;  // Adjust as needed
+            int height = 360;  // Adjust as needed
 
-            // Initialize VideoFileRenderer for saving raw YUV frames
-            videoFileRenderer = new VideoFileRenderer(filePath, width, height, rootEglBase.getEglBaseContext());
-            Log.d(TAG, "VideoFileRenderer initialized.");
 
-            // Add the VideoFileRenderer as a sink to the video track
             if (videoTrack != null) {
-                Log.d(TAG, "Removing localView sink from videoTrack.");
-                videoTrack.removeSink(localView);  // Remove the display sink
-                videoTrack.addSink(videoFileRenderer);  // Add VideoFileRenderer as the sink
+                videoFileRenderer = new VideoFileRenderer(filePath, width, height, rootEglBase.getEglBaseContext());
 
+                Log.d(TAG, "VideoFileRenderer initialized.");
+                Log.d(TAG, "Removing localView sink from videoTrack.");
                 isRecording = true;
                 Log.d(TAG, "Recording started. Saving raw YUV frames to file.");
+
             } else {
                 Log.e(TAG, "Video track is not initialized, cannot start recording.");
             }
         } catch (IOException e) {
             Log.e(TAG, "Failed to start recording.", e);
         }
-    }
-
-
-
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        Log.d(TAG, "onRequestPermissionsResult called.");
-        if (requestCode == WRITE_EXTERNAL_STORAGE_REQUEST_CODE) {
-            Log.d(TAG, "Permission request code matched.");
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission granted, start recording
-                Log.d(TAG, "Permission granted. Starting recording.");
-                startRecording(context);  // Using application context here is fine for general cases
-            } else {
-                // Permission denied
-                Log.e(TAG, "Storage permission denied. Cannot start recording.");
-                Toast.makeText(context, "Permission denied. Cannot start recording.", Toast.LENGTH_SHORT).show();
+        videoTrack.removeSink(localView);
+        videoTrack.addSink(new VideoSink() {
+            @Override
+            public void onFrame(VideoFrame frame) {
+                if (isRecording) {
+                    // Forward the frame to VideoFileRenderer for recording
+                    videoFileRenderer.onFrame(frame);
+                }
             }
-        } else {
-            Log.d(TAG, "Request code does not match WRITE_EXTERNAL_STORAGE_REQUEST_CODE.");
-        }
+        });
     }
-
-
 
     public void stopRecording() {
         if (!isRecording) {
-            Log.d(TAG, "No recording is in progress.");
+            Log.w(TAG, "Recording is not started.");
             return;
         }
 
-        try {
-            Log.d(TAG, "Stopping recording and removing the VideoFileRenderer.");
-            if (videoFileRenderer != null) {
-                Log.d(TAG, "Removing videoFileRenderer from videoTrack.");
-                videoTrack.removeSink(videoFileRenderer);  // Remove the recording sink
-                videoTrack.addSink(localView);  // Re-add localView to display the video
+        // Stop recording
+        isRecording = false;
+        Log.d(TAG, "Recording stopped.");
 
-                videoFileRenderer.release();  // Release resources
-                videoFileRenderer = null;
-            }
-
-            isRecording = false;  // Set recording state to false
-            Log.d(TAG, "Recording stopped. Displaying video on localView.");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to stop recording.", e);
+        // Release the VideoFileRenderer
+        if (videoFileRenderer != null) {
+            videoFileRenderer.release();
+            videoFileRenderer = null;
         }
+        videoTrack.removeSink(new VideoSink() {
+            @Override
+            public void onFrame(VideoFrame frame) {
+                if (isRecording) {
+                    // Forward the frame to VideoFileRenderer for recording
+                    videoFileRenderer.onFrame(frame);
+                }
+            }
+        });
+        videoTrack.addSink(localView);
     }
+public boolean replayBufferOn =false;
+    public void replayBuffer(Context context) {
+        if (isRecording) {
+            Log.w(TAG, "Recording is already in progress.");
+            return;
+        }
+        File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "recording_output.yuv");
+        String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
+        if (replayBufferOn) {
+            try {
+                videoFileRenderer = new VideoFileRenderer(filePath, 640, 360, rootEglBase.getEglBaseContext());
+                isRecording = true;
+                Log.d(TAG, "Recording started");
 
+                new Handler().postDelayed(this::stopRecording, 30000); // 30 seconds delay
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to initialize VideoFileRenderer", e);
+            }
+        }
+
+    }
 
 
 

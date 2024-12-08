@@ -55,7 +55,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.detection.SoundDetection;
 
-import com.summersoft.heliocam.recording.RecordHost;
+
 import com.summersoft.heliocam.webrtc_utils.RTCHost;
 
 import java.io.File;
@@ -78,7 +78,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private RTCHost webRTCClient;
 
-    private RecordHost recordHost;
+
 
     private boolean isMicOn = true;  // Flag for microphone state
 
@@ -197,7 +197,7 @@ public class CameraActivity extends AppCompatActivity {
         });
 
 
-        recordHost = new RecordHost(this);
+      //  recordHost = new RecordHost(this);
 
         ImageButton settingsButton = findViewById(R.id.settings_button);
 
@@ -271,6 +271,7 @@ public class CameraActivity extends AppCompatActivity {
         TextView tvSpaceLeft = dialogView.findViewById(R.id.tv_space_left);
         Button btnRecordNow = dialogView.findViewById(R.id.btn_record_now);
         Button btnRecordStop = dialogView.findViewById(R.id.btn_record_stop);
+        Button btnRecordReplay = dialogView.findViewById(R.id.btn_record_buffer);
 
         // Set default path
         String selectedPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/NewFolder";
@@ -295,6 +296,11 @@ public class CameraActivity extends AppCompatActivity {
         btnRecordStop.setOnClickListener(v -> {
                 webRTCClient.stopRecording();
                 Toast.makeText(this, "Recording stopped.", Toast.LENGTH_SHORT).show();
+        });
+        btnRecordReplay.setOnClickListener(v -> {
+
+            webRTCClient.replayBufferOn = true;
+            Toast.makeText(this, "Replay Buffer on", Toast.LENGTH_SHORT).show();
         });
 
         AlertDialog dialog = new AlertDialog.Builder(this)

@@ -46,4 +46,13 @@
         android:textColor="@android:color/white"
         android:textSize="16sp" />
 
+    <Button
+        android:id="@+id/btn_record_buffer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="?attr/colorPrimary"
+        android:text="Replay Buffer"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
 </LinearLayout>

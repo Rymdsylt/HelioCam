@@ -1,4 +1,4 @@
-package com.summersoft.heliocam.recording;
+/*package com.summersoft.heliocam.recording;
 
 import android.content.Context;
 import android.media.MediaRecorder;
@@ -135,3 +135,4 @@ public class RecordHost {
         return outputFilePath;
     }
 }
+*/

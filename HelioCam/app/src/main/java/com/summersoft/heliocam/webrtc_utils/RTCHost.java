@@ -1,7 +1,18 @@
 package com.summersoft.heliocam.webrtc_utils;
 
+import static com.summersoft.heliocam.status.IMEI_Util.TAG;
+
+import android.Manifest;
+import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.media.MediaCodec;
+import android.media.MediaFormat;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.Log;
 
 
@@ -16,24 +27,35 @@ import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoFrame;
+import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.VideoCodecInfo;
 import org.webrtc.VideoFileRenderer;
+import org.webrtc.YuvConverter;
 import org.webrtc.YuvHelper;
 
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
+import com.summersoft.heliocam.webrtcfork.MultiSinkVideoRenderer;
+
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -47,13 +69,15 @@ public class RTCHost {
     private PeerConnectionFactory peerConnectionFactory;
     private PeerConnection peerConnection;
     private VideoTrack videoTrack;
+    private VideoTrack videoTrackRecord;
     private VideoSource videoSource;
     private EglBase rootEglBase;
 
     private AudioSource audioSource;
     private AudioTrack audioTrack;
     private VideoFileRenderer videoFileRenderer;
-
+    private MultiSinkVideoRenderer multiSink;
+    private static final int WRITE_EXTERNAL_STORAGE_REQUEST_CODE = 1;
 
 
 
@@ -66,11 +90,12 @@ public class RTCHost {
     private String turnServer = "turn:asia.relay.metered.ca:80?transport=tcp";
     private String turnUsername = "08a10b202c595304495012c2";
     private String turnPassword = "JnsH2+jc2q3/uGon";
-
+    private Context context;
 
     public RTCHost(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
         this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
+        this.context = context;
 
 
         // Initialize WebRTC
@@ -549,63 +574,124 @@ public class RTCHost {
             audioTrack.setEnabled(true);  // Enables the microphone
         }
     }
-    public VideoTrack getVideoTrack() {
-        return videoTrack;
-    }
-    public SurfaceTextureHelper getSurface() {
-        return surfaceTextureHelper;
-    }
-    public SurfaceViewRenderer getRenderer(){
-        return localView;
-    }
+
 
     public boolean isRecording = false;
 
-    public void startRecording(String filePath) {
-
+    public void startRecording(Context context) {
         if (isRecording) {
             Log.d(TAG, "Recording is already in progress.");
-            return;  // Exit if already recording
+            return;
         }
 
-        int width = 1280;
-        int height = 720;
+        // Safely extract the Activity from the Context
+        Activity activity = null;
+        if (context instanceof Activity) {
+            activity = (Activity) context;
+        }
 
+        if (activity == null) {
+            Log.e(TAG, "Failed to start recording. Context is not an instance of Activity.");
+            return;  // Exit if the context is not an activity
+        }
 
-        if (filePath != null) {
-            try {
-                // Initialize VideoFileRenderer with the correct path
-                videoFileRenderer = new VideoFileRenderer(filePath, width, height, rootEglBase.getEglBaseContext());
+        // Check and request permissions
+        Log.d(TAG, "Checking WRITE_EXTERNAL_STORAGE permission.");
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "Permission not granted. Requesting permission.");
+            ActivityCompat.requestPermissions(activity,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    WRITE_EXTERNAL_STORAGE_REQUEST_CODE);
+            return;  // Wait for the user to grant permission
+        } else {
+            Log.d(TAG, "WRITE_EXTERNAL_STORAGE permission already granted.");
+        }
 
-                // Start recording
-                if (videoTrack != null) {
-                    videoTrack.addSink(videoFileRenderer);
-                    isRecording = true;
-                    Log.d(TAG, "Recording started. Saving to: " + filePath);
-                } else {
-                    Log.e(TAG, "Video track is not initialized, cannot start recording.");
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to start recording.", e);
+        // Proceed with starting recording if permission is granted
+        try {
+            Log.d(TAG, "Preparing file path for recording.");
+            // File path for raw YUV file (using external storage, but adjust as needed)
+            File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "recording_output.yuv");
+            String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
+            Log.d(TAG, "Recording file path: " + filePath);
+
+            int width = 1280;  // Adjust as needed
+            int height = 720;  // Adjust as needed
+
+            // Initialize VideoFileRenderer for saving raw YUV frames
+            videoFileRenderer = new VideoFileRenderer(filePath, width, height, rootEglBase.getEglBaseContext());
+            Log.d(TAG, "VideoFileRenderer initialized.");
+
+            // Add the VideoFileRenderer as a sink to the video track
+            if (videoTrack != null) {
+                Log.d(TAG, "Removing localView sink from videoTrack.");
+                videoTrack.removeSink(localView);  // Remove the display sink
+                videoTrack.addSink(videoFileRenderer);  // Add VideoFileRenderer as the sink
+
+                isRecording = true;
+                Log.d(TAG, "Recording started. Saving raw YUV frames to file.");
+            } else {
+                Log.e(TAG, "Video track is not initialized, cannot start recording.");
             }
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to start recording.", e);
         }
     }
+
+
+
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        Log.d(TAG, "onRequestPermissionsResult called.");
+        if (requestCode == WRITE_EXTERNAL_STORAGE_REQUEST_CODE) {
+            Log.d(TAG, "Permission request code matched.");
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted, start recording
+                Log.d(TAG, "Permission granted. Starting recording.");
+                startRecording(context);  // Using application context here is fine for general cases
+            } else {
+                // Permission denied
+                Log.e(TAG, "Storage permission denied. Cannot start recording.");
+                Toast.makeText(context, "Permission denied. Cannot start recording.", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Log.d(TAG, "Request code does not match WRITE_EXTERNAL_STORAGE_REQUEST_CODE.");
+        }
+    }
+
+
+
     public void stopRecording() {
         if (!isRecording) {
             Log.d(TAG, "No recording is in progress.");
-            return;  // Exit if no recording is ongoing
+            return;
         }
 
         try {
-            // Stop the video track and file renderer
-            videoTrack.removeSink(videoFileRenderer);
-            videoFileRenderer.release(); // Release the resources
-            isRecording = false; // Reset the recording state
-            Log.d(TAG, "Recording stopped.");
+            Log.d(TAG, "Stopping recording and removing the VideoFileRenderer.");
+            if (videoFileRenderer != null) {
+                Log.d(TAG, "Removing videoFileRenderer from videoTrack.");
+                videoTrack.removeSink(videoFileRenderer);  // Remove the recording sink
+                videoTrack.addSink(localView);  // Re-add localView to display the video
+
+                videoFileRenderer.release();  // Release resources
+                videoFileRenderer = null;
+            }
+
+            isRecording = false;  // Set recording state to false
+            Log.d(TAG, "Recording stopped. Displaying video on localView.");
         } catch (Exception e) {
             Log.e(TAG, "Failed to stop recording.", e);
         }
     }
+
+
+
+
+
+
+//Permission
+
 
 
 

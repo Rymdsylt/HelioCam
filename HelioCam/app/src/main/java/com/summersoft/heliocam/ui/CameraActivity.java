@@ -270,6 +270,7 @@ public class CameraActivity extends AppCompatActivity {
         Button btnSelectPath = dialogView.findViewById(R.id.btn_select_path);
         TextView tvSpaceLeft = dialogView.findViewById(R.id.tv_space_left);
         Button btnRecordNow = dialogView.findViewById(R.id.btn_record_now);
+        Button btnRecordStop = dialogView.findViewById(R.id.btn_record_stop);
 
         // Set default path
         String selectedPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/NewFolder";
@@ -288,32 +289,13 @@ public class CameraActivity extends AppCompatActivity {
 
         // Handle recording start/stop
         btnRecordNow.setOnClickListener(v -> {
-
-            //Toggle recording (start or stop based on the current state)
-            boolean isRecording = webRTCClient.isRecording;
-            String filePath;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Scoped storage: Use app-specific directory
-                File downloadDirectory = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-                filePath = downloadDirectory != null ? downloadDirectory.getAbsolutePath() + "/recorded_video.mp4" : null;
-            } else {
-                // Legacy storage: Use general external storage
-                filePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/Download/recorded_video.mp4";
-            }
-            if (isRecording) {
-
-
-                webRTCClient.startRecording(filePath);
-
-                btnRecordNow.setText("Stop Recording");
+                webRTCClient.startRecording(this);
                 Toast.makeText(this, "Recording started.", Toast.LENGTH_SHORT).show();
-            } else {
-                webRTCClient.stopRecording();
-                btnRecordNow.setText("Record Now");
-                Toast.makeText(this, "Recording stopped.", Toast.LENGTH_SHORT).show();
-            }
         });
-
+        btnRecordStop.setOnClickListener(v -> {
+                webRTCClient.stopRecording();
+                Toast.makeText(this, "Recording stopped.", Toast.LENGTH_SHORT).show();
+        });
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Record Options")
@@ -519,6 +501,9 @@ public class CameraActivity extends AppCompatActivity {
         peerConnectionFactory.dispose();
         rootEglBase.release();
     }
+
+
+
 
     public String getSessionId() {
         return getIntent().getStringExtra("session_id");

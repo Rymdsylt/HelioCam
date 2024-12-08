@@ -298,7 +298,6 @@ public Context context;
                 Toast.makeText(this, "Recording stopped.", Toast.LENGTH_SHORT).show();
         });
         btnRecordReplay.setOnClickListener(v -> {
-
             webRTCClient.replayBufferOn = true;
             Toast.makeText(this, "Replay Buffer on", Toast.LENGTH_SHORT).show();
         });

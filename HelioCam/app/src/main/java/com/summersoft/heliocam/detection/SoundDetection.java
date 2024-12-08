@@ -172,7 +172,8 @@ public class SoundDetection {
                 captureAndUploadScreenshot(sessionId);
 
                 //replay buffer
-                
+
+
             } else {
                 Log.w("SoundDetection", "User email or session ID is null. Cannot log notification.");
             }

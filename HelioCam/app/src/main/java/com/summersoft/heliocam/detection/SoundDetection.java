@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.Camera;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.net.Uri;
@@ -27,6 +28,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import com.summersoft.heliocam.webrtc_utils.RTCHost;
 
 public class SoundDetection {
     private static final int SAMPLE_RATE = 44100; // Sampling rate in Hz
@@ -168,6 +170,9 @@ public class SoundDetection {
 
                 // Capture and upload a screenshot
                 captureAndUploadScreenshot(sessionId);
+
+                //replay buffer
+                
             } else {
                 Log.w("SoundDetection", "User email or session ID is null. Cannot log notification.");
             }

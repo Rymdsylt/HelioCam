@@ -75,7 +75,7 @@ public class CameraActivity extends AppCompatActivity {
     private boolean isUsingFrontCamera = true;
 
     private boolean isCameraOn = true;
-
+public Context context;
     private RTCHost webRTCClient;
 
 
@@ -127,7 +127,7 @@ public class CameraActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
-
+        Context context = CameraActivity.this;
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
 

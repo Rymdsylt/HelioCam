@@ -59,6 +59,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
@@ -93,6 +94,9 @@ public class RTCHost {
     private String turnPassword = "JnsH2+jc2q3/uGon";
     private Context context;
 
+public RTCHost(){
+
+}
     public RTCHost(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
         this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
@@ -587,13 +591,15 @@ public class RTCHost {
 
         try {
             Log.d(TAG, "Preparing file path for recording.");
-            // File path for raw YUV file (using external storage, but adjust as needed)
-            File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "recording_output.yuv");
+            // Generate a unique file name using UUID
+            String randomFileName = "recording_" + UUID.randomUUID().toString() + ".yuv";
+            File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), randomFileName);
             String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
             Log.d(TAG, "Recording file path: " + filePath);
 
-            int width = 640;  // Adjust as needed
-            int height = 360;  // Adjust as needed
+            int width = 640;  // Adjust width as needed
+            int height = 360;  // Adjust height as needed
+
 
 
             if (videoTrack != null) {
@@ -610,7 +616,7 @@ public class RTCHost {
         } catch (IOException e) {
             Log.e(TAG, "Failed to start recording.", e);
         }
-        videoTrack.removeSink(localView);
+       videoTrack.addSink(localView);
         videoTrack.addSink(new VideoSink() {
             @Override
             public void onFrame(VideoFrame frame) {
@@ -646,7 +652,7 @@ public class RTCHost {
                 }
             }
         });
-        videoTrack.addSink(localView);
+      videoTrack.addSink(localView);
     }
 public boolean replayBufferOn =false;
     public void replayBuffer(Context context) {
@@ -654,7 +660,8 @@ public boolean replayBufferOn =false;
             Log.w(TAG, "Recording is already in progress.");
             return;
         }
-        File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "recording_output.yuv");
+        File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES),
+                "recording_" + UUID.randomUUID().toString() + ".yuv");
         String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
         if (replayBufferOn) {
             try {

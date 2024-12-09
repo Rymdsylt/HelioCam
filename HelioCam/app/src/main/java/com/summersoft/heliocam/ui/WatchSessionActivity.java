@@ -31,6 +31,7 @@ import org.webrtc.DefaultVideoDecoderFactory;
 
 import java.lang.reflect.Type;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,8 +48,7 @@ public class WatchSessionActivity extends AppCompatActivity {
     private RTCJoiner rtcJoin;
     private SurfaceViewRenderer feedView;
     private EglBase eglBase;
-    private boolean ignoreRequests = false; // Flag to ignore join requests temporarily
-
+    private boolean ignoreRequests = false;
 
     private String stunServer = "stun:stun.relay.metered.ca:80";
     private String turnServer = "turn:asia.relay.metered.ca:80?transport=tcp";
@@ -64,27 +64,22 @@ public class WatchSessionActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_watch_session);
 
-        // Initialize UI components
         cameraDisabledMessage = findViewById(R.id.camera_disabled_message);
         feedView = findViewById(R.id.feed_view);
 
-        // Initialize the EglBase for OpenGL rendering
         eglBase = EglBase.create();
         ImageButton micButton = findViewById(R.id.microphone_button);
-        // Initialize the SurfaceViewRenderer for video feed
+
         feedView.init(eglBase.getEglBaseContext(), null);
 
-        // Set padding for system bars
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
-        // Initialize Firebase Database
         mDatabase = FirebaseDatabase.getInstance().getReference();
 
-        // Initialize PeerConnectionFactory with video encoder/decoder
         PeerConnectionFactory.InitializationOptions options =
                 PeerConnectionFactory.InitializationOptions.builder(this)
                         .createInitializationOptions();
@@ -95,31 +90,26 @@ public class WatchSessionActivity extends AppCompatActivity {
                 .setVideoDecoderFactory(new DefaultVideoDecoderFactory(eglBase.getEglBaseContext()))
                 .createPeerConnectionFactory();
 
-        // Initialize ICE servers with provided STUN and TURN server details
         List<IceServer> iceServers = Arrays.asList(
                 IceServer.builder(stunServer).createIceServer(),
                 IceServer.builder(turnServer).setUsername(turnUsername).setPassword(turnPassword).createIceServer()
         );
 
-        // Retrieve intent data
         String sessionKey = getIntent().getStringExtra("SESSION_KEY");
         String sessionName = getIntent().getStringExtra("SESSION_NAME");
         String sdpOffer = getIntent().getStringExtra("OFFER");
         String iceCandidatesJson = getIntent().getStringExtra("ICE_CANDIDATES");
 
-        // Log received data
         Log.d(TAG, "Session Key: " + sessionKey);
         Log.d(TAG, "Session Name: " + sessionName);
         Log.d(TAG, "SDP Offer: " + sdpOffer);
         Log.d(TAG, "ICE Candidates JSON: " + iceCandidatesJson);
 
-        // Parse and process the received session data
         if (sdpOffer != null) {
-            rtcJoin = new RTCJoiner(this, peerConnectionFactory, iceServers, sessionKey, feedView);  // Pass sessionKey and feedView
+            rtcJoin = new RTCJoiner(this, peerConnectionFactory, iceServers, sessionKey, feedView);
             rtcJoin.joinSession();
         }
 
-        // Parse ICE candidates JSON into a Map
         if (iceCandidatesJson != null) {
             try {
                 Gson gson = new Gson();
@@ -142,19 +132,15 @@ public class WatchSessionActivity extends AppCompatActivity {
             }
         }
 
-        // Set up Firebase listener for camera_off flag
         listenForCameraStatus(sessionKey);
-
 
         micButton.setOnClickListener(v -> {
             toggleMic();
         });
 
-        // Call the listener to monitor mic status
         listenForMicStatus(sessionKey);
 
         listenForJoinRequests(sessionKey);
-
 
     }
 
@@ -164,7 +150,7 @@ public class WatchSessionActivity extends AppCompatActivity {
         ImageButton micButton = findViewById(R.id.microphone_button);
 
         if (isMicOn) {
-            micButton.setImageResource(R.drawable.ic_baseline_mic_24);  // Mic on icon
+            micButton.setImageResource(R.drawable.ic_baseline_mic_24);
             if (rtcJoin != null) {
                 rtcJoin.unmuteMic();
             }
@@ -180,7 +166,6 @@ public class WatchSessionActivity extends AppCompatActivity {
     private void listenForCameraStatus(String sessionKey) {
         String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
 
-        // Add listener to the session's camera_off flag
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionKey)
                 .child("camera_off")
                 .addValueEventListener(new ValueEventListener() {
@@ -189,12 +174,12 @@ public class WatchSessionActivity extends AppCompatActivity {
                         if (dataSnapshot.exists()) {
                             Integer cameraOffFlag = dataSnapshot.getValue(Integer.class);
                             if (cameraOffFlag != null && cameraOffFlag == 1) {
-                                // Display "Camera Off" message
+
                                 cameraDisabledMessage.setText("Camera Off");
                                 cameraDisabledMessage.setVisibility(View.VISIBLE);
                             }
                         } else {
-                            cameraDisabledMessage.setVisibility(View.GONE);  // Hide the message if camera_off is not set
+                            cameraDisabledMessage.setVisibility(View.GONE);
                         }
                     }
 
@@ -215,12 +200,24 @@ public class WatchSessionActivity extends AppCompatActivity {
         if (eglBase != null) {
             eglBase.release();
         }
+
+        deleteWantJoinStatus();
+
+    }
+
+    private void deleteWantJoinStatus() {
+        String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
+        String sessionKey = getIntent().getStringExtra("SESSION_KEY");
+
+        if (sessionKey != null) {
+            mDatabase.child("users").child(userEmail).child("sessions").child(sessionKey)
+                    .child("want_join").removeValue();
+        }
     }
 
     private void listenForMicStatus(String sessionKey) {
         String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
 
-        // Add listener to the session's mic_on flag
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionKey)
                 .child("mic_on")
                 .addValueEventListener(new ValueEventListener() {
@@ -229,11 +226,11 @@ public class WatchSessionActivity extends AppCompatActivity {
                         if (dataSnapshot.exists()) {
                             Integer micOnFlag = dataSnapshot.getValue(Integer.class);
                             if (micOnFlag != null && micOnFlag == 0) {
-                                // Display "Host's Mic is off" message
+
                                 TextView micStatusMessage = findViewById(R.id.mic_status_message);
                                 micStatusMessage.setVisibility(View.VISIBLE);
                             } else {
-                                // Hide the message if mic_on is not 0
+
                                 TextView micStatusMessage = findViewById(R.id.mic_status_message);
                                 micStatusMessage.setVisibility(View.GONE);
                             }
@@ -246,7 +243,6 @@ public class WatchSessionActivity extends AppCompatActivity {
                     }
                 });
     }
-
 
     private void listenForJoinRequests(String sessionKey) {
         String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
@@ -271,37 +267,54 @@ public class WatchSessionActivity extends AppCompatActivity {
                 });
     }
 
+    private AlertDialog dialog;
+
     private void showJoinRequestDialog(String sessionKey) {
+        if (isFinishing()) return;
+
         runOnUiThread(() -> {
-            // Inflate custom layout for the dialog
+
             View dialogView = getLayoutInflater().inflate(R.layout.dialog_join_request, null);
             CheckBox ignoreCheckbox = dialogView.findViewById(R.id.ignore_checkbox);
 
-            // Create and show the dialog
-            new AlertDialog.Builder(this)
+            dialog = new AlertDialog.Builder(this)
                     .setTitle("Join Request")
                     .setMessage("Someone wants to join your session. Leave?")
                     .setView(dialogView)
                     .setPositiveButton("Yes", (dialog, which) -> {
-                        // Leave the session
-                        finish(); // Go back to the previous activity
+
+                        deleteWantJoinStatus();
+                        finish();
                     })
                     .setNegativeButton("No", (dialog, which) -> {
+                        deleteWantJoinStatus();
+
                         if (ignoreCheckbox.isChecked()) {
-                            ignoreRequests = true; // Ignore further requests for 1 minute
+                            ignoreRequests = true;
+                            deleteWantJoinStatus();
                             resetIgnoreFlagAfterDelay();
                         }
+
+                        Map<String, Object> declinedStatus = new HashMap<>();
+                        declinedStatus.put("declined", 1);
+
+                        String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
+                        mDatabase.child("users").child(userEmail).child("sessions").child(sessionKey)
+                                .updateChildren(declinedStatus);
                     })
                     .setCancelable(false)
                     .show();
         });
     }
 
+
     private void resetIgnoreFlagAfterDelay() {
         new Handler().postDelayed(() -> {
-            ignoreRequests = false; // Reset the flag after 1 minute
-        }, 60000); // 60000ms = 1 minute
+            ignoreRequests = false;
+            if (dialog != null && dialog.isShowing()) {
+                dialog.dismiss();
+            }
+        }, 60000);
     }
-
 
 }

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-
     <!-- PERMS -->
     <uses-feature
         android:name="android.hardware.camera"
@@ -15,21 +14,16 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.WRITE_MEDIA_VIDEO"/>
+    <uses-permission android:name="android.permission.WRITE_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.WRITE_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-
-
-
-
     <uses-permission
         android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <!-- END OF PERMS -->
 
     <application
         android:allowBackup="true"
@@ -42,7 +36,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.HelioCam"
         tools:targetApi="31">
-
+        <activity
+            android:name=".ui.ActivityForgotPassword"
+            android:exported="false" />
         <!-- android name para sa layout testing, format .ui.(name ng activity) -->
         <activity
             android:name=".ui.StartActivity"
@@ -52,45 +48,33 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".ui.LoginActivity"
             android:exported="false" />
-
         <activity
             android:name=".ui.HomeActivity"
             android:exported="false" />
-
         <activity
             android:name=".ui.SignupActivity"
             android:exported="false" />
-
         <activity
             android:name=".ui.AddSessionActivity"
             android:exported="false" />
-
         <activity
             android:name=".ui.UsePhoneActivity"
             android:exported="false" />
-
         <activity
             android:name=".ui.CameraActivity"
             android:exported="false" />
-
         <activity
             android:name=".ui.WatchSessionActivity"
-            android:exported="false" />
-
-        <!-- Service declaration -->
+            android:exported="false" /> <!-- Service declaration -->
         <service
             android:name=".notifs.SoundNotifService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync"
-            android:permission="android.permission.FOREGROUND_SERVICE"/>
-
-
-
+            android:permission="android.permission.FOREGROUND_SERVICE" />
     </application>
 
 </manifest>

@@ -36,7 +36,6 @@ public class LoginActivity extends AppCompatActivity {
         findViewById(R.id.enterBtn).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Before attempting to login, check if location permissions are granted
                 if (checkLocationPermissions()) {
                     loginUser();
                 } else {
@@ -53,6 +52,15 @@ public class LoginActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+
+        findViewById(R.id.forgotPasswordLink).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(LoginActivity.this, ActivityForgotPassword.class); // Create an intent to open ActivityForgotPassword
+                startActivity(intent);
+            }
+        });
+
     }
 
     private boolean checkLocationPermissions() {

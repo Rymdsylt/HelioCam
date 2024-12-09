@@ -155,32 +155,7 @@
             <LinearLayout
                 android:orientation="horizontal"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <TextView
-                    android:id="@+id/tvEmail"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="0.5"
-                    android:text="Email:"
-                    android:textColor="@color/black"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:gravity="center_vertical"
-                    android:padding="8dp" />
-
-                <EditText
-                    android:id="@+id/EtEmailValue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:text="jk2004@gmail.com"
-                    android:textColor="@color/black"
-                    android:textSize="16sp"
-                    android:gravity="center_vertical"
-                    android:background="@drawable/bg_grey_squircle_24"
-                    android:padding="8dp" />
-            </LinearLayout>
+                android:layout_height="wrap_content"/>
 
             <LinearLayout
                 android:orientation="horizontal"
@@ -279,41 +254,7 @@
                 android:orientation="horizontal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp">
-
-                <TextView
-                    android:id="@+id/Password"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="0.5"
-                    android:text="Password:"
-                    android:textColor="@color/black"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    android:gravity="center_vertical"
-                    android:padding="8dp" />
-
-                <EditText
-                    android:id="@+id/EtPassword"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:text="****************"
-                    android:textColor="@color/black"
-                    android:textSize="16sp"
-                    android:gravity="center_vertical"
-                    android:background="@drawable/bg_grey_squircle_24"
-                    android:padding="8dp" />
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/btnShowPassword"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Show"
-                android:textColor="@color/blue"
-                android:layout_gravity="end"
-                android:layout_marginTop="8dp"/>
+                android:layout_marginTop="16dp"/>
 
             <com.google.android.material.bottomnavigation.BottomNavigationView
                 android:id="@+id/bottomNavigation"

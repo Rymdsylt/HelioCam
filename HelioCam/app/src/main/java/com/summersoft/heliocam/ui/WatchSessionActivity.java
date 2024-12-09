@@ -1,11 +1,14 @@
 package com.summersoft.heliocam.ui;
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -44,6 +47,8 @@ public class WatchSessionActivity extends AppCompatActivity {
     private RTCJoiner rtcJoin;
     private SurfaceViewRenderer feedView;
     private EglBase eglBase;
+    private boolean ignoreRequests = false; // Flag to ignore join requests temporarily
+
 
     private String stunServer = "stun:stun.relay.metered.ca:80";
     private String turnServer = "turn:asia.relay.metered.ca:80?transport=tcp";
@@ -148,6 +153,9 @@ public class WatchSessionActivity extends AppCompatActivity {
         // Call the listener to monitor mic status
         listenForMicStatus(sessionKey);
 
+        listenForJoinRequests(sessionKey);
+
+
     }
 
     private void toggleMic() {
@@ -237,6 +245,62 @@ public class WatchSessionActivity extends AppCompatActivity {
                         Log.e(TAG, "Failed to read mic_on status", databaseError.toException());
                     }
                 });
+    }
+
+
+    private void listenForJoinRequests(String sessionKey) {
+        String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
+
+        mDatabase.child("users").child(userEmail).child("sessions").child(sessionKey)
+                .child("want_join")
+                .addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        if (!ignoreRequests && dataSnapshot.exists()) {
+                            Integer wantJoinFlag = dataSnapshot.getValue(Integer.class);
+                            if (wantJoinFlag != null && wantJoinFlag == 1) {
+                                showJoinRequestDialog(sessionKey);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+                        Log.e(TAG, "Failed to read want_join status", databaseError.toException());
+                    }
+                });
+    }
+
+    private void showJoinRequestDialog(String sessionKey) {
+        runOnUiThread(() -> {
+            // Inflate custom layout for the dialog
+            View dialogView = getLayoutInflater().inflate(R.layout.dialog_join_request, null);
+            CheckBox ignoreCheckbox = dialogView.findViewById(R.id.ignore_checkbox);
+
+            // Create and show the dialog
+            new AlertDialog.Builder(this)
+                    .setTitle("Join Request")
+                    .setMessage("Someone wants to join your session. Leave?")
+                    .setView(dialogView)
+                    .setPositiveButton("Yes", (dialog, which) -> {
+                        // Leave the session
+                        finish(); // Go back to the previous activity
+                    })
+                    .setNegativeButton("No", (dialog, which) -> {
+                        if (ignoreCheckbox.isChecked()) {
+                            ignoreRequests = true; // Ignore further requests for 1 minute
+                            resetIgnoreFlagAfterDelay();
+                        }
+                    })
+                    .setCancelable(false)
+                    .show();
+        });
+    }
+
+    private void resetIgnoreFlagAfterDelay() {
+        new Handler().postDelayed(() -> {
+            ignoreRequests = false; // Reset the flag after 1 minute
+        }, 60000); // 60000ms = 1 minute
     }
 
 

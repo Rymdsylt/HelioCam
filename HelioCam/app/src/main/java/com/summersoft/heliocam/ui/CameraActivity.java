@@ -80,46 +80,85 @@ public Context context;
 
 
 
-    private boolean isMicOn = true;  // Flag for microphone state
-
-
+    private boolean isMicOn = true;
 
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
-        if (soundDetection != null) {
-            soundDetection.stopDetection();
-        }
-
-        // Ensure you have sessionId and userEmail available, as they are required by dispose().
-        String sessionId = getIntent().getStringExtra("session_id");
+        String sessionId = getSessionId();
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
 
-        // Dispose of the WebRTC client resources and video capturer
-        if (webRTCClient != null) {
-            webRTCClient.dispose(sessionId, userEmail);  // Pass sessionId and userEmail to dispose()
+        if (sessionId != null && !sessionId.isEmpty()) {
+            mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                    .removeValue()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Log.d("CameraActivity", "Session deleted successfully in onDestroy.");
+                        } else {
+                            Log.e("CameraActivity", "Failed to delete session in onDestroy: " + task.getException());
+                        }
+                    });
         }
 
+        disposeResources();
+    }
+
+
+
+
+    @Override
+    public void onBackPressed() {
+        // Create a confirmation dialog
+        new AlertDialog.Builder(this)
+                .setTitle("End Session")
+                .setMessage("Closing will also end the session. Continue?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    // Delete session details from Firebase
+                    String sessionId = getSessionId();
+                    String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+                    if (sessionId != null && !sessionId.isEmpty()) {
+                        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                                .removeValue()
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful()) {
+                                        Log.d("CameraActivity", "Session deleted successfully.");
+                                    } else {
+                                        Log.e("CameraActivity", "Failed to delete session: " + task.getException());
+                                    }
+                                });
+                    }
+
+                    // Call the standard back button behavior to close the activity
+                    disposeResources();
+                    super.onBackPressed();
+                })
+                .setNegativeButton("No", (dialog, which) -> dialog.dismiss())
+                .setCancelable(true)
+                .create()
+                .show();
+    }
+
+    // Dispose resources properly
+    private void disposeResources() {
         if (videoCapturer != null) {
             try {
                 videoCapturer.stopCapture();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            videoCapturer.dispose(); // Clean up the video capturer
+            videoCapturer.dispose();
         }
-
-        // Dispose of other resources
         if (peerConnectionFactory != null) {
-            peerConnectionFactory.dispose(); // Clean up the peer connection factory
+            peerConnectionFactory.dispose();
         }
-
         if (rootEglBase != null) {
-            rootEglBase.release(); // Release the EGL context
+            rootEglBase.release();
         }
+        Log.d("CameraActivity", "Resources disposed successfully.");
     }
+
+
 
 
 
@@ -191,17 +230,14 @@ public Context context;
             isCameraOn = !isCameraOn;
         });
 
-        // Toggle mic button
         micButton.setOnClickListener(v -> {
             toggleMic();
         });
 
 
-      //  recordHost = new RecordHost(this);
 
         ImageButton settingsButton = findViewById(R.id.settings_button);
 
-// Register for the context menu
         registerForContextMenu(settingsButton);
 
         settingsButton.setOnClickListener(v -> {
@@ -492,20 +528,6 @@ public Context context;
         return null;
     }
 
-    @Override
-    protected void onStop() {
-        super.onStop();
-        if (videoCapturer != null) {
-            try {
-                videoCapturer.stopCapture();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            videoCapturer.dispose();
-        }
-        peerConnectionFactory.dispose();
-        rootEglBase.release();
-    }
 
 
 

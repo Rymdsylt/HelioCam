@@ -81,24 +81,49 @@ public class SessionLoader {
                                             String iceCandidatesJsonLocal = new Gson().toJson(sessionSnapshot.child("ice_candidates").getValue());
 
                                             // Set up the click listener for the session card
+                                            // Adjusted onClick listener in loadUserSessions method
                                             sessionCard.setOnClickListener(v -> {
-                                                // Extract the required session data fields
-                                                String offer = sessionSnapshot.child("Offer").getValue(String.class);
-                                                Map<String, Object> iceCandidates = (Map<String, Object>) sessionSnapshot.child("ice_candidates").getValue();
+                                                // Get session key from the tag of the clicked view
+                                                String sessionKeyTag = (String) v.getTag();
+                                                String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
 
-                                                // Convert the iceCandidates to a JSON string for transfer
-                                                String iceCandidatesJson = new Gson().toJson(iceCandidates);
+                                                // Check if the session still exists in the user's sessions
+                                                DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users").child(userEmail).child("sessions").child(sessionKeyTag);
+                                                sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                                                    @Override
+                                                    public void onDataChange(DataSnapshot dataSnapshot) {
+                                                        if (dataSnapshot.exists()) {
+                                                            // Session exists, proceed with sending data to WatchSessionActivity
+                                                            String sessionName = dataSnapshot.child("session_name").getValue(String.class);
+                                                            String offer = dataSnapshot.child("Offer").getValue(String.class);
+                                                            Map<String, Object> iceCandidates = (Map<String, Object>) dataSnapshot.child("ice_candidates").getValue();
+                                                            String iceCandidatesJson = new Gson().toJson(iceCandidates);
 
-                                                // Create an Intent to launch WatchSessionActivity
-                                                Intent intent = new Intent(homeActivity, WatchSessionActivity.class);
-                                                intent.putExtra("SESSION_KEY", sessionKey);
-                                                intent.putExtra("SESSION_NAME", sessionName);
-                                                intent.putExtra("OFFER", offer);
-                                                intent.putExtra("ICE_CANDIDATES", iceCandidatesJson);
+                                                            Intent intent = new Intent(homeActivity, WatchSessionActivity.class);
+                                                            intent.putExtra("SESSION_KEY", sessionKeyTag);
+                                                            intent.putExtra("SESSION_NAME", sessionName);
+                                                            intent.putExtra("OFFER", offer);
+                                                            intent.putExtra("ICE_CANDIDATES", iceCandidatesJson);
+                                                            homeActivity.startActivity(intent);
+                                                        } else {
+                                                            // Session does not exist anymore, show dialog
+                                                            new AlertDialog.Builder(homeActivity)
+                                                                    .setTitle("Session Not Found")
+                                                                    .setMessage("This session doesn't exist anymore. Do you want to delete it?")
+                                                                    .setPositiveButton("Yes", (dialog, which) -> deleteSession(userRef, loginInfoSnapshot.getKey(), sessionKeyTag, sessionCard))
+                                                                    .setNegativeButton("No", (dialog, which) -> dialog.dismiss())
+                                                                    .show();
+                                                        }
+                                                    }
 
-                                                // Start the activity
-                                                homeActivity.startActivity(intent);
+                                                    @Override
+                                                    public void onCancelled(DatabaseError databaseError) {
+                                                        Log.e("SessionLoader", "Failed to check session existence: " + databaseError.getMessage());
+                                                    }
+                                                });
                                             });
+
+
 
                                             // Handle delete button
                                             View deleteButton = sessionCard.findViewById(R.id.delete_button);

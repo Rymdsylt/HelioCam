@@ -225,10 +225,19 @@ public class RTCJoiner {
             DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
                     .child(formattedEmail)
                     .child("sessions")
-                    .child(sessionKey)
-                    .child("Offer");
+                    .child(sessionKey);
 
-            sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            // Set the "someone_watching" flag to 1
+            sessionRef.child("someone_watching").setValue(1)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Log.d(TAG, "someone_watching flag set to 1.");
+                        } else {
+                            Log.e(TAG, "Failed to set someone_watching flag.", task.getException());
+                        }
+                    });
+
+            sessionRef.child("Offer").addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     if (dataSnapshot.exists()) {
@@ -259,6 +268,7 @@ public class RTCJoiner {
             });
         }
     }
+
 
     public void createAnswer() {
         MediaConstraints mediaConstraints = new MediaConstraints();
@@ -305,17 +315,26 @@ public class RTCJoiner {
 
     public void dispose() {
         if (peerConnection != null) {
-            // Send the "disconnect" status to Firebase before disposing the peer connection
             String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
             if (email != null && sessionKey != null) {
-                String formattedEmail = email.replace(".", "_");  // Format email for Firebase paths
+                String formattedEmail = email.replace(".", "_");
 
                 DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
                         .child(formattedEmail)
                         .child("sessions")
                         .child(sessionKey);
 
-                // Set "disconnect": 1 to indicate the user has disconnected
+                // Remove "someone_watching" flag
+                sessionRef.child("someone_watching").removeValue()
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                Log.d(TAG, "someone_watching flag removed successfully.");
+                            } else {
+                                Log.e(TAG, "Failed to remove someone_watching flag.", task.getException());
+                            }
+                        });
+
+                // Send the "disconnect" status to Firebase before disposing the peer connection
                 sessionRef.child("disconnect").setValue(1)
                         .addOnCompleteListener(task -> {
                             if (task.isSuccessful()) {
@@ -327,21 +346,21 @@ public class RTCJoiner {
                         });
             }
 
-            // Dispose the peer connection
             peerConnection.dispose();
             Log.d(TAG, "PeerConnection disposed.");
         }
     }
 
+
     public void muteMic() {
         if (localAudioTrack != null) {
-            localAudioTrack.setEnabled(false);  // Disables the microphone
+            localAudioTrack.setEnabled(false);
         }
     }
 
     public void unmuteMic() {
         if (localAudioTrack != null) {
-            localAudioTrack.setEnabled(true);  // Enables the microphone
+            localAudioTrack.setEnabled(true);
         }
     }
 

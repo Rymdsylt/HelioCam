@@ -61,12 +61,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="0.5"
-                android:text="First Name:"
+                android:gravity="center_vertical"
+                android:padding="8dp"
+                android:text="Full Name:"
                 android:textColor="@color/black"
                 android:textSize="20sp"
-                android:textStyle="bold"
-                android:gravity="center_vertical"
-                android:padding="8dp" />
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/EtFirstName"
@@ -86,32 +86,7 @@
             android:orientation="horizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp">
-
-            <TextView
-                android:id="@+id/Lname"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="0.5"
-                android:text="Last Name:"
-                android:textColor="@color/black"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:gravity="center_vertical"
-                android:padding="8dp" />
-
-            <EditText
-                android:id="@+id/EtLastName"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="Dela Cruz"
-                android:textColor="@color/black"
-                android:textSize="16sp"
-                android:gravity="center_vertical"
-                android:background="@drawable/bg_grey_squircle_24"
-                android:padding="8dp" />
-        </LinearLayout>
+            android:layout_marginTop="16dp"/>
 
         <!-- Username Section -->
         <LinearLayout
@@ -235,13 +210,13 @@
                 <Button
                     android:id="@+id/btnChangePassword"
                     android:layout_width="wrap_content"
-                    android:layout_height="48dp"
+                    android:layout_height="67dp"
+                    android:layout_marginLeft="140dp"
                     android:layout_weight="1"
                     android:padding="8dp"
                     android:text="Change Password"
                     android:textColor="@color/blue"
-                    android:textSize="16sp"
-                    android:layout_marginLeft="140dp"/>
+                    android:textSize="16sp" />
             </LinearLayout>
 
             <View

@@ -124,7 +124,7 @@ public class SettingsFragment extends Fragment {
                 DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference("users").child(emailKey);
 
                 // Fetch the key value from Firebase
-                databaseReference.child("key").get().addOnCompleteListener(task -> {
+                databaseReference.child("settingsKey").get().addOnCompleteListener(task -> {
                     if (task.isSuccessful() && task.getResult() != null) {
                         String storedKey = task.getResult().getValue(String.class);
 
@@ -160,7 +160,7 @@ public class SettingsFragment extends Fragment {
                 String email= currentUserEmail;
 
                 // Reference to the Firebase database
-                DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference("users").child(emailKey).child("key");
+                DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference("users").child(emailKey).child("settingsKey");
 
                 // Fetch the key value from Firebase
                 databaseReference.get().addOnCompleteListener(task -> {

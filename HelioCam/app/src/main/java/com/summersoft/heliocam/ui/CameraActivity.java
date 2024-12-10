@@ -183,6 +183,7 @@ public Context context;
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
         }
 
+
         String sessionId = getIntent().getStringExtra("session_id");
 
         cameraView = findViewById(R.id.camera_view);
@@ -479,6 +480,7 @@ public Context context;
     }
 
 
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -491,7 +493,18 @@ public Context context;
                 finish(); // Close the activity if permissions are not granted
             }
         }
+
+        // Handle storage permissions result
+        if (requestCode == 1) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // You can now save the video file
+                Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Storage permission is required to save video files.", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
+
 
     private void fetchSessionName() {
         String sessionName = getIntent().getStringExtra("session_name");

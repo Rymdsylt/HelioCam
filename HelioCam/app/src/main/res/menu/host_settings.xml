@@ -1,5 +1,6 @@
 <!-- res/menu/camera_audio.xml -->
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:tools="http://schemas.android.com/tools"
+    xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/option_1"
         android:title="Sound Detection Threshold" />
@@ -11,6 +12,8 @@
         android:title="Record (Normal)" />
     <item
         android:id="@+id/option_4"
-        android:title="Record (Replay Buffer)" />
+        android:title="Record (Replay Buffer)"
+        android:visibility="gone"
+        tools:visibility="gone" />
 
 </menu>

@@ -51,7 +51,16 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:backgroundTint="?attr/colorPrimary"
-        android:text="Replay Buffer"
+        android:text="Start Replay Buffer"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/btn_record_bufferStop"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="?attr/colorPrimary"
+        android:text="Stop Replay Buffer"
         android:textColor="@android:color/white"
         android:textSize="16sp" />
 

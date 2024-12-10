@@ -654,17 +654,20 @@ public RTCHost(){
         });
       videoTrack.addSink(localView);
     }
-public boolean replayBufferOn =false;
+    public boolean replayBufferOn =false;
     public void replayBuffer(Context context) {
+        Log.w(TAG, "Replay Buffer Triggered");
+
         if (isRecording) {
             Log.w(TAG, "Recording is already in progress.");
             return;
         }
-        File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES),
-                "recording_" + UUID.randomUUID().toString() + ".yuv");
-        String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
+
         if (replayBufferOn) {
             try {
+                File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES),
+                        "recording_" + UUID.randomUUID().toString() + ".yuv");
+                String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
                 videoFileRenderer = new VideoFileRenderer(filePath, 640, 360, rootEglBase.getEglBaseContext());
                 isRecording = true;
                 Log.d(TAG, "Recording started");

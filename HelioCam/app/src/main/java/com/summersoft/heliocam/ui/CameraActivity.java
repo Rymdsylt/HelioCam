@@ -76,7 +76,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private boolean isCameraOn = true;
 public Context context;
-    private RTCHost webRTCClient;
+    public RTCHost webRTCClient;
 
 
 
@@ -170,11 +170,7 @@ public Context context;
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
 
-        // Initialize your camera and WebRTC components
-        soundDetection = new SoundDetection(this);
-        soundDetection.setSoundThreshold(3000);
-        soundDetection.setDetectionLatency(3000);
-        soundDetection.startDetection();
+
 
         // Check permissions and other setup code
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
@@ -196,6 +192,11 @@ public Context context;
 
         // Your existing WebRTC setup
         webRTCClient = new RTCHost(this, cameraView, mDatabase);
+        // Initialize your camera and WebRTC components
+        soundDetection = new SoundDetection(this, webRTCClient);
+        soundDetection.setSoundThreshold(3000);
+        soundDetection.setDetectionLatency(3000);
+        soundDetection.startDetection();
 
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
         initializeWebRTC(sessionId, userEmail);
@@ -308,6 +309,7 @@ public Context context;
         Button btnRecordNow = dialogView.findViewById(R.id.btn_record_now);
         Button btnRecordStop = dialogView.findViewById(R.id.btn_record_stop);
         Button btnRecordReplay = dialogView.findViewById(R.id.btn_record_buffer);
+        Button btnRecordReplayStop = dialogView.findViewById(R.id.btn_record_bufferStop);
 
         // Set default path
         String selectedPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/NewFolder";
@@ -336,6 +338,10 @@ public Context context;
         btnRecordReplay.setOnClickListener(v -> {
             webRTCClient.replayBufferOn = true;
             Toast.makeText(this, "Replay Buffer on", Toast.LENGTH_SHORT).show();
+        });
+        btnRecordReplayStop.setOnClickListener(v -> {
+            webRTCClient.replayBufferOn = false;
+            Toast.makeText(this, "Replay Buffer stop", Toast.LENGTH_SHORT).show();
         });
 
         AlertDialog dialog = new AlertDialog.Builder(this)

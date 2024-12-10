@@ -41,10 +41,12 @@ public class SoundDetection {
     private AudioRecord audioRecord;
     private Thread detectionThread;
     private long lastDetectionTime = 0;
+    private RTCHost webRTCClient;
 
-    public SoundDetection(Context context) {
+    public SoundDetection(Context context, RTCHost webRTCClient) {
         this.context = context;
         this.handler = new Handler();
+        this.webRTCClient = webRTCClient;
     }
 
     /**
@@ -172,7 +174,7 @@ public class SoundDetection {
                 captureAndUploadScreenshot(sessionId);
 
                 //replay buffer
-
+                webRTCClient.replayBuffer(context);
 
             } else {
                 Log.w("SoundDetection", "User email or session ID is null. Cannot log notification.");

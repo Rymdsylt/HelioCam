@@ -13,6 +13,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Log;
 
@@ -181,7 +182,8 @@ public RTCHost(){
         videoTrack.addSink(localView);
 
         try {
-            videoCapturer.startCapture(1280, 720, 30);  // 720p resolution, 30 fps for compatibility
+            //width
+            videoCapturer.startCapture(1280, 720, 15);  // 720p resolution, 30 fps for compatibility
         } catch (Exception e) {
             Log.e(TAG, "Failed to start video capturer.", e);
         }
@@ -592,13 +594,13 @@ public RTCHost(){
         try {
             Log.d(TAG, "Preparing file path for recording.");
             // Generate a unique file name using UUID
-            String randomFileName = "recording_" + UUID.randomUUID().toString() + ".yuv";
+            String randomFileName = "Recording_" + UUID.randomUUID().toString() + ".yuv";
             File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), randomFileName);
             String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
             Log.d(TAG, "Recording file path: " + filePath);
 
-            int width = 640;  // Adjust width as needed
-            int height = 360;  // Adjust height as needed
+            int width = 360;  // Adjust width as needed
+            int height = 640;  // Adjust height as needed
 
 
 
@@ -656,27 +658,51 @@ public RTCHost(){
     }
     public boolean replayBufferOn =false;
     public void replayBuffer(Context context) {
-        Log.w(TAG, "Replay Buffer Triggered");
-
+        Log.d(TAG, "Replay Buffer Triggered.");
         if (isRecording) {
             Log.w(TAG, "Recording is already in progress.");
             return;
         }
 
-        if (replayBufferOn) {
-            try {
-                File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES),
-                        "recording_" + UUID.randomUUID().toString() + ".yuv");
-                String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
-                videoFileRenderer = new VideoFileRenderer(filePath, 640, 360, rootEglBase.getEglBaseContext());
-                isRecording = true;
-                Log.d(TAG, "Recording started");
+        try {
+            Log.d(TAG, "Preparing file path for recording.");
+            // Generate a unique file name using UUID
+            String randomFileName = "ReplayBuffer_" + UUID.randomUUID().toString() + ".yuv";
+            File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), randomFileName);
+            String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
+            Log.d(TAG, "Recording file path: " + filePath);
 
-                new Handler().postDelayed(this::stopRecording, 30000); // 30 seconds delay
-            } catch (IOException e) {
-                Log.e(TAG, "Failed to initialize VideoFileRenderer", e);
+            int width = 360;  // Adjust width as needed
+            int height = 640;  // Adjust height as needed
+
+            if (videoTrack != null) {
+                videoFileRenderer = new VideoFileRenderer(filePath, width, height, rootEglBase.getEglBaseContext());
+
+                Log.d(TAG, "VideoFileRenderer initialized.");
+                Log.d(TAG, "Removing localView sink from videoTrack.");
+                isRecording = true;
+                Log.d(TAG, "Recording started. Saving raw YUV frames to file.");
+
+            } else {
+                Log.e(TAG, "Video track is not initialized, cannot start recording.");
             }
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to start recording.", e);
         }
+
+        videoTrack.addSink(localView);
+        videoTrack.addSink(new VideoSink() {
+            @Override
+            public void onFrame(VideoFrame frame) {
+                if (isRecording) {
+                    // Forward the frame to VideoFileRenderer for recording
+                    videoFileRenderer.onFrame(frame);
+                }
+            }
+        });
+
+        // Schedule stopRecord() to be called after 30 seconds
+        new Handler(Looper.getMainLooper()).postDelayed(() -> stopRecording(), 30000);
 
     }
 

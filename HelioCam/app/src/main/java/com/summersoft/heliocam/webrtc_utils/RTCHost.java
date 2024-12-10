@@ -599,8 +599,8 @@ public RTCHost(){
             String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
             Log.d(TAG, "Recording file path: " + filePath);
 
-            int width = 360;  // Adjust width as needed
-            int height = 640;  // Adjust height as needed
+            int width = 90;  // Adjust width as needed
+            int height = 160;  // Adjust height as needed
 
 
 
@@ -672,8 +672,8 @@ public RTCHost(){
             String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
             Log.d(TAG, "Recording file path: " + filePath);
 
-            int width = 360;  // Adjust width as needed
-            int height = 640;  // Adjust height as needed
+            int width = 90;  // Adjust width as needed
+            int height = 160;  // Adjust height as needed
 
             if (videoTrack != null) {
                 videoFileRenderer = new VideoFileRenderer(filePath, width, height, rootEglBase.getEglBaseContext());

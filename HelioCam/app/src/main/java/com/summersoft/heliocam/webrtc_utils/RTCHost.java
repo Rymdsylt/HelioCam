@@ -68,7 +68,7 @@ import org.webrtc.AudioTrack;
 
 public class RTCHost {
     private static final String TAG = "WebRTCClient";
-
+    public boolean replayBufferOn =false;
     private PeerConnectionFactory peerConnectionFactory;
     private PeerConnection peerConnection;
     private VideoTrack videoTrack;
@@ -79,7 +79,6 @@ public class RTCHost {
     private AudioSource audioSource;
     private AudioTrack audioTrack;
     private VideoFileRenderer videoFileRenderer;
-    private MultiSinkVideoRenderer multiSink;
     private static final int WRITE_EXTERNAL_STORAGE_REQUEST_CODE = 1;
 
 
@@ -183,7 +182,7 @@ public RTCHost(){
 
         try {
             //width
-            videoCapturer.startCapture(1280, 720, 15);  // 720p resolution, 30 fps for compatibility
+            videoCapturer.startCapture(1280, 720, 30);  // 720p resolution, 30 fps for compatibility
         } catch (Exception e) {
             Log.e(TAG, "Failed to start video capturer.", e);
         }
@@ -428,7 +427,6 @@ public RTCHost(){
         if (peerConnection != null && videoTrack != null) {
             MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
             localStream.addTrack(videoTrack);
-
             peerConnection.addStream(localStream);
         }
     }
@@ -524,6 +522,8 @@ public RTCHost(){
             peerConnectionFactory.dispose();
             peerConnectionFactory = null;
         }
+
+        replayBufferOn =false;
 
         // Optionally, you can show a toast confirming that the session is disposed of
         Toast.makeText(localView.getContext(), "Session disposed of and resources released.", Toast.LENGTH_SHORT).show();
@@ -656,7 +656,7 @@ public RTCHost(){
         });
       videoTrack.addSink(localView);
     }
-    public boolean replayBufferOn =false;
+
     public void replayBuffer(Context context) {
         Log.d(TAG, "Replay Buffer Triggered.");
         if (isRecording) {

@@ -93,6 +93,7 @@ public class RTCHost {
     private String turnUsername = "08a10b202c595304495012c2";
     private String turnPassword = "JnsH2+jc2q3/uGon";
     private Context context;
+    public boolean isRecording = false;
 
 public RTCHost(){
 
@@ -523,7 +524,7 @@ public RTCHost(){
             peerConnectionFactory = null;
         }
 
-        replayBufferOn =false;
+        isRecording = false;
 
         // Optionally, you can show a toast confirming that the session is disposed of
         Toast.makeText(localView.getContext(), "Session disposed of and resources released.", Toast.LENGTH_SHORT).show();
@@ -583,7 +584,7 @@ public RTCHost(){
     }
 
 
-    public boolean isRecording = false;
+
 
     public void startRecording(Context context) {
         if (isRecording) {

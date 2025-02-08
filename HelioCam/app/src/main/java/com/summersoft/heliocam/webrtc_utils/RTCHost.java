@@ -526,6 +526,13 @@ public RTCHost(){
 
         isRecording = false;
 
+        // Release the VideoFileRenderer
+        if (videoFileRenderer != null) {
+            videoFileRenderer.release();
+            videoFileRenderer = null;
+        }
+
+
         // Optionally, you can show a toast confirming that the session is disposed of
         Toast.makeText(localView.getContext(), "Session disposed of and resources released.", Toast.LENGTH_SHORT).show();
     }

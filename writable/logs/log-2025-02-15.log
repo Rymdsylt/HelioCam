@@ -1,0 +1,72 @@
+CRITICAL - 2025-02-15 03:21:45 --> Error: Class "" not found
+[Method: GET, Route: Users/register]
+in SYSTEMPATH\CodeIgniter.php on line 903.
+ 1 SYSTEMPATH\CodeIgniter.php(963): CodeIgniter\CodeIgniter->createController()
+ 2 SYSTEMPATH\CodeIgniter.php(360): CodeIgniter\CodeIgniter->display404errors(Object(CodeIgniter\Exceptions\PageNotFoundException))
+ 3 SYSTEMPATH\Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 4 SYSTEMPATH\Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 5 FCPATH\index.php(56): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-02-15 03:25:18 --> Error: Class "" not found
+[Method: GET, Route: register]
+in SYSTEMPATH\CodeIgniter.php on line 903.
+ 1 SYSTEMPATH\CodeIgniter.php(963): CodeIgniter\CodeIgniter->createController()
+ 2 SYSTEMPATH\CodeIgniter.php(360): CodeIgniter\CodeIgniter->display404errors(Object(CodeIgniter\Exceptions\PageNotFoundException))
+ 3 SYSTEMPATH\Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 4 SYSTEMPATH\Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 5 FCPATH\index.php(56): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-02-15 03:25:27 --> Error: Class "" not found
+[Method: GET, Route: Users/register]
+in SYSTEMPATH\CodeIgniter.php on line 903.
+ 1 SYSTEMPATH\CodeIgniter.php(963): CodeIgniter\CodeIgniter->createController()
+ 2 SYSTEMPATH\CodeIgniter.php(360): CodeIgniter\CodeIgniter->display404errors(Object(CodeIgniter\Exceptions\PageNotFoundException))
+ 3 SYSTEMPATH\Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 4 SYSTEMPATH\Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 5 FCPATH\index.php(56): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-02-15 03:25:29 --> Error: Class "" not found
+[Method: GET, Route: Users/register]
+in SYSTEMPATH\CodeIgniter.php on line 903.
+ 1 SYSTEMPATH\CodeIgniter.php(963): CodeIgniter\CodeIgniter->createController()
+ 2 SYSTEMPATH\CodeIgniter.php(360): CodeIgniter\CodeIgniter->display404errors(Object(CodeIgniter\Exceptions\PageNotFoundException))
+ 3 SYSTEMPATH\Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 4 SYSTEMPATH\Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 5 FCPATH\index.php(56): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-02-15 03:25:30 --> Error: Class "" not found
+[Method: GET, Route: Users/register]
+in SYSTEMPATH\CodeIgniter.php on line 903.
+ 1 SYSTEMPATH\CodeIgniter.php(963): CodeIgniter\CodeIgniter->createController()
+ 2 SYSTEMPATH\CodeIgniter.php(360): CodeIgniter\CodeIgniter->display404errors(Object(CodeIgniter\Exceptions\PageNotFoundException))
+ 3 SYSTEMPATH\Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 4 SYSTEMPATH\Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 5 FCPATH\index.php(56): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-02-15 03:25:39 --> Error: Class "" not found
+[Method: GET, Route: Users/register]
+in SYSTEMPATH\CodeIgniter.php on line 903.
+ 1 SYSTEMPATH\CodeIgniter.php(963): CodeIgniter\CodeIgniter->createController()
+ 2 SYSTEMPATH\CodeIgniter.php(360): CodeIgniter\CodeIgniter->display404errors(Object(CodeIgniter\Exceptions\PageNotFoundException))
+ 3 SYSTEMPATH\Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 4 SYSTEMPATH\Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 5 FCPATH\index.php(56): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-02-15 03:25:40 --> Error: Class "" not found
+[Method: GET, Route: Users/register]
+in SYSTEMPATH\CodeIgniter.php on line 903.
+ 1 SYSTEMPATH\CodeIgniter.php(963): CodeIgniter\CodeIgniter->createController()
+ 2 SYSTEMPATH\CodeIgniter.php(360): CodeIgniter\CodeIgniter->display404errors(Object(CodeIgniter\Exceptions\PageNotFoundException))
+ 3 SYSTEMPATH\Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 4 SYSTEMPATH\Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 5 FCPATH\index.php(56): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-02-15 03:25:40 --> Error: Class "" not found
+[Method: GET, Route: Users/register]
+in SYSTEMPATH\CodeIgniter.php on line 903.
+ 1 SYSTEMPATH\CodeIgniter.php(963): CodeIgniter\CodeIgniter->createController()
+ 2 SYSTEMPATH\CodeIgniter.php(360): CodeIgniter\CodeIgniter->display404errors(Object(CodeIgniter\Exceptions\PageNotFoundException))
+ 3 SYSTEMPATH\Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 4 SYSTEMPATH\Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 5 FCPATH\index.php(56): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-02-15 03:49:05 --> Error: Class "" not found
+[Method: POST, Route: /]
+in SYSTEMPATH\CodeIgniter.php on line 903.
+ 1 SYSTEMPATH\CodeIgniter.php(963): CodeIgniter\CodeIgniter->createController()
+ 2 SYSTEMPATH\CodeIgniter.php(360): CodeIgniter\CodeIgniter->display404errors(Object(CodeIgniter\Exceptions\PageNotFoundException))
+ 3 SYSTEMPATH\Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 4 SYSTEMPATH\Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 5 FCPATH\index.php(56): CodeIgniter\Boot::bootWeb(Object(Config\Paths))

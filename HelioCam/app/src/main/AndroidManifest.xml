@@ -31,9 +31,9 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:forceDarkAllowed="false"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@drawable/logo"
+        android:icon="@drawable/heliocam_logo"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/logo"
+        android:roundIcon="@drawable/heliocam_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.HelioCam"
         tools:targetApi="31">

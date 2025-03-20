@@ -31,18 +31,20 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:layout_marginTop="32dp">
             <!-- Notification Heading -->
             <TextView
                 android:id="@+id/notification_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="44dp"
-
                 android:drawablePadding="12dp"
-                android:layout_gravity="center"
                 android:text="Notification"
                 android:textColor="#000000"
-                android:textSize="48dp"
+                android:textSize="32dp"
                 android:textStyle="bold"
                 app:layout_constraintBottom_toTopOf="@+id/today_label"
                 app:layout_constraintEnd_toEndOf="parent"
@@ -50,6 +52,15 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintVertical_bias="0.5" />
+
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="right"
+                android:layout_marginEnd="20dp"
+                android:src="@drawable/baseline_notifications_24"/>
+
+            </FrameLayout>
 
             <!-- Today Subheading -->
 
@@ -59,7 +70,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="2dp"
                 android:layout_marginTop="16dp"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="12dp"
                 android:background="@color/black"
                 />
 

@@ -4,7 +4,7 @@
     android:id="@+id/mainpage"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:padding="20dp">
 
     <!-- Add New Session TextView -->
     <TextView
@@ -28,7 +28,7 @@
     <!-- Confirm Button -->
     <EditText
         android:id="@+id/add_session_input"
-        android:layout_width="350dp"
+        android:layout_width="match_parent"
         android:layout_height="60dp"
         android:layout_marginTop="16dp"
         android:background="@drawable/custom_edittext"
@@ -47,14 +47,14 @@
 
     <!-- Cancel Button -->
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/add_session_confirm"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:backgroundTint="#FFA500"
+        android:background="@drawable/custom_edittext"
         android:text="Confirm"
-        android:textColor="@android:color/black"
+        android:textColor="@color/white"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/add_session_input"
@@ -98,14 +98,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imageButtonPhoneCamera" />
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/buttonCancel"
-        android:layout_width="350dp"
+        android:layout_width="match_parent"
         android:layout_height="60dp"
         android:layout_marginTop="24dp"
-        android:backgroundTint="#FFA500"
+        android:background="@drawable/custom_edittext"
         android:text="Cancel"
-        android:textColor="@android:color/black"
+        android:textColor="@color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

@@ -2,7 +2,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mainpage"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:paddingRight="20dp"
+    android:paddingLeft="20dp">
 
     <TextView
         android:id="@+id/titleTextView"
@@ -11,7 +13,7 @@
         android:layout_marginTop="32dp"
         android:text="Add new Session"
         android:textColor="@color/black"
-        android:textSize="28sp"
+        android:textSize="32sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -43,7 +45,7 @@
 
     <EditText
         android:id="@+id/session_name_input"
-        android:layout_width="350dp"
+        android:layout_width="match_parent"
         android:layout_height="60dp"
         android:layout_marginStart="32dp"
         android:layout_marginTop="12dp"
@@ -59,7 +61,7 @@
 
     <EditText
         android:id="@+id/passkey_input"
-        android:layout_width="350dp"
+        android:layout_width="match_parent"
         android:layout_height="60dp"
         android:layout_marginStart="32dp"
         android:layout_marginTop="16dp"
@@ -76,7 +78,6 @@
         android:id="@+id/asteriskSessionName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
         android:text="*"
         android:textColor="@android:color/holo_red_light"
         android:textSize="16sp"
@@ -90,7 +91,6 @@
         android:id="@+id/asteriskPasskey"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
         android:text="*"
         android:textColor="@android:color/holo_red_light"
         android:textSize="16sp"
@@ -108,7 +108,7 @@
         android:background="@drawable/custom_edittext"
         android:padding="16dp"
         android:text="Generate Passkey (Optional)"
-        android:textColor="@android:color/black"
+        android:textColor="@color/dirty_white"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
@@ -124,7 +124,7 @@
         android:background="@drawable/custom_edittext"
         android:padding="16dp"
         android:text="Add"
-        android:textColor="@android:color/black"
+        android:textColor="@color/white"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
@@ -140,7 +140,7 @@
         android:background="@drawable/custom_edittext"
         android:padding="16dp"
         android:text="Cancel"
-        android:textColor="@android:color/black"
+        android:textColor="@color/white"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"

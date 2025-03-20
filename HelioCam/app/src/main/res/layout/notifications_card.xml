@@ -25,7 +25,7 @@
             android:layout_marginEnd="8dp"
             android:layout_gravity="center_vertical"
             android:contentDescription="Notification Icon"
-            android:src="@drawable/baseline_notifications_24" />
+            android:src="@drawable/baseline_notifications_white_24" />
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -39,7 +39,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Notification 1"
-                android:textColor="#000000"
+                android:textColor="@color/white"
                 android:textSize="24sp"
                 android:textStyle="bold" />
 
@@ -56,7 +56,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="24sp"
                     android:text="Date: --/--/----"
-                    android:textColor="#000000"
+                    android:textColor="@color/white"
                     android:textSize="18sp" />
 
                 <!-- Time TextView with ID notification_time -->
@@ -65,7 +65,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Time: --:--"
-                    android:textColor="#000000"
+                    android:textColor="@color/white"
                     android:textSize="18sp" />
             </LinearLayout>
         </LinearLayout>
@@ -78,7 +78,7 @@
             android:layout_height="40dp"
             android:layout_gravity="center_vertical"
             android:contentDescription="Delete Notification"
-            android:src="@drawable/ic_trash"
+            android:src="@drawable/ic_trash_white"
             android:layout_marginStart="8dp"
             android:clickable="true"
             android:focusable="true"

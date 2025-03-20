@@ -13,11 +13,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="12dp"
-        android:fontFamily="sans-serif-black"
         android:text="Log In"
         android:textAlignment="center"
         android:textColor="@color/black"
-        android:textSize="48sp"
+        android:textSize="36sp"
         android:textStyle="bold" />
 
 
@@ -26,7 +25,8 @@
         android:layout_width="160dp"
         android:layout_height="160dp"
         android:layout_gravity="center"
-        android:src="@drawable/logo" />
+        android:src="@drawable/heliocam_logo"
+        />
 
 
     <EditText
@@ -36,11 +36,13 @@
         android:layout_marginTop="30dp"
         android:background="@drawable/custom_edittext"
         android:drawablePadding="8dp"
-        android:hint="Email:"
-        android:padding="12dp"
-        android:textColorHint="@color/black"
+        android:padding="10dp"
+        android:hint="Email Address"
+        android:textColorHint="@color/dirty_white"
         android:textSize="18sp"
-        android:gravity="center_horizontal" />  <!-- This centers the hint -->
+        android:inputType="textEmailAddress"
+        android:drawableStart="@drawable/baseline_email"
+        />
 
     <EditText
         android:id="@+id/password"
@@ -49,12 +51,27 @@
         android:layout_marginTop="12dp"
         android:background="@drawable/custom_edittext"
         android:drawablePadding="8dp"
-        android:hint="Password:"
-        android:padding="12dp"
-        android:textColorHint="@color/black"
+        android:hint="Password"
+        android:padding="10dp"
+        android:textColorHint="@color/dirty_white"
+        android:drawableStart="@drawable/baseline_lock"
         android:textSize="18sp"
         android:inputType="textPassword"
-        android:gravity="center_horizontal" />  <!-- This centers the hint -->
+       />
+
+    <TextView
+        android:id="@+id/forgotPasswordLink"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:text="Forgot password?"
+        android:textAlignment="center"
+        android:textColor="@color/black"
+        android:textSize="18sp"
+        tools:ignore="TouchTargetSizeCheck" />
+
 
 
     <androidx.appcompat.widget.AppCompatButton
@@ -64,7 +81,8 @@
         android:layout_marginHorizontal="30dp"
         android:layout_marginTop="30dp"
         android:background="@drawable/custom_edittext"
-        android:text="Login" />
+        android:text="Login"
+        android:textColor="@color/dirty_white"/>
 
     <TextView
         android:layout_width="match_parent"
@@ -73,34 +91,21 @@
         android:text="Don't have an account?"
         android:textAlignment="center"
         android:textColor="@color/black"
-        android:textSize="24sp" />
+        android:textSize="18sp" />
 
     <TextView
         android:id="@+id/signupLink"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:clickable="true"
         android:focusable="true"
         android:text="Signup here"
         android:textAlignment="center"
-        android:textColor="@color/black"
-        android:textSize="24sp"
-        android:textStyle="bold"
+        android:textColor="@color/blue"
+        android:textSize="18sp"
+        android:textStyle="normal"
         tools:ignore="TouchTargetSizeCheck" />
 
-    <TextView
-        android:id="@+id/forgotPasswordLink"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:text="Forgot Password?"
-        android:textAlignment="center"
-        android:textColor="@color/black"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        tools:ignore="TouchTargetSizeCheck" />
 
 </LinearLayout>

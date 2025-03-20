@@ -57,14 +57,17 @@
             android:background="@drawable/curve_background"
             android:backgroundTint="@android:color/holo_orange_dark"
             android:gravity="center"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:padding="10dp"
+            >
 
             <!-- Mic Button -->
             <ImageButton
                 android:id="@+id/mic_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="16dp"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="10dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
                 android:contentDescription="Microphone"
@@ -78,7 +81,8 @@
                 android:id="@+id/end_surveillance_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="16dp"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="10dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
                 android:contentDescription="Stop Surveillance"
@@ -92,7 +96,8 @@
                 android:id="@+id/video_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="16dp"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="10dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
                 android:contentDescription="Toggle Video"
@@ -104,10 +109,11 @@
             <!-- Switch Camera Button -->
             <ImageButton
                 android:id="@+id/switch_camera_button"
-                android:layout_width="47dp"
-                android:layout_height="49dp"
-                android:layout_margin="16dp"
-                android:background="@drawable/ic_rotate"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="10dp"
+                android:background="@drawable/baseline_cameraswitch_24"
                 android:clickable="true"
                 android:contentDescription="SwitchCamera"
                 android:focusable="true"
@@ -117,9 +123,10 @@
 
             <ImageButton
                 android:id="@+id/settings_button"
-                android:layout_width="47dp"
-                android:layout_height="50dp"
-                android:layout_margin="16dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="10dp"
                 android:background="@drawable/baseline_settings_24"
                 android:clickable="true"
                 android:contentDescription="Setting"

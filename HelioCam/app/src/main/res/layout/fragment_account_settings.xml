@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingBottom="1000dp"
-        android:padding="16dp"
+        android:padding="20dp"
         tools:context=".ui.AccountSettingsFragment">
 
         <!-- Account Settings Title -->
@@ -20,15 +20,11 @@
             android:layout_height="wrap_content"
             android:text="Account Settings"
             android:textColor="@color/black"
-            android:textSize="36sp"
+            android:textSize="32sp"
             android:textStyle="bold"
             android:layout_marginTop="20dp"
             android:layout_marginBottom="8dp"/>
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/black" />
 
         <!-- Edit Account Details Section -->
         <TextView
@@ -70,23 +66,18 @@
 
             <EditText
                 android:id="@+id/EtFirstName"
-                android:layout_width="wrap_content"
+                android:layout_width="200dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
                 android:text="Juan Karlitos"
                 android:textColor="@color/black"
                 android:textSize="16sp"
+                android:inputType="text"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_grey_squircle_24"
                 android:padding="8dp" />
         </LinearLayout>
 
-        <!-- Last Name Section -->
-        <LinearLayout
-            android:orientation="horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"/>
 
         <!-- Username Section -->
         <LinearLayout
@@ -109,12 +100,13 @@
 
             <EditText
                 android:id="@+id/EtUsername"
-                android:layout_width="wrap_content"
+                android:layout_width="200dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
                 android:text="Jeyki123"
                 android:textColor="@color/black"
                 android:textSize="16sp"
+                android:inputType="text"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_grey_squircle_24"
                 android:padding="8dp" />
@@ -122,46 +114,73 @@
 
         <!-- Contact Section -->
         <LinearLayout
-            android:orientation="vertical"
+            android:orientation="horizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp">
 
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
-
-            <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/contact"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp">
+                android:layout_weight="0.5"
+                android:text="Contact #:"
+                android:textColor="@color/black"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center_vertical"
+                android:padding="8dp" />
 
-                <TextView
-                    android:id="@+id/contact"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="0.5"
-                    android:text="Contact #:"
-                    android:textColor="@color/black"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:gravity="center_vertical"
-                    android:padding="8dp" />
+            <EditText
+                android:id="@+id/EtContactValue"
+                android:layout_width="200dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="09** - *** - 2432"
+                android:textColor="@color/black"
+                android:textSize="16sp"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_grey_squircle_24"
+                android:padding="8dp" />
+        </LinearLayout>
 
-                <EditText
-                    android:id="@+id/EtContactValue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:text="09** - *** - 2432"
-                    android:textColor="@color/black"
-                    android:textSize="16sp"
-                    android:gravity="center_vertical"
-                    android:background="@drawable/bg_grey_squircle_24"
-                    android:padding="8dp" />
-            </LinearLayout>
+        <!-- Email Section -->
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp">
+
+            <TextView
+                android:id="@+id/email"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.5"
+                android:text="Email Address:"
+                android:textColor="@color/black"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:gravity="center_vertical"
+                android:padding="8dp" />
+
+            <EditText
+                android:id="@+id/EtEmailValue"
+                android:layout_width="200dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="jkarlitos@gmail.com"
+                android:textColor="@color/black"
+                android:textSize="16sp"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_grey_squircle_24"
+                android:padding="8dp" />
+        </LinearLayout>
+
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
 
             <View
                 android:layout_width="match_parent"
@@ -174,10 +193,9 @@
                 android:layout_width="150dp"
                 android:layout_height="wrap_content"
                 android:text="Save"
-                android:textColor="@android:color/black"
+                android:textColor="@android:color/white"
                 android:backgroundTint="@color/orange"
                 android:layout_marginTop="8dp"
-                android:textStyle="bold"
                 android:textSize="20sp"
                 android:layout_gravity="center_horizontal" />
         </LinearLayout>
@@ -210,13 +228,13 @@
                 <Button
                     android:id="@+id/btnChangePassword"
                     android:layout_width="wrap_content"
-                    android:layout_height="67dp"
+                    android:layout_height="wrap_content"
                     android:layout_marginLeft="140dp"
-                    android:layout_weight="1"
-                    android:padding="8dp"
+                    android:padding="6dp"
                     android:text="Change Password"
+                    android:backgroundTint="@color/orange"
                     android:textColor="@color/blue"
-                    android:textSize="16sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <View

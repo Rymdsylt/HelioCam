@@ -33,7 +33,7 @@
             android:layout_marginBottom="16dp"
             android:text="Session Setting"
             android:textColor="@color/black"
-            android:textSize="38dp"
+            android:textSize="32dp"
             android:textStyle="bold" />
 
         <View
@@ -44,12 +44,13 @@
             android:background="#BDBDBD" />
 
         <!-- Quality -->
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/quality_btn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/rounded_grey_button"
+            android:background="@drawable/custom_edittext"
             android:text="Quality"
+            android:textColor="@color/white"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -70,12 +71,13 @@
             android:layout_marginTop="4dp"
             android:layout_marginBottom="8dp"
             />
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/saveLocation_btn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/rounded_grey_button"
+            android:background="@drawable/custom_edittext"
             android:text="Save Location"
+            android:textColor="@color/white"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -96,12 +98,14 @@
             android:layout_marginTop="4dp"
             android:layout_marginBottom="8dp"
             />
-        <Button
+
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/cameraSettings_btn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/rounded_grey_button"
+            android:background="@drawable/custom_edittext"
             android:text="Camera Settings"
+            android:textColor="@color/white"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 

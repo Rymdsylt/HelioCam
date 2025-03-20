@@ -27,7 +27,7 @@
             android:gravity="center"
             android:textSize="14sp"
             android:layout_marginBottom="24dp"
-            android:text="Last updated: December 04, 2024" />
+            android:text="Last updated: March 20, 2025" />
 
         <TextView
             android:layout_width="match_parent"

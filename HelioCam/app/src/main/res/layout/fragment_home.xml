@@ -26,8 +26,8 @@
 
         <ImageButton
             android:id="@+id/hamburgerButton"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_gravity="left|center"
             android:contentDescription="Hamburger"
             android:background="@drawable/white_logout"
@@ -36,8 +36,8 @@
 
         <ImageButton
             android:id="@+id/addSession"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_gravity="right|center"
             android:contentDescription="Add Session"
             android:background="@drawable/white_add"

@@ -339,7 +339,8 @@ public class RTCJoiner {
                         .addOnCompleteListener(task -> {
                             if (task.isSuccessful()) {
                                 sessionRef.child("Answer").removeValue();
-                                Log.d(TAG, "Disconnect status sent to Firebase successfully.");
+                                sessionRef.child("ice_candidates").removeValue();
+                                Log.d(TAG, "Disconnect status, Answer, and ice_candidates removed from Firebase successfully.");
                             } else {
                                 Log.e(TAG, "Failed to send disconnect status to Firebase", task.getException());
                             }
@@ -350,6 +351,7 @@ public class RTCJoiner {
             Log.d(TAG, "PeerConnection disposed.");
         }
     }
+
 
 
     public void muteMic() {

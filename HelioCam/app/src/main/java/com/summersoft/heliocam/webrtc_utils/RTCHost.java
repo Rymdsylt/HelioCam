@@ -103,8 +103,6 @@ public RTCHost(){
         this.firebaseDatabase = firebaseDatabase;
         this.context = context;
 
-
-        // Initialize WebRTC
         PeerConnectionFactory.InitializationOptions options =
                 PeerConnectionFactory.InitializationOptions.builder(context).createInitializationOptions();
         PeerConnectionFactory.initialize(options);
@@ -113,22 +111,20 @@ public RTCHost(){
         localView.init(rootEglBase.getEglBaseContext(), null);
         localView.setMirror(false);
 
-        // Enable H264 codec and VP8 codec for maximum device compatibility
-        PeerConnectionFactory.Options peerOptions = new PeerConnectionFactory.Options();
-        peerOptions.disableNetworkMonitor = true;  // Optional for better performance
 
-        // Default video encoder factory that supports multiple codecs
+        PeerConnectionFactory.Options peerOptions = new PeerConnectionFactory.Options();
+        peerOptions.disableNetworkMonitor = true;
+
         DefaultVideoEncoderFactory encoderFactory = new DefaultVideoEncoderFactory(rootEglBase.getEglBaseContext(), true, true);
         DefaultVideoDecoderFactory decoderFactory = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
 
-        // Create the PeerConnectionFactory with custom encoder and decoder
         peerConnectionFactory = PeerConnectionFactory.builder()
                 .setVideoEncoderFactory(encoderFactory)
                 .setVideoDecoderFactory(decoderFactory)
                 .setOptions(peerOptions)
                 .createPeerConnectionFactory();
 
-        // Check which encoder is being used
+
         String codecUsed = "Unknown codec";
         for (VideoCodecInfo codecInfo : encoderFactory.getSupportedCodecs()) {
             if (codecInfo.name.equalsIgnoreCase("H264")) {
@@ -139,7 +135,6 @@ public RTCHost(){
             }
         }
 
-        // Show a toast with the codec being used
         Toast.makeText(context, "Using codec: " + codecUsed, Toast.LENGTH_LONG).show();
     }
 
@@ -152,7 +147,6 @@ public RTCHost(){
         }
 
         if (videoTrack != null) {
-            // Toast if the streaming has already started
             Toast.makeText(context, "Streaming has already started. Just adding observers.", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -164,8 +158,6 @@ public RTCHost(){
             Log.e(TAG, "Failed to initialize video capturer.");
             return;
         }
-
-        // Create SurfaceTextureHelper once and reuse
         if (surfaceTextureHelper == null) {
             surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
         }
@@ -182,8 +174,7 @@ public RTCHost(){
         videoTrack.addSink(localView);
 
         try {
-            //width
-            videoCapturer.startCapture(1280, 720, 30);  // 720p resolution, 30 fps for compatibility
+            videoCapturer.startCapture(1280, 720, 30);
         } catch (Exception e) {
             Log.e(TAG, "Failed to start video capturer.", e);
         }
@@ -197,33 +188,30 @@ public RTCHost(){
             @Override
             public void onAddStream(MediaStream mediaStream) {
                 super.onAddStream(mediaStream);
-                // Retrieve the remote audio track
-                AudioTrack remoteAudioTrack = mediaStream.audioTracks.get(0); // Assuming only one audio track
+
+                AudioTrack remoteAudioTrack = mediaStream.audioTracks.get(0);
 
                 if (remoteAudioTrack != null) {
-                    // Enable the remote audio track
+
                     remoteAudioTrack.setEnabled(true);
 
-                    // You can further add the audio track to an audio renderer if necessary
-                    // The audio playback should be handled by WebRTC internally
+
                 }
             }
         });
 
 
 
-        // Listen for incoming ICE candidates from Firebase in real-time
+
         listenForIceCandidates(sessionId, email);
 
-        // Create audio source and track
         MediaConstraints audioConstraints = new MediaConstraints();
         audioSource = peerConnectionFactory.createAudioSource(audioConstraints);
         audioTrack = peerConnectionFactory.createAudioTrack("audioTrack", audioSource);
 
-        // Create the local media stream and add both audio and video tracks
         MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
-        localStream.addTrack(videoTrack);  // Add video track
-        localStream.addTrack(audioTrack);  // Add audio track
+        localStream.addTrack(videoTrack);
+        localStream.addTrack(audioTrack);
         peerConnection.addStream(localStream);
     }
 
@@ -231,7 +219,7 @@ public RTCHost(){
 
 
 
-    public boolean isAudioEnabled = true; // Track audio state
+    public boolean isAudioEnabled = true;
 
     public void toggleAudio() {
         if (audioTrack != null) {
@@ -251,16 +239,12 @@ public RTCHost(){
         peerConnection.createOffer(new SdpAdapter("CreateOffer") {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
-                // Set local description
                 peerConnection.setLocalDescription(new SdpAdapter("SetLocalDescription"), sessionDescription);
 
-                // Format the offer object
                 String offer = sessionDescription.description;
 
-                // Create a reference to the user's session in Firebase
-                String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
+                String emailKey = email.replace(".", "_");
 
-                // Update Firebase with the session offer
                 firebaseDatabase.child("users").child(emailKey).child("sessions").child(sessionId)
                         .child("Offer").setValue(offer)
                         .addOnCompleteListener(task -> {
@@ -271,7 +255,6 @@ public RTCHost(){
                             }
                         });
 
-                // Start listening for the answer from the remote peer
                 startListeningForAnswer(sessionId, email);
             }
 
@@ -283,7 +266,7 @@ public RTCHost(){
     }
 
     public void listenForDisconnect(String sessionId, String email) {
-        String emailKey = email.replace(".", "_"); // Firebase key formatting
+        String emailKey = email.replace(".", "_");
 
         DatabaseReference disconnectRef = firebaseDatabase.child("users")
                 .child(emailKey)
@@ -291,45 +274,35 @@ public RTCHost(){
                 .child(sessionId)
                 .child("disconnect");
 
-        // Listen for changes to the "disconnect" signal in real-time
         disconnectRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                // Check if "disconnect" value is 1
                 if (dataSnapshot.exists() && dataSnapshot.getValue(Integer.class) == 1) {
                     Log.d(TAG, "Received disconnect signal. Generating new SDP offer...");
 
-                    // Generate a fresh SDP offer
                     generateNewSdpOffer(sessionId, email);
-
-                    // Remove the "disconnect" flag from Firebase to acknowledge the event
                     disconnectRef.removeValue();
                 }
             }
-
             @Override
             public void onCancelled(DatabaseError databaseError) {
-                // Handle error in case the database operation is canceled or fails
                 Log.e(TAG, "Failed to listen for disconnect signal: " + databaseError.getMessage());
             }
         });
     }
+
     public void generateNewSdpOffer(String sessionId, String email) {
-        // Call the existing createOffer method to generate the new SDP offer
         createOffer(sessionId, email);
     }
 
 
-    public void onReceiveAnswer(SessionDescription answer) {//a
+    public void onReceiveAnswer(SessionDescription answer) {
         if (peerConnection != null) {
             if (answer != null) {
-                // Set the remote description once the answer is received
                 peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription"), answer);
 
-                // Show a toast when the answer is received
                 Toast.makeText(localView.getContext(), "Answer received, streaming starts now!", Toast.LENGTH_SHORT).show();
 
-                // Start streaming your local media to the remote peer
                 startStreaming();
             } else {
                 Log.e(TAG, "Received invalid answer: null");
@@ -344,7 +317,7 @@ public RTCHost(){
     }
 
     public void listenForIceCandidates(String sessionId, String email) {
-        String emailKey = email.replace(".", "_"); // Firebase key formatting
+        String emailKey = email.replace(".", "_");
 
         DatabaseReference iceCandidatesRef = firebaseDatabase.child("users")
                 .child(emailKey)
@@ -352,20 +325,19 @@ public RTCHost(){
                 .child(sessionId)
                 .child("ice_candidates");
 
-        // Listen for changes to the ice_candidates in real-time
         iceCandidatesRef.addChildEventListener(new ChildEventListener() {
             @Override
             public void onChildAdded(DataSnapshot dataSnapshot, String previousChildName) {
-                // Retrieve the ICE candidate data
+
                 String candidate = dataSnapshot.child("candidate").getValue(String.class);
                 String sdpMid = dataSnapshot.child("sdpMid").getValue(String.class);
                 int sdpMLineIndex = dataSnapshot.child("sdpMLineIndex").getValue(Integer.class);
 
                 if (candidate != null) {
-                    // Create an IceCandidate object from the received data
+
                     IceCandidate iceCandidate = new IceCandidate(sdpMid, sdpMLineIndex, candidate);
 
-                    // Add the candidate to the peer connection
+
                     peerConnection.addIceCandidate(iceCandidate);
                     Log.d(TAG, "Received and added ICE candidate from Firebase.");
                 }
@@ -390,7 +362,7 @@ public RTCHost(){
 
 
     public void listenForAnswer(String sessionId, String email) {
-        String emailKey = email.replace(".", "_"); // Firebase does not support '@' or '.' in keys
+        String emailKey = email.replace(".", "_");
 
         DatabaseReference answerRef = firebaseDatabase.child("users")
                 .child(emailKey)
@@ -398,33 +370,26 @@ public RTCHost(){
                 .child(sessionId)
                 .child("Answer");
 
-        // Listen for changes to the answer in real-time
         answerRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                // Get the answer value
                 String answer = dataSnapshot.getValue(String.class);
 
                 if (answer != null) {
-                    // Once the answer is received, create the SessionDescription and call onReceiveAnswer
                     SessionDescription sessionDescription = new SessionDescription(SessionDescription.Type.ANSWER, answer);
                     onReceiveAnswer(sessionDescription);
-
-                    // Optionally, remove the listener after receiving the answer to prevent further updates
                     answerRef.removeEventListener(this);
                 }
             }
 
             @Override
             public void onCancelled(DatabaseError databaseError) {
-                // Handle error in case the database operation is canceled or fails
                 Log.e(TAG, "Failed to listen for answer: " + databaseError.getMessage());
             }
         });
     }
 
     private void startStreaming() {
-        // Assuming you already have the local video track and media stream set up
         if (peerConnection != null && videoTrack != null) {
             MediaStream localStream = peerConnectionFactory.createLocalMediaStream("localStream");
             localStream.addTrack(videoTrack);
@@ -445,7 +410,6 @@ public RTCHost(){
     }
 
     private CameraVideoCapturer createCameraCapturer(Camera2Enumerator enumerator, boolean useFrontCamera) {
-        // This method returns the camera capturer based on user preference for front or rear camera
         CameraVideoCapturer capturer = null;
         for (String deviceName : enumerator.getDeviceNames()) {
             if (useFrontCamera && enumerator.isFrontFacing(deviceName)) {
@@ -460,18 +424,16 @@ public RTCHost(){
     }
 
     public void dispose(String sessionId, String email) {
-        // Clean up the peer connection if it's not already null
+
         if (peerConnection != null) {
             peerConnection.close();
             peerConnection = null;
         }
 
-        // Release the video capturer
         if (videoCapturer != null) {
             videoCapturer = null;
         }
 
-        // Clean up video source and track
         if (videoSource != null) {
             videoSource.dispose();
             videoSource = null;
@@ -482,7 +444,6 @@ public RTCHost(){
             videoTrack = null;
         }
 
-        // Remove the surface view renderer
         if (localView != null) {
             localView.release();
             localView = null;
@@ -513,7 +474,6 @@ public RTCHost(){
             }
         });
 
-        // Finally, cleanup WebRTC resources
         if (rootEglBase != null) {
             rootEglBase.release();
             rootEglBase = null;
@@ -526,20 +486,17 @@ public RTCHost(){
 
         isRecording = false;
 
-        // Release the VideoFileRenderer
         if (videoFileRenderer != null) {
             videoFileRenderer.release();
             videoFileRenderer = null;
         }
 
 
-        // Optionally, you can show a toast confirming that the session is disposed of
         Toast.makeText(localView.getContext(), "Session disposed of and resources released.", Toast.LENGTH_SHORT).show();
     }
 
 
 
-    // Switch between front and rear cameras
     public void switchCamera() {
         if (videoCapturer != null && videoCapturer instanceof CameraVideoCapturer) {
             CameraVideoCapturer cameraCapturer = (CameraVideoCapturer) videoCapturer;
@@ -563,13 +520,12 @@ public RTCHost(){
         }
     }
 
-    // Toggle video capture on or off
-    private boolean isVideoEnabled = true; // Track video state
+    private boolean isVideoEnabled = true;
 
     public void toggleVideo() {
         if (videoTrack != null) {
             isVideoEnabled = !isVideoEnabled;
-            videoTrack.setEnabled(isVideoEnabled); // Enable or disable video track
+            videoTrack.setEnabled(isVideoEnabled);
             String message = isVideoEnabled ? "Video enabled" : "Video disabled";
             Log.d(TAG, message);
             Toast.makeText(localView.getContext(), message, Toast.LENGTH_SHORT).show();
@@ -580,13 +536,13 @@ public RTCHost(){
 
     public void muteMic() {
         if (audioTrack != null) {
-            audioTrack.setEnabled(false);  // Disables the microphone
+            audioTrack.setEnabled(false);
         }
     }
 
     public void unmuteMic() {
         if (audioTrack != null) {
-            audioTrack.setEnabled(true);  // Enables the microphone
+            audioTrack.setEnabled(true);
         }
     }
 
@@ -601,14 +557,13 @@ public RTCHost(){
 
         try {
             Log.d(TAG, "Preparing file path for recording.");
-            // Generate a unique file name using UUID
             String randomFileName = "Recording_" + UUID.randomUUID().toString() + ".yuv";
             File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), randomFileName);
-            String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
+            String filePath = outputFile.getAbsolutePath();
             Log.d(TAG, "Recording file path: " + filePath);
 
-            int width = 90;  // Adjust width as needed
-            int height = 160;  // Adjust height as needed
+            int width = 90;
+            int height = 160;
 
 
 
@@ -631,7 +586,6 @@ public RTCHost(){
             @Override
             public void onFrame(VideoFrame frame) {
                 if (isRecording) {
-                    // Forward the frame to VideoFileRenderer for recording
                     videoFileRenderer.onFrame(frame);
                 }
             }
@@ -644,11 +598,9 @@ public RTCHost(){
             return;
         }
 
-        // Stop recording
         isRecording = false;
         Log.d(TAG, "Recording stopped.");
 
-        // Release the VideoFileRenderer
         if (videoFileRenderer != null) {
             videoFileRenderer.release();
             videoFileRenderer = null;
@@ -657,7 +609,6 @@ public RTCHost(){
             @Override
             public void onFrame(VideoFrame frame) {
                 if (isRecording) {
-                    // Forward the frame to VideoFileRenderer for recording
                     videoFileRenderer.onFrame(frame);
                 }
             }
@@ -674,14 +625,13 @@ public RTCHost(){
 
         try {
             Log.d(TAG, "Preparing file path for recording.");
-            // Generate a unique file name using UUID
             String randomFileName = "ReplayBuffer_" + UUID.randomUUID().toString() + ".yuv";
             File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), randomFileName);
-            String filePath = outputFile.getAbsolutePath();  // Get the absolute file path
+            String filePath = outputFile.getAbsolutePath();
             Log.d(TAG, "Recording file path: " + filePath);
 
-            int width = 90;  // Adjust width as needed
-            int height = 160;  // Adjust height as needed
+            int width = 90;
+            int height = 160;
 
             if (videoTrack != null) {
                 videoFileRenderer = new VideoFileRenderer(filePath, width, height, rootEglBase.getEglBaseContext());
@@ -703,26 +653,14 @@ public RTCHost(){
             @Override
             public void onFrame(VideoFrame frame) {
                 if (isRecording) {
-                    // Forward the frame to VideoFileRenderer for recording
                     videoFileRenderer.onFrame(frame);
                 }
             }
         });
 
-        // Schedule stopRecord() to be called after 30 seconds
         new Handler(Looper.getMainLooper()).postDelayed(() -> stopRecording(), 30000);
 
     }
-
-
-
-
-
-//Permission
-
-
-
-
 
 }
 

@@ -34,6 +34,24 @@ android {
     viewBinding {
         enable=true
     }
+    aaptOptions {
+        noCompress("tflite")
+    }
+
+    packagingOptions {
+        resources {
+            excludes.add("/META-INF/{AL2.0,LGPL2.1}")
+            excludes.add("/META-INF/DEPENDENCIES")
+            excludes.add("/META-INF/LICENSE")
+            excludes.add("/META-INF/LICENSE.txt")
+            excludes.add("/META-INF/license.txt")
+            excludes.add("/META-INF/NOTICE")
+            excludes.add("/META-INF/NOTICE.txt")
+            excludes.add("/META-INF/notice.txt")
+        }
+    }
+
+
 }
 
 dependencies {
@@ -71,5 +89,18 @@ dependencies {
 
     //navigation
     implementation("com.google.android.material:material:1.8.0")
+
+
+    // Add these for YUV conversion
+
+    // TensorFlow Lite dependencies
+    implementation ("org.tensorflow:tensorflow-lite:2.12.0")
+
+    // GPU support
+    implementation ("org.tensorflow:tensorflow-lite-gpu:2.12.0")
+    implementation ("org.tensorflow:tensorflow-lite-gpu-api:2.12.0")
+
+    // Optional: Add support libraries for better performance
+    implementation ("org.tensorflow:tensorflow-lite-support:0.4.2")
 
 }

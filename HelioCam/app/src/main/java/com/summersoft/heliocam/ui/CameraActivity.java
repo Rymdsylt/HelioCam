@@ -53,6 +53,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.detection.PersonDetection;
 import com.summersoft.heliocam.detection.SoundDetection;
 
 
@@ -77,7 +78,7 @@ public class CameraActivity extends AppCompatActivity {
     private boolean isCameraOn = true;
 public Context context;
     public RTCHost webRTCClient;
-
+    private PersonDetection personDetection;
 
 
     private boolean isMicOn = true;
@@ -100,7 +101,9 @@ public Context context;
                         }
                     });
         }
-
+        if (personDetection != null) {
+            personDetection.stop();
+        }
         disposeResources();
     }
 
@@ -170,6 +173,18 @@ public Context context;
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
 
+        // Initialize cameraView
+        cameraView = findViewById(R.id.camera_view);
+
+        // Create webRTCClient ONLY ONCE
+        webRTCClient = new RTCHost(this, cameraView, mDatabase);
+
+        // Initialize person detection
+        personDetection = new PersonDetection(this, webRTCClient);
+        personDetection.start();
+
+        // Connect person detection to WebRTC client
+        webRTCClient.setPersonDetection(personDetection);
 
 
         // Check permissions and other setup code
@@ -191,8 +206,6 @@ public Context context;
         ImageButton toggleCameraButton = findViewById(R.id.video_button);
         ImageButton micButton = findViewById(R.id.mic_button);  // Add mic button
 
-        // Your existing WebRTC setup
-        webRTCClient = new RTCHost(this, cameraView, mDatabase);
         // Initialize your camera and WebRTC components
         soundDetection = new SoundDetection(this, webRTCClient);
         soundDetection.setSoundThreshold(3000);

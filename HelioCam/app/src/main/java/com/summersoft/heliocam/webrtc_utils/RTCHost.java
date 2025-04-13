@@ -51,6 +51,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
+import com.summersoft.heliocam.detection.PersonDetection;
 import com.summersoft.heliocam.webrtcfork.MultiSinkVideoRenderer;
 
 
@@ -81,6 +82,7 @@ public class RTCHost {
     private VideoFileRenderer videoFileRenderer;
     private static final int WRITE_EXTERNAL_STORAGE_REQUEST_CODE = 1;
 
+    private PersonDetection personDetection;
 
 
 
@@ -95,9 +97,7 @@ public class RTCHost {
     private Context context;
     public boolean isRecording = false;
 
-public RTCHost(){
 
-}
     public RTCHost(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
         this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
@@ -146,11 +146,13 @@ public RTCHost(){
             return;
         }
 
+        // Check if we're already streaming
         if (videoTrack != null) {
             Toast.makeText(context, "Streaming has already started. Just adding observers.", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // Initialize camera capturer
         Camera2Enumerator cameraEnumerator = new Camera2Enumerator(context);
         videoCapturer = createCameraCapturer(cameraEnumerator, useFrontCamera);
 
@@ -158,25 +160,47 @@ public RTCHost(){
             Log.e(TAG, "Failed to initialize video capturer.");
             return;
         }
+
+        // Create surface texture helper if needed
         if (surfaceTextureHelper == null) {
             surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
+            if (surfaceTextureHelper == null) {
+                Log.e(TAG, "Failed to create SurfaceTextureHelper.");
+                return;
+            }
         }
 
+        // Initialize video source
         videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
-        videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
-        videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", videoSource);
+        if (videoSource == null) {
+            Log.e(TAG, "Failed to create video source.");
+            return;
+        }
 
+        // Initialize capturer
+        videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
+
+        // Create video track
+        videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", videoSource);
         if (videoTrack == null) {
             Log.e(TAG, "Failed to create video track.");
             return;
         }
 
+        // Add sinks
         videoTrack.addSink(localView);
 
+
+        // Start capture
         try {
             videoCapturer.startCapture(1280, 720, 30);
         } catch (Exception e) {
             Log.e(TAG, "Failed to start video capturer.", e);
+            // Clean up if capture fails
+            if (videoCapturer != null) {
+                videoCapturer.dispose();
+                videoCapturer = null;
+            }
         }
     }
 
@@ -295,6 +319,15 @@ public RTCHost(){
         createOffer(sessionId, email);
     }
 
+    public void setPersonDetection(PersonDetection personDetection) {
+        this.personDetection = personDetection;
+
+        if (videoTrack != null && personDetection != null) {
+            personDetection.start();  // Start detection when setting
+            videoTrack.addSink(personDetection);
+        }
+    }
+
 
     public void onReceiveAnswer(SessionDescription answer) {
         if (peerConnection != null) {
@@ -397,6 +430,10 @@ public RTCHost(){
         }
     }
 
+
+
+
+
     private List<PeerConnection.IceServer> getIceServers() {
         String StunServer = "stun:stun.relay.metered.ca:80";
         String TurnServer = "turn:asia.relay.metered.ca:80?transport=tcp";
@@ -424,6 +461,11 @@ public RTCHost(){
     }
 
     public void dispose(String sessionId, String email) {
+
+        if (personDetection != null) {
+            personDetection.stop();
+            personDetection = null;
+        }
 
         if (peerConnection != null) {
             peerConnection.close();
@@ -581,11 +623,21 @@ public RTCHost(){
         } catch (IOException e) {
             Log.e(TAG, "Failed to start recording.", e);
         }
-       videoTrack.addSink(localView);
+
+        // Add sinks to video track
+        videoTrack.addSink(localView);
+        if (personDetection != null) {
+            videoTrack.addSink(personDetection);
+        }
+        // Add a custom sink to handle the video frames
+        videoTrack.addSink(localView);
+        if (personDetection != null) {
+            videoTrack.addSink(personDetection);
+        }
         videoTrack.addSink(new VideoSink() {
             @Override
             public void onFrame(VideoFrame frame) {
-                if (isRecording) {
+                if (isRecording && videoFileRenderer != null) {
                     videoFileRenderer.onFrame(frame);
                 }
             }
@@ -649,14 +701,25 @@ public RTCHost(){
         }
 
         videoTrack.addSink(localView);
+        if (personDetection != null) {
+            videoTrack.addSink(personDetection);
+        }
         videoTrack.addSink(new VideoSink() {
             @Override
             public void onFrame(VideoFrame frame) {
-                if (isRecording) {
+                if (isRecording && videoFileRenderer != null) {
                     videoFileRenderer.onFrame(frame);
                 }
             }
         });
+
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            stopRecording();
+            // Ensure person detection stays active
+            if (personDetection != null) {
+                personDetection.start();
+            }
+        }, 30000);
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> stopRecording(), 30000);
 

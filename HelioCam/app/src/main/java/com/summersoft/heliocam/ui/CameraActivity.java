@@ -2,14 +2,16 @@ package com.summersoft.heliocam.ui;
 
 import static com.summersoft.heliocam.status.IMEI_Util.TAG;
 
-import static java.lang.Math.log;
+
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.os.Build;
+import android.net.Uri;
+
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -26,13 +28,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import android.app.AlertDialog;
-import android.content.Context;
-import android.os.Environment;
+
+
 import android.os.StatFs;
-import android.util.Log;
-import android.view.View;
-import android.widget.Button;
-import android.widget.TextView;
+
 
 
 
@@ -57,10 +56,10 @@ import com.summersoft.heliocam.detection.PersonDetection;
 import com.summersoft.heliocam.detection.SoundDetection;
 
 
+import com.summersoft.heliocam.utils.DetectionDirectoryManager;
 import com.summersoft.heliocam.webrtc_utils.RTCHost;
 
 import java.io.File;
-import android.os.StatFs;
 
 
 public class CameraActivity extends AppCompatActivity {
@@ -78,11 +77,44 @@ public class CameraActivity extends AppCompatActivity {
     private boolean isCameraOn = true;
     public Context context;
     public RTCHost webRTCClient;
+    private static final int REQUEST_DIRECTORY_PICKER = 1001;
     private PersonDetection personDetection;
 
 
+    private DetectionDirectoryManager directoryManager;
+
     private boolean isMicOn = true;
 
+    // Method to open directory picker
+    public void openDirectoryPicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        startActivityForResult(intent, REQUEST_DIRECTORY_PICKER);
+    }
+
+    // Handle the result from directory picker
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_DIRECTORY_PICKER && resultCode == RESULT_OK) {
+            if (data != null && data.getData() != null) {
+                Uri selectedDirectoryUri = data.getData();
+                directoryManager.setBaseDirectory(selectedDirectoryUri);
+
+                // Update person detection to use the new directory
+                if (personDetection != null) {
+                    personDetection.setDirectoryUri(selectedDirectoryUri);
+                }
+            }
+        }
+    }
+
+    // You might also want to add a button or menu option to allow users to change the directory later
+    public void selectOutputDirectory() {
+        openDirectoryPicker();
+    }
 
     @Override
     protected void onDestroy() {
@@ -167,6 +199,10 @@ public class CameraActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
         Context context = CameraActivity.this;
+
+
+
+        // Check if the app has permission to write to external storage
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
 
@@ -257,6 +293,21 @@ public class CameraActivity extends AppCompatActivity {
             v.showContextMenu();  // Show the context menu
         });
 
+
+        directoryManager = new DetectionDirectoryManager(this);
+
+        // Check if we already have a valid directory, if not request one
+        if (!directoryManager.hasValidDirectory()) {
+            // Show dialog explaining why we need directory access
+            new AlertDialog.Builder(this)
+                    .setTitle("Select Storage Location")
+                    .setMessage("HelioCam needs to save detection images. Please select a folder to store these files.")
+                    .setPositiveButton("Select Folder", (dialog, which) -> {
+                        openDirectoryPicker();
+                    })
+                    .setCancelable(false)
+                    .show();
+        }
 
     }
 

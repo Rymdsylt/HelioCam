@@ -13,6 +13,10 @@ import android.util.Log;
 import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
+import android.media.MediaScannerConnection;
+import androidx.documentfile.provider.DocumentFile;
+import com.summersoft.heliocam.utils.DetectionDirectoryManager;
+
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
@@ -23,6 +27,7 @@ import com.summersoft.heliocam.ui.CameraActivity;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -38,6 +43,8 @@ public class SoundDetection {
     private boolean isRunning = false;
     private long detectionLatency = 3000; // Default latency in milliseconds (3 seconds)
 
+    private DetectionDirectoryManager directoryManager;
+    // Firebase references
     private AudioRecord audioRecord;
     private Thread detectionThread;
     private long lastDetectionTime = 0;
@@ -47,6 +54,7 @@ public class SoundDetection {
         this.context = context;
         this.handler = new Handler();
         this.webRTCClient = webRTCClient;
+        this.directoryManager = new DetectionDirectoryManager(context);
     }
 
     /**
@@ -189,14 +197,20 @@ public class SoundDetection {
         cameraActivity.captureCameraView(bitmap -> {
             if (bitmap != null) {
                 try {
-                    // Save the bitmap to a temporary file
-                    File tempFile = File.createTempFile("screenshot", ".png", context.getCacheDir());
-                    FileOutputStream fos = new FileOutputStream(tempFile);
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
-                    fos.close();
+                    // Try to save locally first
+                    boolean saved = saveSoundDetectionImage(bitmap, sessionId);
 
-                    // Upload the file to Firebase Storage
-                    uploadScreenshotToFirebase(sessionId, tempFile);
+                    // If not saved locally, upload to Firebase as fallback
+                    if (!saved) {
+                        // Save the bitmap to a temporary file for Firebase upload
+                        File tempFile = File.createTempFile("screenshot", ".png", context.getCacheDir());
+                        FileOutputStream fos = new FileOutputStream(tempFile);
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                        fos.close();
+
+                        // Upload the file to Firebase Storage
+
+                    }
                 } catch (Exception e) {
                     Log.e("SoundDetection", "Error saving screenshot", e);
                 }
@@ -206,14 +220,56 @@ public class SoundDetection {
         });
     }
 
-    private void uploadScreenshotToFirebase(String sessionId, File file) {
-        String storagePath = "screenshots/" + sessionId + ".png";
-        FirebaseStorage storage = FirebaseStorage.getInstance();
-        StorageReference storageRef = storage.getReference(storagePath);
+    private boolean saveSoundDetectionImage(Bitmap bitmap, String sessionId) {
+        try {
+            // Generate filename
+            String fileName = directoryManager.generateTimestampedFilename("Sound_Detected", ".jpg");
 
-        storageRef.putFile(Uri.fromFile(file))
-                .addOnSuccessListener(taskSnapshot -> Log.d("SoundDetection", "Screenshot uploaded successfully."))
-                .addOnFailureListener(e -> Log.e("SoundDetection", "Failed to upload screenshot", e));
+            // Try to save to the sound detection directory
+            DocumentFile soundDir = directoryManager.getSoundDetectionDirectory();
+
+            if (soundDir != null) {
+                // Save to user-selected directory
+                DocumentFile newFile = soundDir.createFile("image/jpeg", fileName);
+                if (newFile != null) {
+                    OutputStream out = context.getContentResolver().openOutputStream(newFile.getUri());
+                    if (out != null) {
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
+                        out.close();
+
+                        handler.post(() -> Toast.makeText(context,
+                                "Sound detected - Image saved",
+                                Toast.LENGTH_SHORT).show());
+
+                        Log.d("SoundDetection", "Detection image saved to: " + newFile.getUri());
+                        return true;
+                    }
+                }
+            }
+
+            // Fallback to app storage if user directory not available
+            File detectionDir = directoryManager.getAppStorageDirectory("Sound_Detections");
+            File imageFile = new File(detectionDir, fileName);
+
+            FileOutputStream fos = new FileOutputStream(imageFile);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, fos);
+            fos.close();
+
+            Log.d("SoundDetection", "Sound detection image saved to app storage: " + imageFile.getAbsolutePath());
+            handler.post(() -> Toast.makeText(context,
+                    "Sound detected - Image saved to app storage",
+                    Toast.LENGTH_SHORT).show());
+
+            // Add to media scanner
+            MediaScannerConnection.scanFile(context,
+                    new String[]{imageFile.getAbsolutePath()},
+                    new String[]{"image/jpeg"}, null);
+
+            return true;
+        } catch (Exception e) {
+            Log.e("SoundDetection", "Error saving sound detection image", e);
+            return false;
+        }
     }
 
 

@@ -1,28 +1,33 @@
 package com.summersoft.heliocam.detection;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.net.Uri;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
+import android.media.MediaScannerConnection;
+
+import androidx.documentfile.provider.DocumentFile;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 import com.summersoft.heliocam.ui.CameraActivity;
+import com.summersoft.heliocam.utils.DetectionDirectoryManager;
 import com.summersoft.heliocam.utils.FileUtils;
 import com.summersoft.heliocam.utils.ImageUtils;
 import com.summersoft.heliocam.webrtc_utils.RTCHost;
 
 import org.tensorflow.lite.Interpreter;
-import org.tensorflow.lite.gpu.GpuDelegate;
 import org.webrtc.VideoFrame;
 import org.webrtc.VideoSink;
 import org.webrtc.YuvConverter;
@@ -30,6 +35,7 @@ import org.webrtc.YuvConverter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.text.SimpleDateFormat;
@@ -51,6 +57,10 @@ public class PersonDetection implements VideoSink {
     private static final int INPUT_WIDTH = 640;
     private static final int INPUT_HEIGHT = 640;
 
+    private static final int REQUEST_DIRECTORY_PICKER = 1001;
+    private Uri savedDirectoryUri = null;
+
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Context context;
     private final Handler handler;
     private final Executor executor;
@@ -63,6 +73,8 @@ public class PersonDetection implements VideoSink {
     private final AtomicBoolean isInLatencyPeriod = new AtomicBoolean(false);
     private final AtomicBoolean isModelLoaded = new AtomicBoolean(false);
     private final AtomicBoolean isProcessingFrame = new AtomicBoolean(false);
+
+    private DetectionDirectoryManager directoryManager;
 
     private long lastDetectionTime = 0;
     private DetectionListener detectionListener;
@@ -120,6 +132,7 @@ public class PersonDetection implements VideoSink {
         this.boxPaint.setColor(Color.RED);
         this.boxPaint.setStyle(Paint.Style.STROKE);
         this.boxPaint.setStrokeWidth(8.0f);
+        this.directoryManager = new DetectionDirectoryManager(context);
         loadModel();
     }
 
@@ -361,8 +374,8 @@ public class PersonDetection implements VideoSink {
                             }
                         });
 
-                // Upload image
-                uploadDetectionImage(bitmap, sessionId);
+                // Save image
+                saveDetectionImage(bitmap, sessionId);
 
                 // Replay buffer
                 webRTCClient.replayBuffer(context);
@@ -374,21 +387,91 @@ public class PersonDetection implements VideoSink {
         }
     }
 
-    private void uploadDetectionImage(Bitmap bitmap, String sessionId) {
+    private void saveDetectionImage(Bitmap bitmap, String sessionId) {
         try {
-            File tempFile = File.createTempFile("detection", ".png", context.getCacheDir());
-            FileOutputStream fos = new FileOutputStream(tempFile);
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+            // Generate filename
+            String fileName = directoryManager.generateTimestampedFilename("Person_Detected", ".jpg");
+
+            // Try to save to the person detection directory
+            DocumentFile personDir = directoryManager.getPersonDetectionDirectory();
+
+            if (personDir != null) {
+                // Save to user-selected directory
+                DocumentFile newFile = personDir.createFile("image/jpeg", fileName);
+                if (newFile != null) {
+                    OutputStream out = context.getContentResolver().openOutputStream(newFile.getUri());
+                    if (out != null) {
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
+                        out.close();
+
+                        uiHandler.post(() -> Toast.makeText(context,
+                                "Person detected - Image saved",
+                                Toast.LENGTH_SHORT).show());
+
+                        Log.d(TAG, "Detection image saved to: " + newFile.getUri());
+                        return;
+                    }
+                }
+            } else {
+                // If we don't have a user directory, prompt once
+                uiHandler.post(() -> {
+                    Toast.makeText(context, "Please select a folder to save detection data", Toast.LENGTH_SHORT).show();
+                    if (context instanceof CameraActivity) {
+                        ((CameraActivity) context).openDirectoryPicker();
+                    }
+                });
+            }
+
+            // Fallback to app storage
+            saveToAppStorage(bitmap, sessionId);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving detection image", e);
+            saveToAppStorage(bitmap, sessionId);
+        }
+    }
+
+
+    private void saveToAppStorage(Bitmap bitmap, String sessionId) {
+        try {
+            File detectionDir = directoryManager.getAppStorageDirectory("Person_Detections");
+            String fileName = directoryManager.generateTimestampedFilename("Person_Detected", ".jpg");
+            File imageFile = new File(detectionDir, fileName);
+
+            FileOutputStream fos = new FileOutputStream(imageFile);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, fos);
             fos.close();
 
-            String storagePath = "detections/" + sessionId + "_" + System.currentTimeMillis() + ".png";
-            StorageReference storageRef = FirebaseStorage.getInstance().getReference(storagePath);
+            Log.d(TAG, "Detection image saved to app storage: " + imageFile.getAbsolutePath());
+            uiHandler.post(() -> Toast.makeText(context,
+                    "Person detected - Image saved to app storage",
+                    Toast.LENGTH_SHORT).show());
 
-            storageRef.putFile(android.net.Uri.fromFile(tempFile))
-                    .addOnSuccessListener(taskSnapshot -> Log.d(TAG, "Image uploaded"))
-                    .addOnFailureListener(e -> Log.e(TAG, "Upload failed", e));
+            // Add to media scanner
+            MediaScannerConnection.scanFile(context,
+                    new String[]{imageFile.getAbsolutePath()},
+                    new String[]{"image/jpeg"}, null);
         } catch (IOException e) {
-            Log.e(TAG, "Error saving image", e);
+            Log.e(TAG, "Error saving to app storage", e);
+        }
+    }
+
+    // Method to set the directory URI after user selection
+    // Replace setDirectoryUri method
+    public void setDirectoryUri(Uri uri) {
+        if (uri != null) {
+            directoryManager.setBaseDirectory(uri);
+        }
+    }
+
+
+
+    private boolean isValidDirectory(Uri uri) {
+        try {
+            DocumentFile directory = DocumentFile.fromTreeUri(context, uri);
+            return directory != null && directory.exists() && directory.isDirectory();
+        } catch (Exception e) {
+            return false;
         }
     }
 

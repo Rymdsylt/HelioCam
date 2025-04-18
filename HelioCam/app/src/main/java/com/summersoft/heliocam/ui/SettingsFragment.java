@@ -14,9 +14,14 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ServerValue;
 import com.summersoft.heliocam.R;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class SettingsFragment extends Fragment {
 
@@ -38,7 +43,10 @@ public class SettingsFragment extends Fragment {
         Button btnSession = rootView.findViewById(R.id.btnSessionSetting);
 
 
-
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null && currentUser.getEmail() != null) {
+            ensureUserHasSettingsKey(currentUser.getEmail());
+        }
         // Set OnClickListener for btnNotification
         btnNotification.setOnClickListener(v -> {
             // Create an instance of DevicesLoginFragment
@@ -87,8 +95,16 @@ public class SettingsFragment extends Fragment {
             transaction.commit();
         });
 
-        btnAccountSettings.setOnClickListener(v -> {
+         btnAccountSettings.setOnClickListener(v -> {
+             // Direct navigation to account settings without key verification
+             AccountSettingsFragment accountSettingsFragment = new AccountSettingsFragment();
+             FragmentTransaction transaction = getFragmentManager().beginTransaction();
+             transaction.setCustomAnimations(R.anim.slide_in_right, 0);
+             transaction.replace(R.id.fragment_container, accountSettingsFragment);
+             transaction.addToBackStack(null);
+             transaction.commit();
 
+             /*
             LayoutInflater dialogInflater = LayoutInflater.from(requireContext());
             View dialogView = dialogInflater.inflate(R.layout.dialog_account_settings, null);
 
@@ -157,35 +173,41 @@ public class SettingsFragment extends Fragment {
 
                 // Replace "." with valid Firebase path character "_"
                 String emailKey = currentUserEmail.replace(".", "_");
-                String email= currentUserEmail;
 
                 // Reference to the Firebase database
-                DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference("users").child(emailKey).child("settingsKey");
+                DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference("users").child(emailKey);
 
                 // Fetch the key value from Firebase
-                databaseReference.get().addOnCompleteListener(task -> {
-                    if (task.isSuccessful() && task.getResult() != null) {
+                databaseReference.child("settingsKey").get().addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null && task.getResult().getValue() != null) {
                         String settingsKey = task.getResult().getValue(String.class);
 
-                        if (settingsKey != null && !settingsKey.isEmpty()) {
-                            Intent emailIntent = new Intent(Intent.ACTION_SEND);
-                            emailIntent.setType("message/rfc822");
-                            emailIntent.putExtra(Intent.EXTRA_EMAIL, new String[]{currentUserEmail});
-                            emailIntent.putExtra(Intent.EXTRA_SUBJECT, "Your Settings Key");
-                            emailIntent.putExtra(Intent.EXTRA_TEXT, "Here is your settings key: " + settingsKey);
+                        // Create an email task in Firebase
+                        DatabaseReference emailTasksRef = FirebaseDatabase.getInstance()
+                                .getReference("email_tasks").push();
 
-                            try {
-                                // Launch email client
-                                startActivity(Intent.createChooser(emailIntent, "Send email using..."));
-                                Toast.makeText(requireContext(), "Email client opened. Please send the email!", Toast.LENGTH_SHORT).show();
-                            } catch (android.content.ActivityNotFoundException ex) {
-                                Toast.makeText(requireContext(), "No email clients installed.", Toast.LENGTH_SHORT).show();
-                            }
-                        } else {
-                            Toast.makeText(requireContext(), "Failed to retrieve the settings key.", Toast.LENGTH_SHORT).show();
-                        }
+                        // Data to send to Firebase
+                        Map<String, Object> emailData = new HashMap<>();
+                        emailData.put("to", currentUserEmail);
+                        emailData.put("subject", "Your HelioCam Settings Key");
+                        emailData.put("message", "Here is your settings key: " + settingsKey);
+                        emailData.put("timestamp", ServerValue.TIMESTAMP);
+
+                        // Save the email task to Firebase
+                        emailTasksRef.setValue(emailData)
+                                .addOnSuccessListener(unused -> {
+                                    Toast.makeText(requireContext(),
+                                            "Settings key will be sent to your email shortly",
+                                            Toast.LENGTH_LONG).show();
+                                })
+                                .addOnFailureListener(e -> {
+                                    Toast.makeText(requireContext(),
+                                            "Failed to send settings key: " + e.getMessage(),
+                                            Toast.LENGTH_LONG).show();
+                                });
                     } else {
-                        Toast.makeText(requireContext(), "Error fetching settings key from Firebase.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(requireContext(), "Failed to retrieve settings key from Firebase.",
+                                Toast.LENGTH_SHORT).show();
                     }
                 });
             });
@@ -195,6 +217,8 @@ public class SettingsFragment extends Fragment {
             // Create and show the dialog
             AlertDialog dialog = builder.create();
             dialog.show();
+
+              */
         });
 
 
@@ -248,5 +272,41 @@ public class SettingsFragment extends Fragment {
         });
 
         return rootView;
+    }
+
+    private void ensureUserHasSettingsKey(String userEmail) {
+        String emailKey = userEmail.replace(".", "_");
+        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(emailKey);
+
+        userRef.child("settingsKey").get().addOnCompleteListener(task -> {
+            if (task.isSuccessful() && task.getResult() != null && task.getResult().exists() &&
+                    task.getResult().getValue() != null) {
+                // Key already exists, no action needed
+            } else {
+                // Generate a random settings key (alphanumeric, 8 characters)
+                String newKey = generateRandomKey(8);
+
+                // Save the key to Firebase
+                userRef.child("settingsKey").setValue(newKey)
+                        .addOnSuccessListener(unused -> {
+                            // Key created successfully
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(requireContext(),
+                                    "Failed to create settings key: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+                        });
+            }
+        });
+    }
+
+    private String generateRandomKey(int length) {
+        String alphaNumeric = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            int index = (int) (Math.random() * alphaNumeric.length());
+            sb.append(alphaNumeric.charAt(index));
+        }
+        return sb.toString();
     }
 }

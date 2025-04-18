@@ -55,14 +55,21 @@ public class ProfileFragment extends Fragment {
                             String contact = dataSnapshot.child("contact").getValue(String.class);
                             String email = dataSnapshot.child("email").getValue(String.class);
 
-                            // Set data to the TextViews
+                            // Handle potential null values with safe defaults
+                            topUserView.setText(username != null ? username : "User");
 
-                            topUserView.setText(username);
+                            emailView.setText("Email: " + (email != null ? email : mAuth.getCurrentUser().getEmail()));
+                            fullnameView.setText("Fullname: " + (fullname != null ? fullname : "Not set"));
+                            usernameView.setText("Username: " + (username != null ? username : "Not set"));
+                            contactView.setText("Contact: " + (contact != null ? contact : "Not set"));
+                        } else {
+                            // User data doesn't exist in the database yet
+                            emailView.setText("Email: " + mAuth.getCurrentUser().getEmail());
+                            fullnameView.setText("Fullname: Not set");
+                            usernameView.setText("Username: Not set");
+                            contactView.setText("Contact: Not set");
 
-                            emailView.setText("Email: "+ email);
-                            fullnameView.setText("Fullname: " + fullname);
-                            usernameView.setText("Username: " +username);
-                            contactView.setText("Contact: " +contact);
+                            topUserView.setText("User");
                         }
                     }
 

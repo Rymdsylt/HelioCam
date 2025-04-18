@@ -70,6 +70,8 @@ dependencies {
     // Firebase BOM
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
 
+    implementation("androidx.documentfile:documentfile:1.0.1")
+
     // Firebase services
     implementation("com.google.firebase:firebase-database")
     implementation("com.google.firebase:firebase-analytics")
@@ -102,5 +104,9 @@ dependencies {
 
     // Optional: Add support libraries for better performance
     implementation ("org.tensorflow:tensorflow-lite-support:0.4.2")
+
+
+    implementation ("com.github.bumptech.glide:glide:4.14.2")
+    annotationProcessor ("com.github.bumptech.glide:compiler:4.14.2")
 
 }

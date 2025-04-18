@@ -76,7 +76,7 @@ public class CameraActivity extends AppCompatActivity {
     private boolean isUsingFrontCamera = true;
 
     private boolean isCameraOn = true;
-public Context context;
+    public Context context;
     public RTCHost webRTCClient;
     private PersonDetection personDetection;
 
@@ -106,9 +106,6 @@ public Context context;
         }
         disposeResources();
     }
-
-
-
 
     @Override
     public void onBackPressed() {
@@ -309,6 +306,9 @@ public Context context;
             case R.id.option_3: // Start/Stop Recording
                 showRecordDialog();
                 return true;
+            case R.id.option_5: // Person Detection Latency
+                showPersonLatencyDialog();
+                return true;
             default:
                 return super.onContextItemSelected(item);
         }
@@ -443,6 +443,35 @@ public Context context;
                 int latency = Integer.parseInt(latencyInput.getText().toString());
                 soundDetection.setDetectionLatency(latency * 1000);
                 Toast.makeText(this, "Latency updated to " + latency, Toast.LENGTH_SHORT).show();
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Invalid input", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        builder.create().show();
+    }
+
+    // Add this new method to your CameraActivity class
+    private void showPersonLatencyDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Adjust Person Detection Latency (in Seconds)");
+
+        // Inflate custom layout
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_person_latency, null);
+        EditText latencyInput = view.findViewById(R.id.personLatencyInput);
+
+        // Initialize with current latency
+        latencyInput.setText(String.valueOf(personDetection.getDetectionLatency() / 1000));
+
+        builder.setView(view);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            try {
+                int latencySeconds = Integer.parseInt(latencyInput.getText().toString());
+                personDetection.setDetectionLatency(latencySeconds * 1000);
+                Toast.makeText(this, "Person detection latency updated to " + latencySeconds + " seconds", Toast.LENGTH_SHORT).show();
             } catch (NumberFormatException e) {
                 Toast.makeText(this, "Invalid input", Toast.LENGTH_SHORT).show();
             }

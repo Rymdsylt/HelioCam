@@ -41,6 +41,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PersonDetection implements VideoSink {
     private static final String TAG = "PersonDetection";
@@ -56,7 +57,13 @@ public class PersonDetection implements VideoSink {
     private final RTCHost webRTCClient;
     private Interpreter tflite;
     private List<String> labels;
-    private boolean isRunning = false;
+
+    // Use AtomicBoolean for thread-safe state management
+    private final AtomicBoolean isRunning = new AtomicBoolean(false);
+    private final AtomicBoolean isInLatencyPeriod = new AtomicBoolean(false);
+    private final AtomicBoolean isModelLoaded = new AtomicBoolean(false);
+    private final AtomicBoolean isProcessingFrame = new AtomicBoolean(false);
+
     private long lastDetectionTime = 0;
     private DetectionListener detectionListener;
     private YuvConverter yuvConverter = new YuvConverter();
@@ -64,17 +71,16 @@ public class PersonDetection implements VideoSink {
 
     // Detection latency variables
     private int detectionLatency = 5000; // Default 5 seconds (in milliseconds)
-    private boolean isInLatencyPeriod = false;
     private final Handler latencyHandler = new Handler(Looper.getMainLooper());
     private final Runnable resumeDetectionRunnable = new Runnable() {
         @Override
         public void run() {
-            isInLatencyPeriod = false;
-            Log.d(TAG, "Detection latency period ended. Resuming detection.");
-            if (detectionListener != null) {
-                detectionListener.onDetectionStatusChanged(false);
+            if (isInLatencyPeriod.compareAndSet(true, false)) {
+                Log.d(TAG, "Detection latency period ended. Resuming detection.");
+                if (detectionListener != null) {
+                    detectionListener.onDetectionStatusChanged(false);
+                }
             }
-            // No need to explicitly resume detection as it will be handled in onFrame
         }
     };
 
@@ -87,12 +93,13 @@ public class PersonDetection implements VideoSink {
             // Initialize interpreter with CPU only (no GPU delegate)
             Interpreter.Options options = new Interpreter.Options();
             options.setUseXNNPACK(true); // Enable XNNPACK for CPU acceleration
+            options.setNumThreads(4);    // Optimize thread usage
 
-            // Remove GPU delegate attempt completely
             Log.d(TAG, "Using CPU with XNNPACK acceleration");
 
             tflite = new Interpreter(model, options);
             Log.d(TAG, "Model loaded successfully with CPU");
+            isModelLoaded.set(true);
         } catch (IOException e) {
             Log.e(TAG, "Error loading model", e);
             handler.post(() -> Toast.makeText(context, "Failed to load detection model", Toast.LENGTH_LONG).show());
@@ -121,18 +128,31 @@ public class PersonDetection implements VideoSink {
     }
 
     public void start() {
-        if (isRunning) return;
-        isRunning = true;
+        if (isRunning.compareAndSet(false, true)) {
+            Log.d(TAG, "Person detection started");
+            // Reset the latency period when starting
+            isInLatencyPeriod.set(false);
+            latencyHandler.removeCallbacks(resumeDetectionRunnable);
+        }
     }
 
     public void stop() {
-        if (!isRunning) return;
-        isRunning = false;
-        isInLatencyPeriod = false;
-        latencyHandler.removeCallbacks(resumeDetectionRunnable);
+        if (isRunning.compareAndSet(true, false)) {
+            Log.d(TAG, "Person detection stopped");
+            isInLatencyPeriod.set(false);
+            latencyHandler.removeCallbacks(resumeDetectionRunnable);
+
+            // Don't close the interpreter here to avoid reloading it
+            // Just stop the detection process
+        }
+    }
+
+    public void shutdown() {
+        stop();
         if (tflite != null) {
             tflite.close();
             tflite = null;
+            isModelLoaded.set(false);
         }
     }
 
@@ -156,25 +176,66 @@ public class PersonDetection implements VideoSink {
         return detectionLatency;
     }
 
+    /**
+     * Check whether detection is currently in the latency (paused) period
+     *
+     * @return true if in latency period, false otherwise
+     */
+    public boolean isInLatencyPeriod() {
+        return isInLatencyPeriod.get();
+    }
+
+    /**
+     * Force exit from latency period and resume detection immediately
+     */
+    public void forceResumeDetection() {
+        if (isInLatencyPeriod.get()) {
+            latencyHandler.removeCallbacks(resumeDetectionRunnable);
+            isInLatencyPeriod.set(false);
+            Log.d(TAG, "Detection resumed forcefully");
+            if (detectionListener != null) {
+                detectionListener.onDetectionStatusChanged(false);
+            }
+        }
+    }
+
     private void loadModel() {
         executor.execute(this::run);
     }
 
     @Override
     public void onFrame(VideoFrame frame) {
-        if (!isRunning || tflite == null || isInLatencyPeriod) return;
+        // Early return conditions with atomic variable checks for thread safety
+        if (!isRunning.get() ||
+                !isModelLoaded.get() ||
+                isInLatencyPeriod.get() ||
+                isProcessingFrame.get()) {
+            return;
+        }
 
         long currentTime = System.currentTimeMillis();
-        if (currentTime - lastDetectionTime < 3000) return; // 3 second cooldown
+        if (currentTime - lastDetectionTime < 500) return; // Smaller cooldown for smoother detection
 
-        Bitmap bitmap = ImageUtils.videoFrameToBitmap(frame);
-        if (bitmap != null) {
-            detectPerson(bitmap);
+        // Set processing flag to avoid parallel processing of frames
+        if (isProcessingFrame.compareAndSet(false, true)) {
+            try {
+                Bitmap bitmap = ImageUtils.videoFrameToBitmap(frame);
+                if (bitmap != null) {
+                    detectPerson(bitmap);
+                }
+            } finally {
+                // Release the processing lock regardless of outcome
+                isProcessingFrame.set(false);
+            }
         }
     }
 
     private void detectPerson(Bitmap bitmap) {
         executor.execute(() -> {
+            if (!isRunning.get() || isInLatencyPeriod.get()) {
+                return; // Double-check state has not changed
+            }
+
             try {
                 // Prepare input tensor
                 ByteBuffer inputBuffer = ImageUtils.bitmapToByteBuffer(bitmap, INPUT_WIDTH, INPUT_HEIGHT, 0f, 255f);
@@ -245,17 +306,24 @@ public class PersonDetection implements VideoSink {
                     }
 
                     handler.post(() -> {
-                        triggerPersonDetected(finalBitmap);
-                        if (detectionListener != null) {
-                            detectionListener.onPersonDetected(finalBitmap);
-                            detectionListener.onDetectionStatusChanged(true);
-                        }
+                        // Only enter latency period if we're not already in it
+                        if (isInLatencyPeriod.compareAndSet(false, true)) {
+                            // Trigger person detected notification
+                            triggerPersonDetected(finalBitmap);
 
-                        // Enter latency period
-                        enterLatencyPeriod();
+                            if (detectionListener != null) {
+                                detectionListener.onPersonDetected(finalBitmap);
+                                detectionListener.onDetectionStatusChanged(true);
+                            }
+
+                            Log.d(TAG, "Person detected - pausing detection for " + detectionLatency + " ms");
+                            handler.post(() -> Toast.makeText(context, "Detection paused for " + (detectionLatency/1000) + " seconds", Toast.LENGTH_SHORT).show());
+
+                            // Schedule resumption after user-defined latency period
+                            latencyHandler.removeCallbacks(resumeDetectionRunnable);
+                            latencyHandler.postDelayed(resumeDetectionRunnable, detectionLatency);
+                        }
                     });
-                } else if (detectionListener != null) {
-                    handler.post(() -> detectionListener.onDetectionStatusChanged(false));
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Detection error", e);
@@ -263,27 +331,7 @@ public class PersonDetection implements VideoSink {
         });
     }
 
-    /**
-     * Enter the latency period after a person is detected.
-     * During this period, detection is paused.
-     */
-    private void enterLatencyPeriod() {
-        if (isInLatencyPeriod) {
-            // Already in latency period, reset the timer
-            latencyHandler.removeCallbacks(resumeDetectionRunnable);
-        } else {
-            isInLatencyPeriod = true;
-            Log.d(TAG, "Entering detection latency period for " + detectionLatency + " ms");
-            handler.post(() -> Toast.makeText(context, "Detection paused for " + (detectionLatency/1000) + " seconds", Toast.LENGTH_SHORT).show());
-        }
-
-        // Schedule resumption of detection after latency period
-        latencyHandler.postDelayed(resumeDetectionRunnable, detectionLatency);
-    }
-
     private void triggerPersonDetected(Bitmap bitmap) {
-        Toast.makeText(context, "Person Detected!", Toast.LENGTH_SHORT).show();
-
         try {
             DatabaseReference database = FirebaseDatabase.getInstance().getReference();
             String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
@@ -350,10 +398,7 @@ public class PersonDetection implements VideoSink {
             if (yuvConverter != null) {
                 yuvConverter.release();
             }
-            if (tflite != null) {
-                tflite.close();
-                tflite = null;
-            }
+            shutdown();
         } finally {
             super.finalize();
         }

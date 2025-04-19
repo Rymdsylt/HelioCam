@@ -49,14 +49,15 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class PersonDetection implements VideoSink {
     private static final String TAG = "PersonDetection";
     private static final String MODEL_FILE = "yolov8n.tflite";
     private static final String LABEL_FILE = "labels.txt";
-    private static final float CONFIDENCE_THRESHOLD = 0.5f;
-    private static final int INPUT_WIDTH = 640;
-    private static final int INPUT_HEIGHT = 640;
+    private static final float CONFIDENCE_THRESHOLD = 0.6f;
+    private static final int INPUT_WIDTH = 320;
+    private static final int INPUT_HEIGHT = 320;
 
     private static final int REQUEST_DIRECTORY_PICKER = 1001;
     private Uri savedDirectoryUri = null;
@@ -74,8 +75,12 @@ public class PersonDetection implements VideoSink {
     private final AtomicBoolean isInLatencyPeriod = new AtomicBoolean(false);
     private final AtomicBoolean isModelLoaded = new AtomicBoolean(false);
     private final AtomicBoolean isProcessingFrame = new AtomicBoolean(false);
-
+    private final AtomicInteger frameCounter = new AtomicInteger(0);
     private DetectionDirectoryManager directoryManager;
+
+
+
+    private boolean hasPromptedForDirectory = false;
 
     private long lastDetectionTime = 0;
     private DetectionListener detectionListener;
@@ -103,15 +108,13 @@ public class PersonDetection implements VideoSink {
             MappedByteBuffer model = FileUtils.loadModelFile(context, MODEL_FILE);
             labels = FileUtils.readLabels(context, LABEL_FILE);
 
-            // Initialize interpreter with CPU only (no GPU delegate)
+            // More aggressive optimization for the interpreter
             Interpreter.Options options = new Interpreter.Options();
-            options.setUseXNNPACK(true); // Enable XNNPACK for CPU acceleration
-            options.setNumThreads(4);    // Optimize thread usage
-
-            Log.d(TAG, "Using CPU with XNNPACK acceleration");
+            options.setUseXNNPACK(true);
+            options.setNumThreads(2);  // Use fewer threads to avoid contention
 
             tflite = new Interpreter(model, options);
-            Log.d(TAG, "Model loaded successfully with CPU");
+            Log.d(TAG, "Model loaded successfully with optimized settings");
             isModelLoaded.set(true);
         } catch (IOException e) {
             Log.e(TAG, "Error loading model", e);
@@ -219,29 +222,40 @@ public class PersonDetection implements VideoSink {
 
     @Override
     public void onFrame(VideoFrame frame) {
-        // Early return conditions with atomic variable checks for thread safety
-        if (!isRunning.get() ||
-                !isModelLoaded.get() ||
-                isInLatencyPeriod.get() ||
-                isProcessingFrame.get()) {
+        // Skip processing entirely if we're not ready
+        if (!isRunning.get() || !isModelLoaded.get() || isInLatencyPeriod.get()) {
             return;
         }
 
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastDetectionTime < 500) return; // Smaller cooldown for smoother detection
+        // More aggressive frame skipping based on a counter
+        if (frameCounter.incrementAndGet() % 3 != 0) { // Process every 3rd frame
+            return;
+        }
 
-        // Set processing flag to avoid parallel processing of frames
-        if (isProcessingFrame.compareAndSet(false, true)) {
+        // Don't process if already processing a frame
+        if (!isProcessingFrame.compareAndSet(false, true)) {
+            return;
+        }
+
+        // Make a copy of the frame with proper refcounting
+        VideoFrame.Buffer buffer = frame.getBuffer();
+        buffer.retain(); // Retain the buffer explicitly
+        VideoFrame frameCopy = new VideoFrame(
+                buffer, // Pass the retained buffer directly
+                frame.getRotation(),
+                frame.getTimestampNs());
+
+        executor.execute(() -> {
             try {
-                Bitmap bitmap = ImageUtils.videoFrameToBitmap(frame);
+                Bitmap bitmap = ImageUtils.videoFrameToBitmap(frameCopy);
                 if (bitmap != null) {
                     detectPerson(bitmap);
                 }
             } finally {
-                // Release the processing lock regardless of outcome
+                frameCopy.release(); // Always release the frame copy
                 isProcessingFrame.set(false);
             }
-        }
+        });
     }
 
     private void detectPerson(Bitmap bitmap) {
@@ -251,14 +265,26 @@ public class PersonDetection implements VideoSink {
             }
 
             try {
+                // Resize bitmap to match model input size
+                int[] inputShape = tflite.getInputTensor(0).shape();
+                int inputWidth = inputShape[1];
+                int inputHeight = inputShape[2];
+
                 // Prepare input tensor
-                ByteBuffer inputBuffer = ImageUtils.bitmapToByteBuffer(bitmap, INPUT_WIDTH, INPUT_HEIGHT, 0f, 255f);
+
+                ByteBuffer inputBuffer = ImageUtils.bitmapToByteBuffer(bitmap, inputWidth, inputHeight, 0f, 1f);
 
                 // Output buffer for YOLOv8 - match the actual output shape [1, 84, 8400]
                 float[][][] output = new float[1][84][8400];
 
+
+                // Create input and output objects (not maps)
+                Object[] inputs = {inputBuffer};
+                Map<Integer, Object> outputs = new HashMap<>();
+                outputs.put(0, output);
+
                 // Run inference
-                tflite.run(inputBuffer, output);
+                tflite.runForMultipleInputsOutputs(inputs, outputs);
 
                 // Process YOLOv8 output
                 List<Detection> detections = new ArrayList<>();
@@ -397,47 +423,57 @@ public class PersonDetection implements VideoSink {
     }
 
     private void saveDetectionImage(Bitmap bitmap, String sessionId) {
-        try {
-            // Generate filename
-            String fileName = directoryManager.generateTimestampedFilename("Person_Detected", ".jpg");
+        // Don't block processing with image saving
+        executor.execute(() -> {
+            try {
+                // Save a scaled-down version of the image for better performance
+                Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, bitmap.getWidth()/2, bitmap.getHeight()/2, true);
 
-            // Try to save to the person detection directory
-            DocumentFile personDir = directoryManager.getPersonDetectionDirectory();
+                // Generate filename
+                String fileName = directoryManager.generateTimestampedFilename("Person_Detected", ".jpg");
 
-            if (personDir != null) {
-                // Save to user-selected directory
-                DocumentFile newFile = personDir.createFile("image/jpeg", fileName);
-                if (newFile != null) {
-                    OutputStream out = context.getContentResolver().openOutputStream(newFile.getUri());
-                    if (out != null) {
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
-                        out.close();
+                // Try to save to the person detection directory
+                DocumentFile personDir = directoryManager.getPersonDetectionDirectory();
 
-                        uiHandler.post(() -> Toast.makeText(context,
-                                "Person detected - Image saved",
-                                Toast.LENGTH_SHORT).show());
+                if (personDir != null) {
+                    // Save to user-selected directory
+                    DocumentFile newFile = personDir.createFile("image/jpeg", fileName);
+                    if (newFile != null) {
+                        OutputStream out = context.getContentResolver().openOutputStream(newFile.getUri());
+                        if (out != null) {
+                            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out);
+                            out.close();
 
-                        Log.d(TAG, "Detection image saved to: " + newFile.getUri());
-                        return;
+                            uiHandler.post(() -> Toast.makeText(context,
+                                    "Person detected - Image saved",
+                                    Toast.LENGTH_SHORT).show());
+
+                            Log.d(TAG, "Detection image saved to: " + newFile.getUri());
+                            scaledBitmap.recycle();
+                            return;
+                        }
+                    }
+                } else {
+                    // Only prompt once for directory selection
+                    if (!hasPromptedForDirectory) {
+                        hasPromptedForDirectory = true;
+                        uiHandler.post(() -> {
+                            Toast.makeText(context, "Please select a folder to save detection data", Toast.LENGTH_SHORT).show();
+                            if (context instanceof CameraActivity) {
+                                ((CameraActivity) context).openDirectoryPicker();
+                            }
+                        });
                     }
                 }
-            } else {
-                // If we don't have a user directory, prompt once
-                uiHandler.post(() -> {
-                    Toast.makeText(context, "Please select a folder to save detection data", Toast.LENGTH_SHORT).show();
-                    if (context instanceof CameraActivity) {
-                        ((CameraActivity) context).openDirectoryPicker();
-                    }
-                });
+
+                // Fallback to app storage
+                saveToAppStorage(scaledBitmap, sessionId);
+                scaledBitmap.recycle();
+
+            } catch (Exception e) {
+                Log.e(TAG, "Error saving detection image", e);
             }
-
-            // Fallback to app storage
-            saveToAppStorage(bitmap, sessionId);
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error saving detection image", e);
-            saveToAppStorage(bitmap, sessionId);
-        }
+        });
     }
 
 

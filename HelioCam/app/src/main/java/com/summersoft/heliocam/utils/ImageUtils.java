@@ -14,65 +14,74 @@ public class ImageUtils {
     private static final String TAG = "ImageUtils";
 
     public static Bitmap videoFrameToBitmap(VideoFrame frame) {
-        VideoFrame.I420Buffer i420Buffer = frame.getBuffer().toI420();
+        VideoFrame.Buffer buffer = frame.getBuffer();
+        // Explicitly retain the buffer before conversion
+        buffer.retain();
+
         try {
-            int width = i420Buffer.getWidth();
-            int height = i420Buffer.getHeight();
+            VideoFrame.I420Buffer i420Buffer = buffer.toI420();
+            try {
+                int width = i420Buffer.getWidth();
+                int height = i420Buffer.getHeight();
 
-            // Get YUV planes
-            ByteBuffer yBuffer = i420Buffer.getDataY();
-            ByteBuffer uBuffer = i420Buffer.getDataU();
-            ByteBuffer vBuffer = i420Buffer.getDataV();
+                // Downscale during conversion for detection purposes
+                int targetWidth = width / 2;  // Reduce resolution by half
+                int targetHeight = height / 2;
 
-            int[] argb = new int[width * height];
-            convertYUV420ToARGB8888(
-                    yBuffer, uBuffer, vBuffer,
-                    argb, width, height,
-                    i420Buffer.getStrideY(),
-                    i420Buffer.getStrideU(),
-                    i420Buffer.getStrideV()
-            );
+                // Get YUV planes
+                ByteBuffer yBuffer = i420Buffer.getDataY();
+                ByteBuffer uBuffer = i420Buffer.getDataU();
+                ByteBuffer vBuffer = i420Buffer.getDataV();
 
-            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            bitmap.setPixels(argb, 0, width, 0, 0, width, height);
-            return bitmap;
-        } catch (Exception e) {
-            Log.e(TAG, "Frame conversion error", e);
-            return null;
+                int[] argb = new int[targetWidth * targetHeight];
+                convertYUV420ToARGB8888Downscaled(
+                        yBuffer, uBuffer, vBuffer,
+                        argb, width, height, targetWidth, targetHeight,
+                        i420Buffer.getStrideY(),
+                        i420Buffer.getStrideU(),
+                        i420Buffer.getStrideV()
+                );
+
+                Bitmap bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888);
+                bitmap.setPixels(argb, 0, targetWidth, 0, 0, targetWidth, targetHeight);
+                return bitmap;
+            } finally {
+                i420Buffer.release(); // Release I420Buffer when done
+            }
         } finally {
-            i420Buffer.release();
+            buffer.release(); // Always release the original buffer
         }
     }
 
-    private static void convertYUV420ToARGB8888(
+    private static void convertYUV420ToARGB8888Downscaled(
             ByteBuffer yBuffer, ByteBuffer uBuffer, ByteBuffer vBuffer,
-            int[] output, int width, int height,
+            int[] output, int origWidth, int origHeight, int targetWidth, int targetHeight,
             int yStride, int uStride, int vStride
     ) {
         int yp = 0;
-        for (int j = 0; j < height; j++) {
-            int pY = yStride * j;
-            int pU = uStride * (j / 2);
-            int pV = vStride * (j / 2);
+        for (int j = 0; j < targetHeight; j++) {
+            int origJ = j * origHeight / targetHeight;
+            int pY = yStride * origJ;
+            int pU = uStride * (origJ / 2);
+            int pV = vStride * (origJ / 2);
 
-            for (int i = 0; i < width; i++) {
-                // Add bounds checking to prevent IndexOutOfBoundsException
-                if (pY + i >= yBuffer.capacity()) {
+            for (int i = 0; i < targetWidth; i++) {
+                int origI = i * origWidth / targetWidth;
+
+                // Check bounds
+                if (pY + origI >= yBuffer.capacity()) {
                     output[yp++] = 0xFF000000; // Black pixel
                     continue;
                 }
 
-                // Calculate U and V indices - they're at half resolution
-                int uvIndex = (i / 2);
-
-                // Check U and V buffer bounds
+                int uvIndex = (origI / 2);
                 if (pU + uvIndex >= uBuffer.capacity() || pV + uvIndex >= vBuffer.capacity()) {
                     output[yp++] = 0xFF000000; // Black pixel
                     continue;
                 }
 
                 // Get YUV values
-                int y = yBuffer.get(pY + i) & 0xff;
+                int y = yBuffer.get(pY + origI) & 0xff;
                 int u = uBuffer.get(pU + uvIndex) & 0xff;
                 int v = vBuffer.get(pV + uvIndex) & 0xff;
 
@@ -102,21 +111,37 @@ public class ImageUtils {
     }
 
     public static ByteBuffer bitmapToByteBuffer(Bitmap bitmap, int width, int height, float mean, float std) {
-        Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height, true);
-        ByteBuffer inputBuffer = ByteBuffer.allocateDirect(4 * width * height * 3);
+        Bitmap scaledBitmap;
+        if (bitmap.getWidth() != width || bitmap.getHeight() != height) {
+            scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height, false); // Use false for faster scaling
+        } else {
+            scaledBitmap = bitmap;
+        }
+
+        // Calculate buffer size based on model's expected format (float32)
+        int bytesPerChannel = 4; // Float32 is 4 bytes
+        int channels = 3; // RGB
+        ByteBuffer inputBuffer = ByteBuffer.allocateDirect(bytesPerChannel * width * height * channels);
         inputBuffer.order(ByteOrder.nativeOrder());
 
         int[] intValues = new int[width * height];
         scaledBitmap.getPixels(intValues, 0, width, 0, 0, width, height);
 
-        for (int pixelValue : intValues) {
-            float r = (((pixelValue >> 16) & 0xFF) - mean) / std;
-            float g = (((pixelValue >> 8) & 0xFF) - mean) / std;
-            float b = ((pixelValue & 0xFF) - mean) / std;
+        // More efficient loop
+        int pixel = 0;
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                final int val = intValues[pixel++];
 
-            inputBuffer.putFloat(r);
-            inputBuffer.putFloat(g);
-            inputBuffer.putFloat(b);
+                // YOLOv8 typically uses 0-1 normalized RGB values
+                inputBuffer.putFloat(((val >> 16) & 0xFF) / 255.0f);
+                inputBuffer.putFloat(((val >> 8) & 0xFF) / 255.0f);
+                inputBuffer.putFloat((val & 0xFF) / 255.0f);
+            }
+        }
+
+        if (scaledBitmap != bitmap) {
+            scaledBitmap.recycle();
         }
 
         inputBuffer.rewind();

@@ -193,15 +193,21 @@ public class RTCHost {
 
         // Start capture
         try {
-            videoCapturer.startCapture(1280, 720, 30);
+            videoCapturer.startCapture(640, 480, 30);
         } catch (Exception e) {
             Log.e(TAG, "Failed to start video capturer.", e);
-            // Clean up if capture fails
             if (videoCapturer != null) {
                 videoCapturer.dispose();
                 videoCapturer = null;
             }
+
         }
+
+
+        MediaConstraints videoConstraints = new MediaConstraints();
+        videoConstraints.mandatory.add(new MediaConstraints.KeyValuePair("maxWidth", "640"));
+        videoConstraints.mandatory.add(new MediaConstraints.KeyValuePair("maxHeight", "480"));
+        videoConstraints.mandatory.add(new MediaConstraints.KeyValuePair("maxFrameRate", "30"));
     }
 
     public void initializePeerConnection(String sessionId, String email) {
@@ -325,6 +331,13 @@ public class RTCHost {
         if (videoTrack != null && personDetection != null) {
             personDetection.start();  // Start detection when setting
             videoTrack.addSink(personDetection);
+
+            // Give person detection a chance to initialize
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                if (personDetection != null) {
+                    personDetection.forceResumeDetection(); // Ensure detection is active
+                }
+            }, 1000);
         }
     }
 

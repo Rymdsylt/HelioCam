@@ -8,6 +8,7 @@ import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -39,6 +40,24 @@ public class ProfileFragment extends Fragment {
         topUserView = view.findViewById(R.id.username_top);
         contactView = view.findViewById(R.id.contact);
 
+
+        // Find buttons
+        MaterialButton btnSettings = view.findViewById(R.id.btn_settings);
+        MaterialButton btnEditProfile = view.findViewById(R.id.btn_edit_profile);
+
+        // Set click listeners to navigate to account settings
+        View.OnClickListener navigateToSettings = v -> {
+            requireActivity().getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, new AccountSettingsFragment())
+                    .addToBackStack(null)
+                    .commit();
+        };
+
+        btnSettings.setOnClickListener(navigateToSettings);
+        btnEditProfile.setOnClickListener(navigateToSettings);
+
+
+
         // Get the current user's email
         String userEmail = mAuth.getCurrentUser().getEmail();
 
@@ -58,16 +77,16 @@ public class ProfileFragment extends Fragment {
                             // Handle potential null values with safe defaults
                             topUserView.setText(username != null ? username : "User");
 
-                            emailView.setText("Email: " + (email != null ? email : mAuth.getCurrentUser().getEmail()));
-                            fullnameView.setText("Fullname: " + (fullname != null ? fullname : "Not set"));
-                            usernameView.setText("Username: " + (username != null ? username : "Not set"));
-                            contactView.setText("Contact: " + (contact != null ? contact : "Not set"));
+                            emailView.setText(email != null ? email : mAuth.getCurrentUser().getEmail());
+                            fullnameView.setText(fullname != null ? fullname : "Not set");
+                            usernameView.setText(username != null ? username : "Not set");
+                            contactView.setText(contact != null ? contact : "Not set");
                         } else {
                             // User data doesn't exist in the database yet
-                            emailView.setText("Email: " + mAuth.getCurrentUser().getEmail());
-                            fullnameView.setText("Fullname: Not set");
-                            usernameView.setText("Username: Not set");
-                            contactView.setText("Contact: Not set");
+                            emailView.setText(mAuth.getCurrentUser().getEmail());
+                            fullnameView.setText("Not set");
+                            usernameView.setText("Not set");
+                            contactView.setText("Not set");
 
                             topUserView.setText("User");
                         }

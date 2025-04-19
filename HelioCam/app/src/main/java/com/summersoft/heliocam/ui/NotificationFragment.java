@@ -5,6 +5,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
 
@@ -19,21 +20,81 @@ public class NotificationFragment extends Fragment {
         // Required empty public constructor
     }
 
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        Log.d(TAG, "NotificationFragment: onCreateView started");
         View view = inflater.inflate(R.layout.fragment_notification, container, false);
 
         ViewGroup notificationContainer = view.findViewById(R.id.notifcation_card_container);
 
-        if (getContext() != null) {
-            // Create an instance of PopulateNotifs and start the notification population process
-            PopulateNotifs populateNotifs = new PopulateNotifs();
-            populateNotifs.startPopulatingNotifs(getContext(), notificationContainer);
+        if (notificationContainer == null) {
+            Log.e(TAG, "Could not find notification container view!");
         } else {
-            Log.e(TAG, "Context is null. Unable to start populating notifications.");
+            Log.d(TAG, "Found notification container view");
+        }
+
+
+        if (getContext() != null) {
+            Log.d(TAG, "Starting notification population");
+            PopulateNotifs populator = PopulateNotifs.getInstance();
+
+            // Add this debug call
+            populator.debugFirebaseData(getContext());
+
+            populator.startPopulatingNotifs(getContext(), notificationContainer);
         }
 
         return view;
+    }
+    // In NotificationFragment.java - completely replace the refreshNotifications method:
+    public static void refreshNotifications() {
+        if (activeInstance != null && activeInstance.isVisible()) {
+            View view = activeInstance.getView();
+            if (view != null && activeInstance.getContext() != null) {
+                ViewGroup container = view.findViewById(R.id.notifcation_card_container);
+                if (container != null) {
+                    // Force a complete refresh from Firebase
+                    container.removeAllViews();
+
+                    // This is critical - create a loading indicator to show while fetching
+                    TextView loadingText = new TextView(activeInstance.getContext());
+                    loadingText.setText("Loading notifications...");
+                    loadingText.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+                    loadingText.setPadding(0, 50, 0, 50);
+                    container.addView(loadingText);
+
+                    // Delay fetch slightly to ensure the database write completes
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        PopulateNotifs.getInstance().startPopulatingNotifs(
+                                activeInstance.getContext(), container);
+                    }, 500);
+                }
+            }
+        }
+    }
+
+    // Keep track of the active instance
+    public static NotificationFragment activeInstance;
+
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        activeInstance = this;
+
+        // Force refresh with a small delay to ensure Firebase data is available
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            refreshNotifications();
+        }, 300);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (activeInstance == this) {
+            activeInstance = null;
+        }
     }
 }

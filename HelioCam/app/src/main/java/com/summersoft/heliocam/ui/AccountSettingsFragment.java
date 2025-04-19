@@ -27,6 +27,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.notifs.PopulateNotifs;
 
 public class AccountSettingsFragment extends Fragment {
 
@@ -152,6 +153,7 @@ public class AccountSettingsFragment extends Fragment {
         });
 
         // Send password reset email with cooldown
+        // Replace your current "Change Password" click listener with this enhanced version
         btnChangePassword.setOnClickListener(v -> {
             if (currentUser.getEmail() != null) {
                 btnChangePassword.setEnabled(false);
@@ -161,9 +163,26 @@ public class AccountSettingsFragment extends Fragment {
                         .addOnCompleteListener(task -> {
                             if (task.isSuccessful()) {
                                 Toast.makeText(getContext(), "Password reset email sent", Toast.LENGTH_SHORT).show();
+
+                                // Use the singleton instance
+                                PopulateNotifs.getInstance().sendPasswordResetNotification(getContext());
+
+                                // Refresh notifications if viewing the notification fragment
+                                NotificationFragment.refreshNotifications();
+
+                                // Start cooldown
                                 startCooldown();
                             } else {
-                                Toast.makeText(getContext(), "Failed to send reset email", Toast.LENGTH_SHORT).show();
+                                // Get detailed error information
+                                String errorMsg = "Failed to send reset email";
+                                if (task.getException() != null) {
+                                    errorMsg += ": " + task.getException().getMessage();
+
+                                    // Log the detailed error
+                                    android.util.Log.e("AccountSettings", "Password reset failed", task.getException());
+                                }
+
+                                Toast.makeText(getContext(), errorMsg, Toast.LENGTH_LONG).show();
                                 btnChangePassword.setEnabled(true);
                                 btnChangePassword.setText("Change Password");
                             }

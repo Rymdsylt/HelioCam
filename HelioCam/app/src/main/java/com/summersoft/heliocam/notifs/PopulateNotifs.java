@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -18,6 +19,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.ui.NotificationFragment;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,11 +37,17 @@ public class PopulateNotifs {
 
     private List<String> sessionKeys = new ArrayList<>();
     // Keep track of fetched notifications to avoid duplicates
+
     private final Map<String, NotificationData> notificationMap = new HashMap<>();
+
+    private static PopulateNotifs activeInstance;
 
     public void startPopulatingNotifs(Context context, ViewGroup notificationContainer) {
         // Remove padding from container
         notificationContainer.setPadding(0, 0, 0, 0);
+
+        // Set the active instance to this one
+        activeInstance = this;
 
         // Clear previous views
         notificationContainer.removeAllViews();
@@ -61,6 +69,16 @@ public class PopulateNotifs {
                 }
             }
         });
+
+
+    }
+
+    // Add this static method to get the active instance or create a new one
+    public static PopulateNotifs getInstance() {
+        if (activeInstance == null) {
+            activeInstance = new PopulateNotifs();
+        }
+        return activeInstance;
     }
 
     private void showLoadingState(Context context, ViewGroup container, boolean isLoading) {
@@ -178,78 +196,131 @@ public class PopulateNotifs {
 
     private void fetchNotificationsForSessions(Context context, ViewGroup notificationContainer) {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser == null) {
+        if (currentUser == null || currentUser.getEmail() == null) {
             showEmptyState(context, notificationContainer);
             return;
         }
 
         String email = currentUser.getEmail();
-        if (email == null) {
-            showEmptyState(context, notificationContainer);
-            return;
-        }
-
+        String formattedEmail = email.replace(".", "_");
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         Set<String> deletedNotifs = prefs.getStringSet(DELETED_NOTIFICATIONS_KEY, new HashSet<>());
 
-        String formattedEmail = email.replace(".", "_");
-        final int[] pendingRequests = {sessionKeys.size()};
+        Log.d(TAG, "Checking for notifications for user: " + formattedEmail);
 
-        if (sessionKeys.isEmpty()) {
-            showEmptyState(context, notificationContainer);
-            return;
-        }
+        // Set pending requests counter: sessions + 1 for universal notifications
+        final int[] pendingRequests = {sessionKeys.size() + 1};
 
-        for (String sessionKey : sessionKeys) {
-            DatabaseReference sessionRef = FirebaseDatabase.getInstance()
-                    .getReference("users")
-                    .child(formattedEmail)
-                    .child("sessions")
-                    .child(sessionKey);
+        // ALWAYS check universal notifications first (regardless of sessions)
+        DatabaseReference universalNotificationsRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedEmail)
+                .child("universal_notifications");
 
-            sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot sessionSnapshot) {
-                    String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
-                    if (sessionName != null) {
-                        DataSnapshot notificationsNode = sessionSnapshot.child("notifications");
-                        if (notificationsNode.exists()) {
-                            for (DataSnapshot notificationSnapshot : notificationsNode.getChildren()) {
-                                String notificationId = notificationSnapshot.getKey();
-                                if (notificationId != null && !deletedNotifs.contains(notificationId)) {
-                                    String reason = notificationSnapshot.child("reason").getValue(String.class);
-                                    String time = notificationSnapshot.child("time").getValue(String.class);
-                                    String date = notificationSnapshot.child("date").getValue(String.class);
+        universalNotificationsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot universalSnapshot) {
+                Log.d(TAG, "Universal notifications data received");
+                if (universalSnapshot.exists()) {
+                    int count = 0;
+                    for (DataSnapshot notificationSnapshot : universalSnapshot.getChildren()) {
+                        String notificationId = notificationSnapshot.getKey();
+                        if (notificationId != null && !deletedNotifs.contains(notificationId)) {
+                            String reason = notificationSnapshot.child("reason").getValue(String.class);
+                            String time = notificationSnapshot.child("time").getValue(String.class);
+                            String date = notificationSnapshot.child("date").getValue(String.class);
 
-                                    if (reason != null && time != null && date != null) {
-                                        NotificationData notification = new NotificationData(
-                                                notificationId,
-                                                reason + " at " + sessionName,
-                                                date,
-                                                time
-                                        );
-                                        notificationMap.put(notificationId, notification);
+                            if (reason != null && time != null && date != null) {
+                                NotificationData notification = new NotificationData(
+                                        notificationId,
+                                        reason,  // No session name needed
+                                        date,
+                                        time
+                                );
+                                notificationMap.put(notificationId, notification);
+                                count++;
+                            }
+                        }
+                    }
+                    Log.d(TAG, "Found " + count + " universal notifications");
+                } else {
+                    Log.d(TAG, "No universal notifications found");
+                }
+
+                pendingRequests[0]--;
+                if (pendingRequests[0] == 0) {
+                    displayNotifications(context, notificationContainer);
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e(TAG, "Error fetching universal notifications: " + error.getMessage());
+                pendingRequests[0]--;
+                if (pendingRequests[0] == 0) {
+                    displayNotifications(context, notificationContainer);
+                }
+            }
+        });
+
+        // THEN also check session-specific notifications if any sessions exist
+        if (!sessionKeys.isEmpty()) {
+            for (String sessionKey : sessionKeys) {
+                // Your existing code for session notifications
+                DatabaseReference sessionRef = FirebaseDatabase.getInstance()
+                        .getReference("users")
+                        .child(formattedEmail)
+                        .child("sessions")
+                        .child(sessionKey);
+
+                sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot sessionSnapshot) {
+                        // Your existing session notification processing code
+                        String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
+                        if (sessionName != null) {
+                            DataSnapshot notificationsNode = sessionSnapshot.child("notifications");
+                            if (notificationsNode.exists()) {
+                                for (DataSnapshot notificationSnapshot : notificationsNode.getChildren()) {
+                                    // Process session notification (existing code)
+                                    String notificationId = notificationSnapshot.getKey();
+                                    if (notificationId != null && !deletedNotifs.contains(notificationId)) {
+                                        String reason = notificationSnapshot.child("reason").getValue(String.class);
+                                        String time = notificationSnapshot.child("time").getValue(String.class);
+                                        String date = notificationSnapshot.child("date").getValue(String.class);
+
+                                        if (reason != null && time != null && date != null) {
+                                            NotificationData notification = new NotificationData(
+                                                    notificationId,
+                                                    reason + " at " + sessionName,
+                                                    date,
+                                                    time
+                                            );
+                                            notificationMap.put(notificationId, notification);
+                                        }
                                     }
                                 }
                             }
                         }
+
+                        pendingRequests[0]--;
+                        if (pendingRequests[0] == 0) {
+                            displayNotifications(context, notificationContainer);
+                        }
                     }
 
-                    pendingRequests[0]--;
-                    if (pendingRequests[0] == 0) {
-                        displayNotifications(context, notificationContainer);
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+                        Log.e(TAG, "Error fetching session details: " + databaseError.getMessage());
+                        pendingRequests[0]--;
+                        if (pendingRequests[0] == 0) {
+                            displayNotifications(context, notificationContainer);
+                        }
                     }
-                }
-
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
-                    Log.e(TAG, "Error fetching session details: " + databaseError.getMessage());
-                    pendingRequests[0]--;
-                    if (pendingRequests[0] == 0) {
-                        displayNotifications(context, notificationContainer);
-                    }
-                }
-            });
+                });
+            }
+        } else {
+            Log.d(TAG, "No sessions found, but still checking universal notifications");
         }
     }
 
@@ -325,6 +396,143 @@ public class PopulateNotifs {
         }
     }
 
+
+    // Add this method to PopulateNotifs class
+    // In PopulateNotifs.java, modify the sendPasswordResetNotification method:
+    public void sendPasswordResetNotification(Context context) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null || currentUser.getEmail() == null) {
+            Log.w(TAG, "Cannot save notification: No user logged in");
+            return;
+        }
+
+        String formattedEmail = currentUser.getEmail().replace(".", "_");
+        String timeStamp = String.valueOf(System.currentTimeMillis());
+
+        // Create date and time strings for the notification
+        java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault());
+        java.text.SimpleDateFormat timeFormat = new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault());
+        java.util.Date now = new java.util.Date();
+        String dateString = dateFormat.format(now);
+        String timeString = timeFormat.format(now);
+
+        // First, show toast notification
+        Toast.makeText(context, "Password reset email sent", Toast.LENGTH_SHORT).show();
+
+        // Then fetch session keys if needed
+        if (sessionKeys.isEmpty()) {
+            fetchSessionKeys(new Callback() {
+                @Override
+                public void onSessionKeysFetched() {
+                    if (!sessionKeys.isEmpty()) {
+                        String sessionKey = sessionKeys.get(0);
+                        // Get session name if available
+                        DatabaseReference sessionRef = FirebaseDatabase.getInstance()
+                                .getReference("users")
+                                .child(formattedEmail)
+                                .child("sessions")
+                                .child(sessionKey);
+
+                        sessionRef.child("session_name").get().addOnCompleteListener(task -> {
+                            String sessionName = "Default Session";
+                            if (task.isSuccessful() && task.getResult().exists()) {
+                                String fetchedName = task.getResult().getValue(String.class);
+                                if (fetchedName != null) {
+                                    sessionName = fetchedName;
+                                }
+                            }
+                            savePasswordResetNotification(formattedEmail, sessionKey, timeStamp, dateString, timeString, sessionName);
+                        });
+                    }
+                }
+            });
+        } else {
+            // We already have session keys, use the first one
+            String sessionKey = sessionKeys.get(0);
+
+            // Get session name if available
+            DatabaseReference sessionRef = FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(formattedEmail)
+                    .child("sessions")
+                    .child(sessionKey);
+
+            sessionRef.child("session_name").get().addOnCompleteListener(task -> {
+                String sessionName = "Default Session";
+                if (task.isSuccessful() && task.getResult().exists()) {
+                    String fetchedName = task.getResult().getValue(String.class);
+                    if (fetchedName != null) {
+                        sessionName = fetchedName;
+                    }
+                }
+                savePasswordResetNotification(formattedEmail, sessionKey, timeStamp, dateString, timeString, sessionName);
+            });
+        }
+    }
+
+    // In PopulateNotifs.java, modify the savePasswordResetNotification method:
+    private void savePasswordResetNotification(String formattedEmail, String sessionKey, String timeStamp,
+                                               String dateString, String timeString, String sessionName) {
+        // Save to both places - universal and session-specific
+
+        // 1. Save to universal notifications
+        DatabaseReference universalNotifRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedEmail)
+                .child("universal_notifications")
+                .child(timeStamp);
+
+        Map<String, Object> notificationValues = new HashMap<>();
+        notificationValues.put("reason", "Password reset email sent");
+        notificationValues.put("date", dateString);
+        notificationValues.put("time", timeString);
+
+        universalNotifRef.setValue(notificationValues)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Universal notification saved successfully");
+                    // Update local notification map with the new notification
+                    NotificationData newNotification = new NotificationData(
+                            timeStamp,
+                            "Password reset email sent",
+                            dateString,
+                            timeString
+                    );
+                    notificationMap.put(timeStamp, newNotification);
+
+                    // Refresh UI if needed
+                    refreshNotificationUI();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to save universal notification", e);
+                });
+
+        // 2. Also save to session-specific location if we have a valid session key
+        if (sessionKey != null && !sessionKey.isEmpty()) {
+            // Your existing code for saving session-specific notifications
+            // ...
+        }
+    }
+
+    // Helper method to refresh UI
+    private void refreshNotificationUI() {
+        // If notification fragment is visible, refresh UI on main thread
+        if (NotificationFragment.activeInstance != null) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                if (NotificationFragment.activeInstance.isVisible() &&
+                        NotificationFragment.activeInstance.getView() != null) {
+
+                    ViewGroup container = NotificationFragment.activeInstance.getView()
+                            .findViewById(R.id.notifcation_card_container);
+
+                    if (container != null && NotificationFragment.activeInstance.getContext() != null) {
+                        // Force clear and repopulate the entire container
+                        displayNotifications(NotificationFragment.activeInstance.getContext(), container);
+                    }
+                }
+            });
+        }
+    }
+
     private static class NotificationData {
         String id;
         String title;
@@ -339,7 +547,53 @@ public class PopulateNotifs {
         }
     }
 
+
+
     interface Callback {
         void onSessionKeysFetched();
+    }
+
+
+    public void debugFirebaseData(Context context) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null || currentUser.getEmail() == null) {
+            Log.e(TAG, "Debug failed: No user logged in");
+            return;
+        }
+
+        String formattedEmail = currentUser.getEmail().replace(".", "_");
+        Log.d(TAG, "===== DEBUGGING FIREBASE NOTIFICATIONS =====");
+
+        // Check universal notifications
+        FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedEmail)
+                .child("universal_notifications")
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        DataSnapshot snapshot = task.getResult();
+                        Log.d(TAG, "Universal notifications exist: " + snapshot.exists());
+                        if (snapshot.exists()) {
+                            Log.d(TAG, "Universal notification count: " + snapshot.getChildrenCount());
+                            for (DataSnapshot notif : snapshot.getChildren()) {
+                                Log.d(TAG, " - Notif ID: " + notif.getKey());
+                                Log.d(TAG, "   Content: " + notif.getValue().toString());
+                            }
+                        }
+                    } else {
+                        Log.e(TAG, "Failed to check universal notifications", task.getException());
+                    }
+                });
+
+        // Check if we have any sessions to look through
+        Log.d(TAG, "Session keys count: " + sessionKeys.size());
+        Log.d(TAG, "Session keys: " + sessionKeys.toString());
+
+        // Check deleted notifications
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        Set<String> deletedNotifs = prefs.getStringSet(DELETED_NOTIFICATIONS_KEY, new HashSet<>());
+        Log.d(TAG, "Deleted notifications count: " + deletedNotifs.size());
+        Log.d(TAG, "Deleted notifications: " + deletedNotifs.toString());
     }
 }

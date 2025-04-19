@@ -15,6 +15,8 @@ import android.widget.Toast;
 import androidx.core.app.ActivityCompat;
 import android.media.MediaScannerConnection;
 import androidx.documentfile.provider.DocumentFile;
+
+import com.summersoft.heliocam.ui.NotificationSettings;
 import com.summersoft.heliocam.utils.DetectionDirectoryManager;
 
 
@@ -145,9 +147,16 @@ public class SoundDetection {
         return sum / length;
     }
 
+    // In SoundDetection.java, modify triggerSoundDetected() method:
     private void triggerSoundDetected() {
         handler.post(() -> {
+            // Always show toast regardless of notification settings
             Toast.makeText(context, "Sound Detected!", Toast.LENGTH_SHORT).show();
+
+            // Check if notification should be created
+            if (!NotificationSettings.isSoundNotificationsEnabled(context)) {
+                return;  // Skip notification creation
+            }
 
             // Get Firebase references
             DatabaseReference database = FirebaseDatabase.getInstance().getReference();
@@ -183,7 +192,6 @@ public class SoundDetection {
 
                 //replay buffer
                 webRTCClient.replayBuffer(context);
-
             } else {
                 Log.w("SoundDetection", "User email or session ID is null. Cannot log notification.");
             }

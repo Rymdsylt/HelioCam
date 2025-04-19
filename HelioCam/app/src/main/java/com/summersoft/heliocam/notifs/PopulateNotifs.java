@@ -20,6 +20,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.ui.NotificationFragment;
+import com.summersoft.heliocam.ui.NotificationSettings;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -398,8 +399,15 @@ public class PopulateNotifs {
 
 
     // Add this method to PopulateNotifs class
-    // In PopulateNotifs.java, modify the sendPasswordResetNotification method:
     public void sendPasswordResetNotification(Context context) {
+        // Always show toast regardless of notification settings
+        Toast.makeText(context, "Password reset email sent", Toast.LENGTH_SHORT).show();
+
+        // Check if email notifications are enabled
+        if (!NotificationSettings.isEmailNotificationsEnabled(context)) {
+            return;  // Skip notification creation but still show toast
+        }
+
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null || currentUser.getEmail() == null) {
             Log.w(TAG, "Cannot save notification: No user logged in");
@@ -415,9 +423,6 @@ public class PopulateNotifs {
         java.util.Date now = new java.util.Date();
         String dateString = dateFormat.format(now);
         String timeString = timeFormat.format(now);
-
-        // First, show toast notification
-        Toast.makeText(context, "Password reset email sent", Toast.LENGTH_SHORT).show();
 
         // Then fetch session keys if needed
         if (sessionKeys.isEmpty()) {

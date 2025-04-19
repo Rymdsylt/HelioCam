@@ -22,6 +22,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.ui.CameraActivity;
+import com.summersoft.heliocam.ui.NotificationSettings;
 import com.summersoft.heliocam.utils.DetectionDirectoryManager;
 import com.summersoft.heliocam.utils.FileUtils;
 import com.summersoft.heliocam.utils.ImageUtils;
@@ -344,8 +345,16 @@ public class PersonDetection implements VideoSink {
         });
     }
 
+    // In PersonDetection.java, modify triggerPersonDetected() method:
     private void triggerPersonDetected(Bitmap bitmap) {
         try {
+            // Check if notification should be shown
+            if (!NotificationSettings.isPersonNotificationsEnabled(context)) {
+                // Skip notification creation but still show toast
+                Toast.makeText(context, "Person detected", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             DatabaseReference database = FirebaseDatabase.getInstance().getReference();
             String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
             String sessionId = ((CameraActivity) context).getSessionId();

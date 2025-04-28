@@ -6,17 +6,17 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.EditText;
 import android.widget.Button;
-import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
-import com.summersoft.heliocam.notifs.SoundNotifListener;
 
 import java.util.Map;
 
@@ -24,7 +24,7 @@ public class AddSessionActivity extends AppCompatActivity {
 
     private static final String TAG = "AddSession";
     private FirebaseAuth mAuth;
-    private EditText sessionInput;
+    private TextInputEditText sessionInput;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,19 +34,21 @@ public class AddSessionActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         sessionInput = findViewById(R.id.add_session_input);
 
-        Button addSessionConfirm = findViewById(R.id.add_session_confirm);
+        // Setup join session button
+        MaterialButton addSessionConfirm = findViewById(R.id.add_session_confirm);
         addSessionConfirm.setOnClickListener(v -> addSession());
 
-
-
-        // Find the ImageButton and set the click listener
-        ImageButton imageButtonPhoneCamera = findViewById(R.id.imageButtonPhoneCamera);
-        imageButtonPhoneCamera.setOnClickListener(v -> {
-            // Navigate to UsePhoneActivity
-            Intent intent = new Intent(AddSessionActivity.this, UsePhoneActivity.class);
+        // Setup host session button
+        MaterialButton hostInsteadButton = findViewById(R.id.buttonHostInstead);
+        hostInsteadButton.setOnClickListener(v -> {
+            // Navigate to HostSession activity
+            Intent intent = new Intent(AddSessionActivity.this, HostSession.class);
             startActivity(intent);
         });
 
+        // Setup cancel button
+        MaterialButton cancelButton = findViewById(R.id.buttonCancel);
+        cancelButton.setOnClickListener(v -> finish());
     }
 
     private void addSession() {
@@ -128,7 +130,6 @@ public class AddSessionActivity extends AppCompatActivity {
         }
     }
 
-
     private String getSessionPasskey(DataSnapshot sessionSnapshot) {
         Object sessionPasskeyObject = sessionSnapshot.child("passkey").getValue();
         return sessionPasskeyObject != null ? String.valueOf(sessionPasskeyObject) : "";
@@ -167,18 +168,21 @@ public class AddSessionActivity extends AppCompatActivity {
         });
     }
 
-
     private void addSessionToUser(DataSnapshot loginInfo, DataSnapshot sessionSnapshot) {
         // Retrieve all session data dynamically
-        String sessionId = sessionSnapshot.getKey();  // Use the session ID from the original sessions node
+        String sessionId = sessionSnapshot.getKey();
+        String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
+
+        // Extract host email from the data structure - this is the key part!
+        String hostEmail = sessionSnapshot.getRef().getParent().getParent().getKey();
 
         // Reference to the user's logininfo node, using the original session ID
         DatabaseReference sessionAddedRef = FirebaseDatabase.getInstance()
                 .getReference("users")
                 .child(mAuth.getCurrentUser().getEmail().replace(".", "_"))
-                .child(loginInfo.getKey())  // loginInfo is a device
+                .child(loginInfo.getKey())
                 .child("sessions_added")
-                .child(sessionId);  // Use the session ID from sessions node instead of push()
+                .child(sessionId);
 
         // Iterate through all child nodes of sessionSnapshot to dynamically add all fields
         for (DataSnapshot childSnapshot : sessionSnapshot.getChildren()) {
@@ -191,9 +195,17 @@ public class AddSessionActivity extends AppCompatActivity {
             }
         }
 
-        showToast("Session added successfully.");
+        // Start SessionPreviewActivity with all required data
+        Intent intent = new Intent(AddSessionActivity.this, SessionPreviewActivity.class);
+        intent.putExtra("session_id", sessionId);
+        intent.putExtra("session_name", sessionName);
+        intent.putExtra("host_email", hostEmail);
+        startActivity(intent);
+
+        showToast("Session found. Connecting...");
         finish();
     }
+
     private void cleanUpSessionFields(String userEmail, String deviceKey) {
         // Get reference to sessions and sessions_added for the user and specific device
         DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users")
@@ -236,7 +248,7 @@ public class AddSessionActivity extends AppCompatActivity {
                                         }
                                     }
                                 }
-                                showToast("Extra fields removed successfully.");
+                                Log.d(TAG, "Extra fields removed successfully.");
                             }
                         } else {
                             Log.e(TAG, "Error retrieving sessions_added: " + sessionsAddedTask.getException());
@@ -248,8 +260,6 @@ public class AddSessionActivity extends AppCompatActivity {
             }
         });
     }
-
-
 
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();

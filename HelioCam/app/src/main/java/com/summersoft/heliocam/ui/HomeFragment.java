@@ -12,6 +12,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -25,7 +26,7 @@ import com.summersoft.heliocam.status.SessionLoader;
 
 public class HomeFragment extends Fragment {
 
-    private static final String TAG = "HomeFragment"; // Change to reflect fragment's name
+    private static final String TAG = "HomeFragment";
     private FirebaseAuth mAuth;
     private Handler handler = new Handler();
     private Runnable checkLoginStatusRunnable;
@@ -54,22 +55,52 @@ public class HomeFragment extends Fragment {
             return insets;
         });
 
-        // Register context menu for the hamburger button
-        View hamburgerButton = rootView.findViewById(R.id.hamburgerButton);
-        registerForContextMenu(hamburgerButton);
+        // Register appLogo as the menu button
+        View menuButton = rootView.findViewById(R.id.appLogo);
+        registerForContextMenu(menuButton);
 
-        hamburgerButton.setOnClickListener(v -> {
-            Log.d(TAG, "Hamburger button clicked!");
+        menuButton.setOnClickListener(v -> {
+            Log.d(TAG, "App logo clicked for menu!");
             v.showContextMenu();
         });
 
         // OnClickListener for "addSession" button
         View addSessionButton = rootView.findViewById(R.id.addSession);
         addSessionButton.setOnClickListener(v -> {
-            // Start AddSessionActivity
-            Intent intent = new Intent(getActivity(), AddSessionActivity.class);
-            startActivity(intent);
+            showSessionOptionsDialog();
         });
+
+        // Also add click listener for FAB
+        View fabCreateSession = rootView.findViewById(R.id.fragment_fab_create_session);
+        fabCreateSession.setOnClickListener(v -> {
+            showSessionOptionsDialog();
+        });
+
+        // Create a custom SessionLoader that updates the placeholder button
+        SessionLoader sessionLoader = new SessionLoader(
+                (HomeActivity) getActivity(),
+                sessionCardContainer) {
+            @Override
+            public void loadUserSessions() {
+                super.loadUserSessions();
+
+                // Add listener for the add_new_session_button in the placeholder
+                // This needs to happen after sessions are loaded
+                handler.postDelayed(() -> {
+                    // We need to check if the placeholder exists in the container
+                    if (sessionCardContainer != null) {
+                        for (int i = 0; i < sessionCardContainer.getChildCount(); i++) {
+                            View child = sessionCardContainer.getChildAt(i);
+                            View addButton = child.findViewById(R.id.add_new_session_button);
+                            if (addButton != null) {
+                                addButton.setOnClickListener(v -> showSessionOptionsDialog());
+                                break;
+                            }
+                        }
+                    }
+                }, 200); // Small delay to ensure views are inflated
+            }
+        };
 
         // Runnable for checking login status
         checkLoginStatusRunnable = new Runnable() {
@@ -88,20 +119,45 @@ public class HomeFragment extends Fragment {
             public void run() {
                 if (getActivity() != null && isAdded()) {
                     // Only proceed if fragment is added and activity is available
-                    if (getActivity() instanceof HomeActivity) {
-                        HomeActivity homeActivity = (HomeActivity) getActivity();
-                        SessionLoader sessionLoader = new SessionLoader(homeActivity, sessionCardContainer);
-                        sessionLoader.loadUserSessions();  // Load sessions
-                    }
+                    sessionLoader.loadUserSessions();  // Load sessions
                 }
                 handler.postDelayed(this, 1500); // Repeat every 1.5 seconds
             }
         };
 
         return rootView;
+    }
 
+    /**
+     * Shows a dialog with options to create or join a session
+     */
+    private void showSessionOptionsDialog() {
+        if (getActivity() == null) return;
 
+        // Inflate the dialog layout
+        View dialogView = LayoutInflater.from(getActivity()).inflate(R.layout.dialog_session_options, null);
 
+        // Create dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+        builder.setView(dialogView);
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Set up button clicks
+        dialogView.findViewById(R.id.btn_create_session).setOnClickListener(v -> {
+            // Start AddSessionActivity for creating a new session
+            Intent intent = new Intent(getActivity(), HostSession.class);
+            startActivity(intent);
+            dialog.dismiss();
+        });
+
+        dialogView.findViewById(R.id.btn_join_session).setOnClickListener(v -> {
+            // Start WatchSessionActivity for joining an existing session
+            Intent intent = new Intent(getActivity(), AddSessionActivity.class);
+            startActivity(intent);
+            dialog.dismiss();
+        });
     }
 
     @Override
@@ -124,7 +180,7 @@ public class HomeFragment extends Fragment {
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
         super.onCreateContextMenu(menu, v, menuInfo);
 
-        if (v.getId() == R.id.hamburgerButton) {
+        if (v.getId() == R.id.appLogo) {
             MenuInflater inflater = getActivity().getMenuInflater();
             inflater.inflate(R.menu.context_menu, menu);
         }

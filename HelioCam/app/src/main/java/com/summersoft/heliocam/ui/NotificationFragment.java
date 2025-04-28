@@ -49,30 +49,60 @@ public class NotificationFragment extends Fragment {
         return view;
     }
     // In NotificationFragment.java - completely replace the refreshNotifications method:
+    // In NotificationFragment.java - fixed refreshNotifications method:
     public static void refreshNotifications() {
-        if (activeInstance != null && activeInstance.isVisible()) {
-            View view = activeInstance.getView();
-            if (view != null && activeInstance.getContext() != null) {
-                ViewGroup container = view.findViewById(R.id.notifcation_card_container);
-                if (container != null) {
-                    // Force a complete refresh from Firebase
-                    container.removeAllViews();
-
-                    // This is critical - create a loading indicator to show while fetching
-                    TextView loadingText = new TextView(activeInstance.getContext());
-                    loadingText.setText("Loading notifications...");
-                    loadingText.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-                    loadingText.setPadding(0, 50, 0, 50);
-                    container.addView(loadingText);
-
-                    // Delay fetch slightly to ensure the database write completes
-                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                        PopulateNotifs.getInstance().startPopulatingNotifs(
-                                activeInstance.getContext(), container);
-                    }, 500);
-                }
-            }
+        if (activeInstance == null) {
+            Log.d(TAG, "refreshNotifications: No active instance available");
+            return;
         }
+
+        // First check if the fragment is added to an activity
+        if (!activeInstance.isAdded()) {
+            Log.d(TAG, "refreshNotifications: Fragment not attached to activity");
+            return;
+        }
+
+        // Now check for context and view
+        if (activeInstance.getContext() == null) {
+            Log.d(TAG, "refreshNotifications: Context is null");
+            return;
+        }
+
+        View view = activeInstance.getView();
+        if (view == null) {
+            Log.d(TAG, "refreshNotifications: View is null");
+            return;
+        }
+
+        ViewGroup container = view.findViewById(R.id.notifcation_card_container);
+        if (container == null) {
+            Log.d(TAG, "refreshNotifications: Container not found");
+            return;
+        }
+
+        // Force a complete refresh from Firebase
+        container.removeAllViews();
+
+        // Create a loading indicator to show while fetching
+        TextView loadingText = new TextView(activeInstance.getContext());
+        loadingText.setText("Loading notifications...");
+        loadingText.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+        loadingText.setPadding(0, 50, 0, 50);
+        container.addView(loadingText);
+
+        // Using final reference to avoid lambda capturing potentially changing activeInstance
+        final Fragment currentFragment = activeInstance;
+
+        // Delay fetch slightly to ensure the database write completes
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            // Double-check that fragment is still valid when the delayed code runs
+            if (currentFragment.isAdded() && currentFragment.getContext() != null) {
+                PopulateNotifs.getInstance().startPopulatingNotifs(
+                        currentFragment.getContext(), container);
+            } else {
+                Log.d(TAG, "Delayed refresh aborted: fragment no longer valid");
+            }
+        }, 500);
     }
 
     // Keep track of the active instance

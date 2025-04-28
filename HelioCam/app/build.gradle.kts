@@ -104,6 +104,7 @@ dependencies {
 
     // Optional: Add support libraries for better performance
     implementation ("org.tensorflow:tensorflow-lite-support:0.4.2")
+    implementation("com.google.android.material:material:1.11.0")
 
 
     implementation ("com.github.bumptech.glide:glide:4.14.2")

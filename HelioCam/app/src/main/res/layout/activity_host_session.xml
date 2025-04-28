@@ -1,9 +1,9 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mainpage"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/white">
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_start"
@@ -24,7 +24,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
-        android:text="Join Session"
+        android:text="Host Session"
         android:textAlignment="center"
         android:textColor="@color/black"
         android:textSize="28sp"
@@ -54,7 +54,7 @@
                 android:id="@+id/keyImageView"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:src="@android:drawable/ic_lock_lock"
+                android:src="@drawable/keys"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
@@ -65,7 +65,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
-                android:text="Enter the session passkey to connect to a remote camera stream."
+                android:text="Host a session to turn your phone into a remote camera. Create a unique name and passkey that others can use to connect and view your stream."
                 android:textColor="@color/white"
                 android:textSize="16sp"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -74,67 +74,95 @@
                 app:layout_constraintTop_toTopOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
     </com.google.android.material.card.MaterialCardView>
-
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/passkey_layout"
+        android:id="@+id/session_name_layout"
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
-        android:hint="Session Passkey"
+        android:hint="Session Name"
+        app:helperText="e.g. Kitchen, Storage Room, etc."
+        app:helperTextTextColor="@android:color/darker_gray"
         app:boxCornerRadiusBottomEnd="12dp"
         app:boxCornerRadiusBottomStart="12dp"
         app:boxCornerRadiusTopEnd="12dp"
         app:boxCornerRadiusTopStart="12dp"
-        app:helperText="Enter the passkey provided by the host"
-        app:helperTextTextColor="@android:color/darker_gray"
-        app:startIconDrawable="@android:drawable/ic_lock_idle_lock"
+        app:startIconDrawable="@android:drawable/ic_menu_edit"
         app:startIconTint="@android:color/holo_orange_dark"
         app:layout_constraintEnd_toEndOf="@id/guideline_end"
         app:layout_constraintStart_toStartOf="@id/guideline_start"
         app:layout_constraintTop_toBottomOf="@id/infoCard">
 
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/add_session_input"
+            android:id="@+id/session_name_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/passkey_layout"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="Passkey"
+        app:helperText="Viewers will use this to connect"
+        app:helperTextTextColor="@android:color/darker_gray"
+        app:boxCornerRadiusBottomEnd="12dp"
+        app:boxCornerRadiusBottomStart="12dp"
+        app:boxCornerRadiusTopEnd="12dp"
+        app:boxCornerRadiusTopStart="12dp"
+        app:endIconMode="password_toggle"
+        app:endIconTint="@android:color/holo_orange_dark"
+        app:startIconDrawable="@android:drawable/ic_lock_idle_lock"
+        app:startIconTint="@android:color/holo_orange_dark"
+        app:layout_constraintEnd_toEndOf="@id/guideline_end"
+        app:layout_constraintStart_toStartOf="@id/guideline_start"
+        app:layout_constraintTop_toBottomOf="@id/session_name_layout">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/passkey_input"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="textPassword" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/add_session_confirm"
+        android:id="@+id/generateButton"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:backgroundTint="@android:color/holo_orange_dark"
-        android:padding="14dp"
-        android:text="Add Session"
+        android:layout_marginTop="16dp"
+        android:text="Generate Random Passkey"
         android:textAllCaps="false"
-        android:textColor="@color/white"
+        android:textColor="@android:color/holo_orange_dark"
+        app:strokeColor="@android:color/holo_orange_dark"
+        app:icon="@android:drawable/ic_popup_sync"
+        app:iconTint="@android:color/holo_orange_dark"
+        app:rippleColor="@android:color/holo_orange_light"
         app:cornerRadius="12dp"
         app:layout_constraintEnd_toEndOf="@id/guideline_end"
         app:layout_constraintStart_toStartOf="@id/guideline_start"
         app:layout_constraintTop_toBottomOf="@id/passkey_layout" />
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/buttonHostInstead"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:id="@+id/addButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Host a Session Instead"
+        android:layout_marginTop="32dp"
+        android:backgroundTint="@android:color/holo_orange_dark"
+        android:padding="14dp"
+        android:text="Start Broadcasting"
         android:textAllCaps="false"
-        android:textColor="@android:color/holo_orange_dark"
-        app:strokeColor="@android:color/holo_orange_dark"
+        android:textColor="@color/white"
         app:cornerRadius="12dp"
-        app:icon="@android:drawable/ic_menu_camera"
-        app:iconTint="@android:color/holo_orange_dark"
         app:layout_constraintEnd_toEndOf="@id/guideline_end"
         app:layout_constraintStart_toStartOf="@id/guideline_start"
-        app:layout_constraintTop_toBottomOf="@id/add_session_confirm" />
+        app:layout_constraintTop_toBottomOf="@id/generateButton" />
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/buttonCancel"
+        android:id="@+id/cancelButton"
         style="@style/Widget.MaterialComponents.Button.TextButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -144,6 +172,6 @@
         android:textColor="@android:color/darker_gray"
         app:layout_constraintEnd_toEndOf="@id/guideline_end"
         app:layout_constraintStart_toStartOf="@id/guideline_start"
-        app:layout_constraintTop_toBottomOf="@id/buttonHostInstead" />
+        app:layout_constraintTop_toBottomOf="@id/addButton" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

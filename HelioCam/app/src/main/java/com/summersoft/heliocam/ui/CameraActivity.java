@@ -49,15 +49,17 @@ import org.webrtc.PeerConnectionFactory;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.detection.PersonDetection;
 import com.summersoft.heliocam.detection.SoundDetection;
 
 
 import com.summersoft.heliocam.utils.DetectionDirectoryManager;
-import com.summersoft.heliocam.webrtc_utils.RTCHost;
+import com.summersoft.heliocam.webrtc_utils.RTCJoiner;
 
 import java.io.File;
 
@@ -76,7 +78,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private boolean isCameraOn = true;
     public Context context;
-    public RTCHost webRTCClient;
+    public RTCJoiner webRTCClient;
     private static final int REQUEST_DIRECTORY_PICKER = 1001;
     private PersonDetection personDetection;
 
@@ -210,7 +212,10 @@ public class CameraActivity extends AppCompatActivity {
         cameraView = findViewById(R.id.camera_view);
 
         // Create webRTCClient ONLY ONCE
-        webRTCClient = new RTCHost(this, cameraView, mDatabase);
+        String sessionId = getIntent().getStringExtra("session_id");
+        String hostEmail = getIntent().getStringExtra("host_email");
+        boolean autoJoin = getIntent().getBooleanExtra("auto_join", false);
+        webRTCClient = new RTCJoiner(this, sessionId, cameraView, mDatabase);
 
         // Initialize person detection
         personDetection = new PersonDetection(this, webRTCClient);
@@ -219,7 +224,9 @@ public class CameraActivity extends AppCompatActivity {
         // Connect person detection to WebRTC client
         webRTCClient.setPersonDetection(personDetection);
 
-
+        if (autoJoin && sessionId != null) {
+            autoJoinSession(sessionId, hostEmail);
+        }
         // Check permissions and other setup code
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
                 ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -232,7 +239,7 @@ public class CameraActivity extends AppCompatActivity {
         }
 
 
-        String sessionId = getIntent().getStringExtra("session_id");
+
 
         cameraView = findViewById(R.id.camera_view);
         ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
@@ -308,7 +315,10 @@ public class CameraActivity extends AppCompatActivity {
                     .setCancelable(false)
                     .show();
         }
-
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startCameraIfReady();
+        }
     }
 
     public void captureCameraView(OnBitmapCapturedListener listener) {
@@ -417,7 +427,59 @@ public class CameraActivity extends AppCompatActivity {
 
         dialog.show();
     }
+    private void autoJoinSession(String sessionId, String hostEmail) {
+        if (webRTCClient != null) {
+            // Directly initiate the WebRTC session join
+            webRTCClient.initiateSessionJoin(sessionId, hostEmail);
 
+            // Start monitoring the connection state
+            listenForConnectionStatus(sessionId, hostEmail);
+
+            // Update UI to show connecting status
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Connecting to session...", Toast.LENGTH_SHORT).show();
+                // Update any UI elements to show connection in progress
+            });
+        } else {
+            Toast.makeText(this, "WebRTC client not initialized", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // Java
+    private void startCameraIfReady() {
+        if (webRTCClient != null && cameraView != null) {
+            cameraView.post(() -> webRTCClient.startCamera(this, isUsingFrontCamera));
+        }
+    }
+
+
+
+    private void listenForConnectionStatus(String sessionId, String hostEmail) {
+        DatabaseReference connectionRef = mDatabase.child("users")
+                .child(hostEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("connection_state");
+
+        connectionRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    String state = dataSnapshot.getValue(String.class);
+                    if ("connected".equals(state)) {
+                        // Connection established
+                        runOnUiThread(() -> Toast.makeText(CameraActivity.this,
+                                "Connected to session", Toast.LENGTH_SHORT).show());
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                Log.e(TAG, "Error monitoring connection state: " + databaseError.getMessage());
+            }
+        });
+    }
 
     private void updateSpaceLeft(TextView tvSpaceLeft, String path) {
         try {
@@ -562,16 +624,25 @@ public class CameraActivity extends AppCompatActivity {
         if (isMicOn) {
             micButton.setImageResource(R.drawable.ic_baseline_mic_24);  // Mic on icon
             if (webRTCClient != null) {
-                webRTCClient.unmuteMic(); // Unmute the WebRTC audio
+                try {
+                    webRTCClient.unmuteMic(); // Unmute the WebRTC audio
+                } catch (Exception e) {
+                    Log.e(TAG, "Error unmuting mic: " + e.getMessage(), e);
+                    Toast.makeText(this, "Could not unmute microphone", Toast.LENGTH_SHORT).show();
+                }
             }
         } else {
             micButton.setImageResource(R.drawable.ic_baseline_mic_off_24);  // Mic off icon
             if (webRTCClient != null) {
-                webRTCClient.muteMic(); // Mute the WebRTC audio
+                try {
+                    webRTCClient.muteMic(); // Mute the WebRTC audio
+                } catch (Exception e) {
+                    Log.e(TAG, "Error muting mic: " + e.getMessage(), e);
+                    Toast.makeText(this, "Could not mute microphone", Toast.LENGTH_SHORT).show();
+                }
             }
         }
     }
-
 
 
     @Override
@@ -581,9 +652,10 @@ public class CameraActivity extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED &&
                     grantResults[1] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Permissions granted. You can now use the camera and audio.", Toast.LENGTH_SHORT).show();
+                startCameraIfReady();
             } else {
                 Toast.makeText(this, "Camera and audio permissions are required to use this feature.", Toast.LENGTH_SHORT).show();
-                finish(); // Close the activity if permissions are not granted
+                finish();
             }
         }
 

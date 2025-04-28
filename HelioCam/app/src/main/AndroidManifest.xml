@@ -63,7 +63,7 @@
             android:name=".ui.AddSessionActivity"
             android:exported="false" />
         <activity
-            android:name=".ui.UsePhoneActivity"
+            android:name=".ui.HostSession"
             android:exported="false" />
         <activity
             android:name=".ui.CameraActivity"
@@ -71,6 +71,10 @@
         <activity
             android:name=".ui.WatchSessionActivity"
             android:exported="false" /> <!-- Service declaration -->
+        <activity
+            android:name=".ui.SessionPreviewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
         <service
             android:name=".notifs.SoundNotifService"
             android:enabled="true"

@@ -4,10 +4,8 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.Camera;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
-import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
 import android.widget.Toast;
@@ -23,8 +21,6 @@ import com.summersoft.heliocam.utils.DetectionDirectoryManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 import com.summersoft.heliocam.ui.CameraActivity;
 
 import java.io.File;
@@ -35,7 +31,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import com.summersoft.heliocam.webrtc_utils.RTCHost;
+import com.summersoft.heliocam.webrtc_utils.RTCJoiner;
 
 public class SoundDetection {
     private static final int SAMPLE_RATE = 44100; // Sampling rate in Hz
@@ -50,9 +46,9 @@ public class SoundDetection {
     private AudioRecord audioRecord;
     private Thread detectionThread;
     private long lastDetectionTime = 0;
-    private RTCHost webRTCClient;
+    private RTCJoiner webRTCClient;
 
-    public SoundDetection(Context context, RTCHost webRTCClient) {
+    public SoundDetection(Context context, RTCJoiner webRTCClient) {
         this.context = context;
         this.handler = new Handler();
         this.webRTCClient = webRTCClient;
@@ -191,7 +187,7 @@ public class SoundDetection {
                 captureAndUploadScreenshot(sessionId);
 
                 //replay buffer
-                webRTCClient.replayBuffer(context);
+               // webRTCClient.replayBuffer(context);
             } else {
                 Log.w("SoundDetection", "User email or session ID is null. Cannot log notification.");
             }

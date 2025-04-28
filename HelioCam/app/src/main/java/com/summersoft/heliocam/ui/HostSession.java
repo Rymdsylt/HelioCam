@@ -2,7 +2,6 @@ package com.summersoft.heliocam.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -16,31 +15,21 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
-import com.summersoft.heliocam.notifs.SoundNotifListener;
 
 import java.security.SecureRandom;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
-
-
-
-public class UsePhoneActivity extends AppCompatActivity {
+public class HostSession extends AppCompatActivity {
 
     private EditText passkeyInput, sessionNameInput;
     private SecureRandom random;
     private FirebaseAuth mAuth;
     private DatabaseReference mDatabase;
-    private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_use_phone);
+        setContentView(R.layout.activity_host_session);
 
         passkeyInput = findViewById(R.id.passkey_input);
         sessionNameInput = findViewById(R.id.session_name_input);
@@ -57,8 +46,6 @@ public class UsePhoneActivity extends AppCompatActivity {
         findViewById(R.id.generateButton).setOnClickListener(view -> generateRandomPasskey());
         findViewById(R.id.cancelButton).setOnClickListener(view -> onBackPressed());
         findViewById(R.id.addButton).setOnClickListener(view -> addSession());
-
-
     }
 
     private void generateRandomPasskey() {
@@ -91,27 +78,15 @@ public class UsePhoneActivity extends AppCompatActivity {
             return;
         }
 
-        // Check for Android version
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            // For Android 6.0 (API level 23) and higher, request camera permission
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                // Request camera permission if not granted
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
-            } else {
-                // Permission is already granted, proceed with adding session
-                proceedWithAddingSession(sessionName, passkey);
-            }
-        } else {
-            // For older Android versions, permission is granted at install time, so just proceed
-            proceedWithAddingSession(sessionName, passkey);
-        }
+        // No need to check for camera permission since the host is only a viewer
+        proceedWithAddingSession(sessionName, passkey);
     }
 
     private void proceedWithAddingSession(String sessionName, String passkey) {
         // Get the current user's email
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
 
-        // Create a unique session ID (e.g., session_1, session_2, etc.)a
+        // Create a unique session ID (e.g., session_1, session_2, etc.)
         String sessionId = "session_" + (System.currentTimeMillis() / 1000);
 
         // Create the session data
@@ -123,18 +98,17 @@ public class UsePhoneActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         Toast.makeText(this, "Session added successfully", Toast.LENGTH_SHORT).show();
 
-                        // After adding the session, open CameraActivity and pass session details
-                        Intent intent = new Intent(UsePhoneActivity.this, CameraActivity.class);
-                        intent.putExtra("session_name", sessionName); // Pass session name
-                        intent.putExtra("session_id", sessionId); // Pass session ID (session_(n))
-                        intent.putExtra("passkey", passkey); // Pass passkey
+                        // After adding the session, open WatchSessionActivity
+                        Intent intent = new Intent(HostSession.this, WatchSessionActivity.class);
+                        intent.putExtra("SESSION_KEY", sessionId);
+                        intent.putExtra("SESSION_NAME", sessionName);
                         startActivity(intent);
+                        finish(); // Close this activity
                     } else {
                         Toast.makeText(this, "Failed to add session", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
-
 
     // Session data model
     public static class Session {
@@ -144,23 +118,6 @@ public class UsePhoneActivity extends AppCompatActivity {
         public Session(String passkey, String session_name) {
             this.passkey = passkey;
             this.session_name = session_name;
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission granted, proceed with adding session
-                String sessionName = sessionNameInput.getText().toString().trim();
-                String passkey = passkeyInput.getText().toString().trim();
-                proceedWithAddingSession(sessionName, passkey);
-            } else {
-                // Permission denied, show a message to the user
-                Toast.makeText(this, "Camera permission is required to continue", Toast.LENGTH_SHORT).show();
-            }
         }
     }
 }

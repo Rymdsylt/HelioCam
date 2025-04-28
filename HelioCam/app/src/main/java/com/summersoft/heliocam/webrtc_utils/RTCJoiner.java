@@ -1,372 +1,655 @@
 package com.summersoft.heliocam.webrtc_utils;
 
 import android.content.Context;
+import android.media.MediaRecorder;
 import android.util.Log;
+import android.view.View;
+
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.ValueEventListener;
 
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
+import org.webrtc.Camera2Enumerator;
+import org.webrtc.CameraVideoCapturer;
+import org.webrtc.DataChannel;
+import org.webrtc.EglBase;
 import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
+import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
+import org.webrtc.RtpReceiver;
 import org.webrtc.SessionDescription;
+import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoSource;
+import org.webrtc.VideoTrack;
 
-import java.util.HashMap;
+import com.summersoft.heliocam.detection.PersonDetection;
+
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.Map;
-
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-
+import java.util.Locale;
 
 public class RTCJoiner {
+    private static final String TAG = "RTCJoiner";
 
-    private static final String TAG = "RTCJoin";
-    private static boolean candidateSent = false; // Track if the candidate is already sent
-
-    private final PeerConnectionFactory peerConnectionFactory;
-    private final PeerConnection peerConnection;
     private final Context context;
-    private final String sessionKey;
-    private final SurfaceViewRenderer feedView; // View to show the remote feed
+    private final String sessionId;
+    private final SurfaceViewRenderer renderer;
+    private final DatabaseReference firebaseDatabase;
+    private SfuManager sfuManager;
+    private CameraVideoCapturer videoCapturer;
+    private ValueEventListener hostSignalingListener;
+    private boolean isAudioEnabled = true;
+    private boolean isVideoEnabled = true;
+    private PersonDetection personDetection;
+    private boolean isUsingFrontCamera = true;
 
+    // For recording functionality
+    private MediaRecorder mediaRecorder;
+    private boolean isRecording = false;
+    public boolean replayBufferOn = false;
+    private File currentVideoFile;
+
+    // WebRTC components
+    private EglBase rootEglBase;
+    private PeerConnectionFactory peerConnectionFactory;
+    private VideoSource videoSource;
+    private VideoTrack localVideoTrack;
+    private AudioSource audioSource;
     private AudioTrack localAudioTrack;
-    private AudioSource localAudioSource;
+    private MediaStream localMediaStream;
+    private PeerConnection peerConnection;
+    private List<PeerConnection.IceServer> iceServers;
 
-    public RTCJoiner(Context context, PeerConnectionFactory peerConnectionFactory, List<PeerConnection.IceServer> iceServers, String sessionKey, SurfaceViewRenderer feedView) {
+    public RTCJoiner(Context context, String sessionId, SurfaceViewRenderer renderer, DatabaseReference firebaseDatabase) {
         this.context = context;
-        this.peerConnectionFactory = peerConnectionFactory;
-        this.sessionKey = sessionKey;
-        this.feedView = feedView;
+        this.sessionId = sessionId;
+        this.renderer = renderer;
+        this.firebaseDatabase = firebaseDatabase;
+        this.sfuManager = initializeSfuManager();
 
-        // Initialize the PeerConnection
+        setupRenderer();
+        initializeWebRTCComponents();
+    }
+
+    private void initializeWebRTCComponents() {
+        rootEglBase = EglBase.create();
+
+        PeerConnectionFactory.InitializationOptions initializationOptions =
+                PeerConnectionFactory.InitializationOptions.builder(context)
+                        .createInitializationOptions();
+        PeerConnectionFactory.initialize(initializationOptions);
+
+        PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+        peerConnectionFactory = PeerConnectionFactory.builder()
+                .setOptions(options)
+                .createPeerConnectionFactory();
+
+        // Initialize ice servers
+        iceServers = new ArrayList<>();
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
+    }
+
+    private SfuManager initializeSfuManager() {
+        return new SfuManager(context, new SfuManager.SignalingInterface() {
+            @Override
+            public void sendOffer(SessionDescription offer, String sessionId, String role) {
+                String hostEmail = getHostEmailFromSessionId(sessionId);
+                firebaseDatabase.child("users")
+                        .child(hostEmail)
+                        .child("sessions")
+                        .child(sessionId)
+                        .child("JoinerOffer")
+                        .setValue(offer.description);
+            }
+
+            @Override
+            public void sendAnswer(SessionDescription answer, String sessionId, String role) {
+                String hostEmail = getHostEmailFromSessionId(sessionId);
+                firebaseDatabase.child("users")
+                        .child(hostEmail)
+                        .child("sessions")
+                        .child(sessionId)
+                        .child("JoinerAnswer")
+                        .setValue(answer.description);
+            }
+
+            @Override
+            public void sendIceCandidate(IceCandidate candidate, String sessionId, String role) {
+                String hostEmail = getHostEmailFromSessionId(sessionId);
+
+                IceCandidateData candidateData = new IceCandidateData(
+                        candidate.sdp,
+                        candidate.sdpMid,
+                        candidate.sdpMLineIndex
+                );
+
+                firebaseDatabase.child("users")
+                        .child(hostEmail)
+                        .child("sessions")
+                        .child(sessionId)
+                        .child("JoinerCandidate")
+                        .setValue(candidateData);
+            }
+        });
+    }
+
+    private void setupRenderer() {
+        if (renderer != null) {
+            renderer.setVisibility(View.VISIBLE);
+
+            // Initialize the renderer with EglBase context
+            if (rootEglBase != null) {
+                renderer.init(rootEglBase.getEglBaseContext(), null);
+                renderer.setZOrderMediaOverlay(true);
+                renderer.setEnableHardwareScaler(true);
+            }
+
+            sfuManager.attachRemoteView(renderer);
+        }
+    }
+
+    public void startCamera(Context context, boolean useFrontCamera) {
+        this.isUsingFrontCamera = useFrontCamera;
+        try {
+            Camera2Enumerator enumerator = new Camera2Enumerator(context);
+            String[] deviceNames = enumerator.getDeviceNames();
+
+            String selectedCamera = null;
+            for (String deviceName : deviceNames) {
+                if (useFrontCamera && enumerator.isFrontFacing(deviceName)) {
+                    selectedCamera = deviceName;
+                    break;
+                } else if (!useFrontCamera && enumerator.isBackFacing(deviceName)) {
+                    selectedCamera = deviceName;
+                    break;
+                }
+            }
+
+            if (selectedCamera == null && deviceNames.length > 0) {
+                selectedCamera = deviceNames[0];
+            }
+
+            if (selectedCamera != null) {
+                videoCapturer = enumerator.createCapturer(selectedCamera, null);
+                if (videoCapturer != null) {
+                    sfuManager.setupLocalMediaStream(videoCapturer);
+
+                    // Also setup local media stream for our class
+                    setupLocalMediaStream();
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting camera: " + e.getMessage());
+        }
+    }
+
+    public void setupLocalMediaStream() {
+        if (videoCapturer == null) return;
+
+        SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
+        videoSource = peerConnectionFactory.createVideoSource(false);
+        videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
+
+        MediaConstraints constraints = new MediaConstraints();
+        videoCapturer.startCapture(1280, 720, 30);
+
+        localVideoTrack = peerConnectionFactory.createVideoTrack("video", videoSource);
+        localVideoTrack.setEnabled(isVideoEnabled);
+
+        // Create audio source and track
+        audioSource = peerConnectionFactory.createAudioSource(constraints);
+        localAudioTrack = peerConnectionFactory.createAudioTrack("audio", audioSource);
+        localAudioTrack.setEnabled(isAudioEnabled);
+
+        // Create media stream
+        localMediaStream = peerConnectionFactory.createLocalMediaStream("stream");
+        localMediaStream.addTrack(localVideoTrack);
+        localMediaStream.addTrack(localAudioTrack);
+
+        // Attach the video to the renderer
+        if (renderer != null) {
+            localVideoTrack.addSink(renderer);
+        }
+    }
+
+    public void setupLocalMediaStream(CameraVideoCapturer videoCapturer) {
+        this.videoCapturer = videoCapturer;
+        setupLocalMediaStream();
+    }
+
+    public void initializePeerConnection(String sessionId, String email) {
+        // Create PeerConnection
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
-        rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
+        rtcConfig.enableDtlsSrtp = true;
 
-        localAudioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
-
-        // Create local audio track
-        localAudioTrack = peerConnectionFactory.createAudioTrack("audioTrack", localAudioSource);
-
-        // Create the PeerConnection with media constraints
-        this.peerConnection = peerConnectionFactory.createPeerConnection(
+        peerConnection = peerConnectionFactory.createPeerConnection(
                 rtcConfig,
-                new PeerConnectionAdapter() {
+                new PeerConnection.Observer() {
                     @Override
-                    public void onIceCandidate(IceCandidate candidate) {
-                        super.onIceCandidate(candidate);
-                        Log.d(TAG, "New ICE Candidate: " + candidate.sdp);
-
-                        // Send the ICE candidate to Firebase as soon as it is available
-                        if (candidate != null) {
-                            sendIceCandidateToFirebase(candidate);
-                        }
+                    public void onSignalingChange(PeerConnection.SignalingState signalingState) {
+                        Log.d(TAG, "onSignalingChange: " + signalingState);
                     }
 
                     @Override
-                    public void onAddStream(org.webrtc.MediaStream stream) {
-                        super.onAddStream(stream);
-                        Log.d(TAG, "Remote Media Stream added");
-
-                        // Handling Video Stream
-                        if (stream.videoTracks.size() > 0) {
-                            stream.videoTracks.get(0).addSink(feedView);  // Add video to SurfaceViewRenderer
-                            Log.d(TAG, "Remote Video Stream Started");
-                        }
-
-                        // Handling Audio Stream
-                        if (stream.audioTracks.size() > 0) {
-                            // Add audio track to local playback if needed
-                            Log.d(TAG, "Remote Audio Stream Started");
+                    public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
+                        Log.d(TAG, "onIceConnectionChange: " + iceConnectionState);
+                        if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
+                            // Update Firebase with connection status
+                            String hostEmail = getHostEmailFromSessionId(sessionId);
+                            firebaseDatabase.child("users")
+                                    .child(hostEmail)
+                                    .child("sessions")
+                                    .child(sessionId)
+                                    .child("connection_state")
+                                    .setValue("connected");
                         }
                     }
-                }
-        );
 
-        if (this.peerConnection == null) {
-            throw new IllegalStateException("Failed to create PeerConnection");
-        }
-
-        // Add local audio track to media stream and add stream to peer connection
-        org.webrtc.MediaStream mediaStream = peerConnectionFactory.createLocalMediaStream("mediaStream");
-        mediaStream.addTrack(localAudioTrack);
-        peerConnection.addStream(mediaStream);
-
-        // Load HostCandidate and HostSdp from Firebase when joining the session
-        loadHostCandidateAndSdp(sessionKey);
-    }
-
-    private void sendIceCandidateToFirebase(IceCandidate candidate) {
-        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-        if (email != null && sessionKey != null) {
-            String formattedEmail = email.replace(".", "_");  // Format email for Firebase paths
-
-            DatabaseReference iceCandidatesRef = FirebaseDatabase.getInstance().getReference("users")
-                    .child(formattedEmail)
-                    .child("sessions")
-                    .child(sessionKey)
-                    .child("ice_candidates");
-
-            // Get the next available candidate index
-            iceCandidatesRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot dataSnapshot) {
-                    int candidateCount = (int) dataSnapshot.getChildrenCount();
-                    String candidateKey = "candidate_" + (candidateCount + 1);  // Generate unique key for new candidate
-
-                    // Create a map to store the candidate data
-                    Map<String, Object> candidateData = new HashMap<>();
-                    candidateData.put("candidate", candidate.sdp);
-                    candidateData.put("sdpMid", candidate.sdpMid);
-                    candidateData.put("sdpMLineIndex", candidate.sdpMLineIndex);
-
-                    // Set the candidate data in Firebase under the unique key
-                    iceCandidatesRef.child(candidateKey).setValue(candidateData)
-                            .addOnCompleteListener(task -> {
-                                if (task.isSuccessful()) {
-                                    Log.d(TAG, "ICE candidate sent to Firebase.");
-                                } else {
-                                    Log.e(TAG, "Failed to send ICE candidate to Firebase.", task.getException());
-                                }
-                            });
-                }
-
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
-                    Log.e(TAG, "Failed to fetch ice candidates: " + databaseError.getMessage());
-                }
-            });
-        }
-    }
-
-    private void loadHostCandidateAndSdp(String sessionKey) {
-        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-        if (email != null) {
-            String formattedEmail = email.replace(".", "_"); // Format email for Firebase paths
-
-            DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
-                    .child(formattedEmail)
-                    .child("sessions")
-                    .child(sessionKey);
-
-            // Fetch the Offer and HostCandidate
-            sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot dataSnapshot) {
-                    if (dataSnapshot.exists()) {
-                        String offer = dataSnapshot.child("Offer").getValue(String.class);
-                        if (offer != null) {
-                            Log.d(TAG, "Fetched Offer SDP: " + offer);
-
-                            // Set the remote SDP using the fetched offer
-                            SessionDescription remoteSdp = new SessionDescription(SessionDescription.Type.OFFER, offer);
-                            peerConnection.setRemoteDescription(new SdpAdapter(TAG) {
-                                @Override
-                                public void onSetSuccess() {
-                                    super.onSetSuccess();
-                                    Log.d(TAG, "Remote SDP (Offer) set successfully");
-
-                                    // Create an answer to the fetched offer
-                                    createAnswer();
-                                }
-                            }, remoteSdp);
-                        } else {
-                            Log.e(TAG, "Offer SDP not found in Firebase");
-                        }
-
-                        // Fetch and log the HostCandidate
-                        String sdp = dataSnapshot.child("HostCandidate").child("HostSdp").getValue(String.class);
-                        String sdpMid = dataSnapshot.child("HostCandidate").child("HostSdpMid").getValue(String.class);
-                        Integer sdpMLineIndex = dataSnapshot.child("HostCandidate").child("HostSdpMLineIndex").getValue(Integer.class);
-
-                        if (sdp != null && sdpMid != null && sdpMLineIndex != null) {
-                            Log.d(TAG, "Fetched Host Candidate SDP: " + sdp);
-                            Log.d(TAG, "Fetched Host Candidate SDP Mid: " + sdpMid);
-                            Log.d(TAG, "Fetched Host Candidate SDP MLine Index: " + sdpMLineIndex);
-
-                            IceCandidate hostCandidate = new IceCandidate(sdpMid, sdpMLineIndex, sdp);
-                            peerConnection.addIceCandidate(hostCandidate);
-                            Log.d(TAG, "Host Candidate added successfully");
-                        } else {
-                            Log.e(TAG, "Incomplete HostCandidate information found in Firebase");
-                        }
-                    } else {
-                        Log.e(TAG, "Session data not found in Firebase");
+                    @Override
+                    public void onIceConnectionReceivingChange(boolean b) {
+                        Log.d(TAG, "onIceConnectionReceivingChange: " + b);
                     }
-                }
 
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
-                    Log.e(TAG, "Failed to load data from Firebase: " + databaseError.getMessage());
-                }
-            });
-        }
-    }
-
-    public void addIceCandidate(IceCandidate iceCandidate) {
-        if (peerConnection != null) {
-            peerConnection.addIceCandidate(iceCandidate);
-            Log.d(TAG, "Added ICE candidate: " + iceCandidate.sdp);
-        } else {
-            Log.e(TAG, "PeerConnection is null, can't add ICE candidate.");
-        }
-    }
-
-    public void joinSession() {
-        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-        if (email != null) {
-            String formattedEmail = email.replace(".", "_");
-
-            DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
-                    .child(formattedEmail)
-                    .child("sessions")
-                    .child(sessionKey);
-
-            // Set the "someone_watching" flag to 1
-            sessionRef.child("someone_watching").setValue(1)
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            Log.d(TAG, "someone_watching flag set to 1.");
-                        } else {
-                            Log.e(TAG, "Failed to set someone_watching flag.", task.getException());
-                        }
-                    });
-
-            sessionRef.child("Offer").addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot dataSnapshot) {
-                    if (dataSnapshot.exists()) {
-                        String sdpOffer = dataSnapshot.getValue(String.class);
-                        if (sdpOffer != null) {
-                            SessionDescription remoteSdp = new SessionDescription(SessionDescription.Type.OFFER, sdpOffer);
-                            peerConnection.setRemoteDescription(new SdpAdapter(TAG) {
-                                @Override
-                                public void onSetSuccess() {
-                                    super.onSetSuccess();
-                                    Log.d(TAG, "Remote SDP from Firebase set successfully");
-
-                                    createAnswer();
-                                }
-                            }, remoteSdp);
-                        } else {
-                            Log.e(TAG, "SDP Offer in Firebase is null");
-                        }
-                    } else {
-                        Log.e(TAG, "No SDP Offer found in Firebase");
+                    @Override
+                    public void onIceGatheringChange(PeerConnection.IceGatheringState iceGatheringState) {
+                        Log.d(TAG, "onIceGatheringChange: " + iceGatheringState);
                     }
-                }
 
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
-                    Log.e(TAG, "Failed to load SDP Offer from Firebase: " + databaseError.getMessage());
-                }
-            });
+                    @Override
+                    public void onIceCandidate(IceCandidate iceCandidate) {
+                        Log.d(TAG, "onIceCandidate: " + iceCandidate);
+                        sfuManager.handleLocalIceCandidate(iceCandidate);
+                    }
+
+                    @Override
+                    public void onIceCandidatesRemoved(IceCandidate[] iceCandidates) {
+                        Log.d(TAG, "onIceCandidatesRemoved: " + iceCandidates.length);
+                    }
+
+                    @Override
+                    public void onAddStream(MediaStream mediaStream) {
+                        Log.d(TAG, "onAddStream: " + mediaStream.getId());
+                        if (mediaStream.videoTracks.size() > 0) {
+                            VideoTrack remoteVideoTrack = mediaStream.videoTracks.get(0);
+                            remoteVideoTrack.addSink(renderer);
+                        }
+                    }
+
+                    @Override
+                    public void onRemoveStream(MediaStream mediaStream) {
+                        Log.d(TAG, "onRemoveStream: " + mediaStream.getId());
+                    }
+
+                    @Override
+                    public void onDataChannel(DataChannel dataChannel) {
+                        Log.d(TAG, "onDataChannel: " + dataChannel.label());
+                    }
+
+                    @Override
+                    public void onRenegotiationNeeded() {
+                        Log.d(TAG, "onRenegotiationNeeded");
+                    }
+
+                    @Override
+                    public void onAddTrack(RtpReceiver rtpReceiver, MediaStream[] mediaStreams) {
+                        Log.d(TAG, "onAddTrack");
+                    }
+                });
+
+        // Add streams
+        if (localMediaStream != null) {
+            peerConnection.addStream(localMediaStream);
         }
     }
 
+    public void createOffer(String sessionId, String email) {
+        MediaConstraints constraints = new MediaConstraints();
+        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
 
-    public void createAnswer() {
-        MediaConstraints mediaConstraints = new MediaConstraints();
-        mediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
-        mediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
-
-        peerConnection.createAnswer(new SdpAdapter(TAG) {
+        peerConnection.createOffer(new SdpObserverImpl("createOffer") {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
-                super.onCreateSuccess(sessionDescription);
-                Log.d(TAG, "SDP Answer created: " + sessionDescription.description);
+                Log.d(TAG, "Offer created successfully");
+                peerConnection.setLocalDescription(new SdpObserverImpl("setLocalDescription") {
+                    @Override
+                    public void onSetSuccess() {
+                        Log.d(TAG, "Local description set successfully");
+                        // Send offer to Firebase
+                        String hostEmail = email.replace(".", "_");
+                        firebaseDatabase.child("users")
+                                .child(hostEmail)
+                                .child("sessions")
+                                .child(sessionId)
+                                .child("Offer")
+                                .setValue(sessionDescription.description);
+                    }
 
-                // Set the local description with the created SDP Answer
-                peerConnection.setLocalDescription(new SdpAdapter(TAG), sessionDescription);
-
-                // Send the SDP Answer to Firebase
-                sendSdpAnswerToFirebase(sessionDescription);
+                    @Override
+                    public void onSetFailure(String s) {
+                        Log.e(TAG, "Failed to set local description: " + s);
+                    }
+                }, sessionDescription);
             }
-        }, mediaConstraints);
+
+            @Override
+            public void onCreateFailure(String s) {
+                Log.e(TAG, "Failed to create offer: " + s);
+            }
+        }, constraints);
     }
 
-    private void sendSdpAnswerToFirebase(final SessionDescription answerSdp) {
-        if (sessionKey != null) {
-            String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-            if (email != null) {
-                String formattedEmail = email.replace(".", "_");
+    public void initiateSessionJoin(String sessionId, String hostEmail) {
+        if (sessionId == null || hostEmail == null) {
+            Log.e(TAG, "Invalid session parameters");
+            return;
+        }
 
-                DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
-                        .child(formattedEmail)
-                        .child("sessions")
-                        .child(sessionKey);
+        String formattedHostEmail = hostEmail.replace(".", "_");
 
-                sessionRef.child("Answer").setValue(answerSdp.description)
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                Log.d(TAG, "SDP Answer sent to Firebase successfully");
-                            } else {
-                                Log.e(TAG, "Failed to send SDP Answer to Firebase", task.getException());
-                            }
-                        });
+        try {
+            sfuManager.setupLocalMediaStream();
+            sfuManager.joinSession(sessionId);
+            listenForHostSignaling(sessionId, formattedHostEmail);
+
+            firebaseDatabase.child("users")
+                    .child(formattedHostEmail)
+                    .child("sessions")
+                    .child(sessionId)
+                    .child("want_join")
+                    .setValue(1);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error initiating session join", e);
+        }
+    }
+
+    private void listenForHostSignaling(String sessionId, String hostEmail) {
+        if (hostSignalingListener != null) {
+            return;
+        }
+
+        DatabaseReference hostRef = firebaseDatabase.child("users")
+                .child(hostEmail)
+                .child("sessions")
+                .child(sessionId);
+
+        hostSignalingListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                handleHostSignalingData(snapshot);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e(TAG, "Host signaling listener cancelled", error.toException());
+            }
+        };
+
+        hostRef.addValueEventListener(hostSignalingListener);
+    }
+
+    private void handleHostSignalingData(DataSnapshot snapshot) {
+        if (!snapshot.exists()) return;
+
+        // Handle ICE candidates
+        DataSnapshot candidateSnapshot = snapshot.child("HostCandidate");
+        if (candidateSnapshot.exists()) {
+            IceCandidateData data = candidateSnapshot.getValue(IceCandidateData.class);
+            if (data != null) {
+                IceCandidate candidate = new IceCandidate(
+                        data.sdpMid,
+                        data.sdpMLineIndex,
+                        data.candidate
+                );
+                sfuManager.handleRemoteIceCandidate(candidate);
+            }
+        }
+
+        // Handle SDP offer - check both "Offer" and "HostOffer"
+        DataSnapshot offerSnapshot = snapshot.child("Offer");
+        if (!offerSnapshot.exists()) {
+            offerSnapshot = snapshot.child("HostOffer");
+        }
+
+        if (offerSnapshot.exists()) {
+            String sdp = offerSnapshot.getValue(String.class);
+            if (sdp != null) {
+                SessionDescription offer = new SessionDescription(
+                        SessionDescription.Type.OFFER,
+                        sdp
+                );
+                sfuManager.handleRemoteOffer(offer);
             }
         }
     }
 
-    public void dispose() {
-        if (peerConnection != null) {
-            String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-            if (email != null && sessionKey != null) {
-                String formattedEmail = email.replace(".", "_");
-
-                DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
-                        .child(formattedEmail)
-                        .child("sessions")
-                        .child(sessionKey);
-
-                // Remove "someone_watching" flag
-                sessionRef.child("someone_watching").removeValue()
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                Log.d(TAG, "someone_watching flag removed successfully.");
-                            } else {
-                                Log.e(TAG, "Failed to remove someone_watching flag.", task.getException());
-                            }
-                        });
-
-                // Send the "disconnect" status to Firebase before disposing the peer connection
-                sessionRef.child("disconnect").setValue(1)
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                sessionRef.child("Answer").removeValue();
-                                sessionRef.child("ice_candidates").removeValue();
-                                Log.d(TAG, "Disconnect status, Answer, and ice_candidates removed from Firebase successfully.");
-                            } else {
-                                Log.e(TAG, "Failed to send disconnect status to Firebase", task.getException());
-                            }
-                        });
+    public void switchCamera() {
+        if (videoCapturer != null) {
+            try {
+                videoCapturer.switchCamera(null);
+                isUsingFrontCamera = !isUsingFrontCamera;
+            } catch (Exception e) {
+                Log.e(TAG, "Error switching camera: " + e.getMessage());
             }
-
-            peerConnection.dispose();
-            Log.d(TAG, "PeerConnection disposed.");
         }
     }
 
+    public void toggleVideo() {
+        isVideoEnabled = !isVideoEnabled;
+        if (localVideoTrack != null) {
+            localVideoTrack.setEnabled(isVideoEnabled);
+        }
+    }
 
+    public void toggleAudio() {
+        isAudioEnabled = !isAudioEnabled;
+        if (localAudioTrack != null) {
+            localAudioTrack.setEnabled(isAudioEnabled);
+        }
+    }
 
     public void muteMic() {
         if (localAudioTrack != null) {
             localAudioTrack.setEnabled(false);
+            isAudioEnabled = false;
         }
     }
 
     public void unmuteMic() {
         if (localAudioTrack != null) {
             localAudioTrack.setEnabled(true);
+            isAudioEnabled = true;
         }
     }
 
+    public void setPersonDetection(PersonDetection personDetection) {
+        this.personDetection = personDetection;
+    }
 
+    // Recording functionality
+    public void startRecording(Context context) {
+        if (isRecording) {
+            Log.w(TAG, "Recording already in progress");
+            return;
+        }
 
+        try {
+            File videoDir = new File(context.getExternalFilesDir(null), "HelioCam");
+            if (!videoDir.exists()) {
+                videoDir.mkdirs();
+            }
+
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+            currentVideoFile = new File(videoDir, "VID_" + timestamp + ".mp4");
+
+            mediaRecorder = new MediaRecorder();
+            mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            mediaRecorder.setVideoSize(1280, 720);
+            mediaRecorder.setVideoFrameRate(30);
+            mediaRecorder.setOutputFile(currentVideoFile.getAbsolutePath());
+            mediaRecorder.prepare();
+            mediaRecorder.start();
+
+            isRecording = true;
+            Log.d(TAG, "Recording started: " + currentVideoFile.getAbsolutePath());
+        } catch (IOException e) {
+            Log.e(TAG, "Error starting recording: " + e.getMessage());
+            if (mediaRecorder != null) {
+                mediaRecorder.release();
+                mediaRecorder = null;
+            }
+        }
+    }
+
+    public void stopRecording() {
+        if (!isRecording || mediaRecorder == null) {
+            Log.w(TAG, "No recording in progress");
+            return;
+        }
+
+        try {
+            mediaRecorder.stop();
+            mediaRecorder.release();
+            mediaRecorder = null;
+            isRecording = false;
+            Log.d(TAG, "Recording stopped and saved: " + currentVideoFile.getAbsolutePath());
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping recording: " + e.getMessage());
+        }
+    }
+
+    public void joinSession(String sessionId) {
+        sfuManager.joinSession(sessionId);
+    }
+
+    public void handleRemoteOffer(SessionDescription offer) {
+        sfuManager.handleRemoteOffer(offer);
+    }
+
+    public void handleRemoteIceCandidate(IceCandidate candidate) {
+        sfuManager.handleRemoteIceCandidate(candidate);
+    }
+
+    public void dispose() {
+        if (hostSignalingListener != null) {
+            String hostEmail = getHostEmailFromSessionId(sessionId);
+            firebaseDatabase.child("users")
+                    .child(hostEmail)
+                    .child("sessions")
+                    .child(sessionId)
+                    .removeEventListener(hostSignalingListener);
+            hostSignalingListener = null;
+        }
+
+        if (videoCapturer != null) {
+            try {
+                videoCapturer.stopCapture();
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Error stopping video capture", e);
+            }
+            videoCapturer.dispose();
+            videoCapturer = null;
+        }
+
+        if (sfuManager != null) {
+            sfuManager.release();
+        }
+
+        // Clean up WebRTC resources
+        if (localVideoTrack != null) {
+            localVideoTrack.dispose();
+        }
+
+        if (videoSource != null) {
+            videoSource.dispose();
+        }
+
+        if (audioSource != null) {
+            audioSource.dispose();
+        }
+
+        if (peerConnection != null) {
+            peerConnection.close();
+            peerConnection.dispose();
+        }
+
+        if (peerConnectionFactory != null) {
+            peerConnectionFactory.dispose();
+        }
+
+        if (renderer != null) {
+            renderer.release();
+        }
+
+        if (rootEglBase != null) {
+            rootEglBase.release();
+        }
+
+        // Stop recording if in progress
+        if (isRecording) {
+            stopRecording();
+        }
+    }
+
+    private String getHostEmailFromSessionId(String sessionId) {
+        return sessionId.split("_")[0].replace(".", "_");
+    }
+
+    private static class IceCandidateData {
+        public String candidate;
+        public String sdpMid;
+        public int sdpMLineIndex;
+
+        public IceCandidateData() {} // Required for Firebase
+
+        public IceCandidateData(String candidate, String sdpMid, int sdpMLineIndex) {
+            this.candidate = candidate;
+            this.sdpMid = sdpMid;
+            this.sdpMLineIndex = sdpMLineIndex;
+        }
+    }
+
+    // SdpObserver implementation for WebRTC
+    private abstract class SdpObserverImpl implements org.webrtc.SdpObserver {
+        private String tag;
+
+        SdpObserverImpl(String tag) {
+            this.tag = tag;
+        }
+
+        @Override
+        public void onCreateSuccess(SessionDescription sessionDescription) {
+            Log.d(TAG, tag + ": onCreateSuccess");
+        }
+
+        @Override
+        public void onSetSuccess() {
+            Log.d(TAG, tag + ": onSetSuccess");
+        }
+
+        @Override
+        public void onCreateFailure(String s) {
+            Log.e(TAG, tag + ": onCreateFailure: " + s);
+        }
+
+        @Override
+        public void onSetFailure(String s) {
+            Log.e(TAG, tag + ": onSetFailure: " + s);
+        }
+    }
 }
-

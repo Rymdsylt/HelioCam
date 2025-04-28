@@ -1,15 +1,12 @@
 package com.summersoft.heliocam.detection;
 
 import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.net.Uri;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -26,7 +23,7 @@ import com.summersoft.heliocam.ui.NotificationSettings;
 import com.summersoft.heliocam.utils.DetectionDirectoryManager;
 import com.summersoft.heliocam.utils.FileUtils;
 import com.summersoft.heliocam.utils.ImageUtils;
-import com.summersoft.heliocam.webrtc_utils.RTCHost;
+import com.summersoft.heliocam.webrtc_utils.RTCJoiner;
 
 import org.tensorflow.lite.Interpreter;
 import org.webrtc.VideoFrame;
@@ -66,7 +63,7 @@ public class PersonDetection implements VideoSink {
     private final Context context;
     private final Handler handler;
     private final Executor executor;
-    private final RTCHost webRTCClient;
+    private final RTCJoiner webRTCClient;
     private Interpreter tflite;
     private List<String> labels;
 
@@ -127,7 +124,7 @@ public class PersonDetection implements VideoSink {
         void onDetectionStatusChanged(boolean isDetecting);
     }
 
-    public PersonDetection(Context context, RTCHost webRTCClient) {
+    public PersonDetection(Context context, RTCJoiner webRTCClient) {
         this.context = context;
         this.webRTCClient = webRTCClient;
         this.handler = new Handler(Looper.getMainLooper());
@@ -413,7 +410,7 @@ public class PersonDetection implements VideoSink {
                 saveDetectionImage(bitmap, sessionId);
 
                 // Replay buffer
-                webRTCClient.replayBuffer(context);
+                //webRTCClient.replayBuffer(context);
             } else {
                 Log.w(TAG, "User email or session ID is null");
             }

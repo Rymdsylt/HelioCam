@@ -429,17 +429,36 @@ public class CameraActivity extends AppCompatActivity {
     }
     private void autoJoinSession(String sessionId, String hostEmail) {
         if (webRTCClient != null) {
-            // Directly initiate the WebRTC session join
-            webRTCClient.initiateSessionJoin(sessionId, hostEmail);
-
-            // Start monitoring the connection state
-            listenForConnectionStatus(sessionId, hostEmail);
-
-            // Update UI to show connecting status
-            runOnUiThread(() -> {
-                Toast.makeText(this, "Connecting to session...", Toast.LENGTH_SHORT).show();
-                // Update any UI elements to show connection in progress
-            });
+            // Make sure we have a valid reference to the client view
+            if (cameraView == null) {
+                cameraView = findViewById(R.id.camera_view);
+            }
+            
+            try {
+                // Ensure we have the right initialization order
+                webRTCClient.startCamera(this, isUsingFrontCamera);
+                
+                // Wait a brief moment for camera to initialize
+                new Handler().postDelayed(() -> {
+                    try {
+                        // Then initiate the session join
+                        webRTCClient.initiateSessionJoin(sessionId, hostEmail);
+                        
+                        // Monitor connection status
+                        listenForConnectionStatus(sessionId, hostEmail);
+                        
+                        runOnUiThread(() -> {
+                            Toast.makeText(this, "Connecting to session...", Toast.LENGTH_SHORT).show();
+                        });
+                    } catch (Exception e) {
+                        Log.e("CameraActivity", "Error joining session after delay", e);
+                        Toast.makeText(this, "Error connecting: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }, 1000); // 1 second delay
+            } catch (Exception e) {
+                Log.e("CameraActivity", "Error during auto-join", e);
+                Toast.makeText(this, "Connection error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
         } else {
             Toast.makeText(this, "WebRTC client not initialized", Toast.LENGTH_SHORT).show();
         }

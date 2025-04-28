@@ -2,6 +2,7 @@ package com.summersoft.heliocam.webrtc_utils;
 
 import android.content.Context;
 import android.media.MediaRecorder;
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 
@@ -356,19 +357,51 @@ public class RTCJoiner {
         }
 
         String formattedHostEmail = hostEmail.replace(".", "_");
-
+        
         try {
-            sfuManager.setupLocalMediaStream();
-            sfuManager.joinSession(sessionId);
+            // First set up listeners to prevent missing any signals
             listenForHostSignaling(sessionId, formattedHostEmail);
+            
+            // Ensure EGL context is initialized
+            if (rootEglBase == null) {
+                rootEglBase = EglBase.create();
+            }
+            
+            // Initialize renderer with EGL context if needed
+            if (renderer != null) {
+                try {
+                    renderer.init(rootEglBase.getEglBaseContext(), null);
+                    renderer.setZOrderMediaOverlay(true);
+                    renderer.setEnableHardwareScaler(true);
+                } catch (IllegalStateException e) {
+                    // Already initialized
+                    Log.d(TAG, "Renderer already initialized: " + e.getMessage());
+                }
+            }
+            
+            // Make sure camera is started
+            startCamera(context, isUsingFrontCamera);
+            
+            // Setup local media stream before joining
+            if (videoCapturer != null) {
+                sfuManager.setupLocalMediaStream(videoCapturer);
+            } else {
+                Log.w(TAG, "Video capturer not initialized, trying to join without camera");
+                sfuManager.setupLocalMediaStream();
+            }
+            
+            // Join the session
+            sfuManager.joinSession(sessionId);
 
+            // Request to join after setup is complete
             firebaseDatabase.child("users")
                     .child(formattedHostEmail)
                     .child("sessions")
                     .child(sessionId)
                     .child("want_join")
-                    .setValue(1);
-
+                    .setValue(1)
+                    .addOnSuccessListener(aVoid -> Log.d(TAG, "Join request sent successfully"))
+                    .addOnFailureListener(e -> Log.e(TAG, "Failed to send join request", e));
         } catch (Exception e) {
             Log.e(TAG, "Error initiating session join", e);
         }
@@ -402,35 +435,51 @@ public class RTCJoiner {
     private void handleHostSignalingData(DataSnapshot snapshot) {
         if (!snapshot.exists()) return;
 
-        // Handle ICE candidates
-        DataSnapshot candidateSnapshot = snapshot.child("HostCandidate");
-        if (candidateSnapshot.exists()) {
-            IceCandidateData data = candidateSnapshot.getValue(IceCandidateData.class);
-            if (data != null) {
-                IceCandidate candidate = new IceCandidate(
-                        data.sdpMid,
-                        data.sdpMLineIndex,
-                        data.candidate
-                );
-                sfuManager.handleRemoteIceCandidate(candidate);
+        try {
+            // Check if join was approved
+            if (snapshot.hasChild("join_approved")) {
+                int joinApproved = snapshot.child("join_approved").getValue(Integer.class);
+                if (joinApproved == 1) {
+                    Log.d(TAG, "Join request approved");
+                }
             }
-        }
 
-        // Handle SDP offer - check both "Offer" and "HostOffer"
-        DataSnapshot offerSnapshot = snapshot.child("Offer");
-        if (!offerSnapshot.exists()) {
-            offerSnapshot = snapshot.child("HostOffer");
-        }
-
-        if (offerSnapshot.exists()) {
-            String sdp = offerSnapshot.getValue(String.class);
-            if (sdp != null) {
-                SessionDescription offer = new SessionDescription(
-                        SessionDescription.Type.OFFER,
-                        sdp
-                );
-                sfuManager.handleRemoteOffer(offer);
+            // Handle ICE candidates
+            DataSnapshot candidateSnapshot = snapshot.child("HostCandidate");
+            if (candidateSnapshot.exists()) {
+                String candidateStr = candidateSnapshot.child("candidate").getValue(String.class);
+                String sdpMid = candidateSnapshot.child("sdpMid").getValue(String.class);
+                Integer sdpMLineIndex = candidateSnapshot.child("sdpMLineIndex").getValue(Integer.class);
+                
+                if (candidateStr != null && sdpMid != null && sdpMLineIndex != null) {
+                    IceCandidate candidate = new IceCandidate(
+                            sdpMid,
+                            sdpMLineIndex,
+                            candidateStr
+                    );
+                    
+                    if (sfuManager != null) {
+                        sfuManager.handleRemoteIceCandidate(candidate);
+                    } else {
+                        Log.e(TAG, "SFU Manager is null when processing ICE candidate");
+                    }
+                }
             }
+
+            // Handle SDP offer
+            DataSnapshot offerSnapshot = snapshot.child("Offer");
+            if (offerSnapshot.exists() && offerSnapshot.getValue() != null) {
+                String sdp = offerSnapshot.getValue(String.class);
+                if (sdp != null && sfuManager != null) {
+                    SessionDescription offer = new SessionDescription(
+                            SessionDescription.Type.OFFER,
+                            sdp
+                    );
+                    sfuManager.handleRemoteOffer(offer);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing signaling data", e);
         }
     }
 
@@ -650,6 +699,29 @@ public class RTCJoiner {
         @Override
         public void onSetFailure(String s) {
             Log.e(TAG, tag + ": onSetFailure: " + s);
+        }
+    }
+
+    // Add to RTCJoiner.java to monitor connection state
+    private void monitorConnectionState() {
+        if (peerConnection != null) {
+            new Handler().postDelayed(() -> {
+                if (peerConnection != null) {
+                    PeerConnection.IceConnectionState state = peerConnection.iceConnectionState();
+                    Log.d(TAG, "Current ICE connection state: " + state);
+                    
+                    if (state == PeerConnection.IceConnectionState.FAILED || 
+                        state == PeerConnection.IceConnectionState.DISCONNECTED) {
+                        Log.w(TAG, "Connection appears to be failing, attempting recovery");
+                        // Try to recreate the connection
+                        initiateSessionJoin(sessionId, getHostEmailFromSessionId(sessionId));
+                    } else if (state != PeerConnection.IceConnectionState.CONNECTED && 
+                             state != PeerConnection.IceConnectionState.COMPLETED) {
+                        // If not yet connected, keep monitoring
+                        monitorConnectionState();
+                    }
+                }
+            }, 5000); // Check every 5 seconds
         }
     }
 }

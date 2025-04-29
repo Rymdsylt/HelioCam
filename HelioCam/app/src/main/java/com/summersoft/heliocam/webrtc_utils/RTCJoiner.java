@@ -1,727 +1,701 @@
 package com.summersoft.heliocam.webrtc_utils;
 
 import android.content.Context;
+import android.content.Intent;
 import android.media.MediaRecorder;
-import android.os.Handler;
+import android.net.Uri;
+import android.os.Environment;
 import android.util.Log;
-import android.view.View;
+import android.widget.Toast;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.Camera2Enumerator;
 import org.webrtc.CameraVideoCapturer;
-import org.webrtc.DataChannel;
+import org.webrtc.DefaultVideoDecoderFactory;
+import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
 import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.RtpReceiver;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
-import com.summersoft.heliocam.detection.PersonDetection;
-
 import java.io.File;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 public class RTCJoiner {
     private static final String TAG = "RTCJoiner";
 
-    private final Context context;
-    private final String sessionId;
-    private final SurfaceViewRenderer renderer;
-    private final DatabaseReference firebaseDatabase;
-    private SfuManager sfuManager;
+    // WebRTC components
+    private EglBase eglBase;
+    private PeerConnectionFactory peerConnectionFactory;
+    private PeerConnection peerConnection;
+    private VideoTrack localVideoTrack;
+    private AudioTrack localAudioTrack;
+    private VideoSource videoSource;
+    private AudioSource audioSource;
     private CameraVideoCapturer videoCapturer;
-    private ValueEventListener hostSignalingListener;
+    private SurfaceTextureHelper surfaceTextureHelper;
+    
+    // Connection components
+    private Context context;
+    private SurfaceViewRenderer localView;
+    private String sessionId;
+    private String hostEmail;
+    private String formattedHostEmail;
+    private String joinerId;
+    
+    // Firebase reference
+    private DatabaseReference firebaseDatabase;
+    
+    // User info
+    private String userEmail;
+    private String formattedUserEmail;
+    
+    // Camera state
+    private boolean isUsingFrontCamera = true;
+    
+    // Audio/video state
     private boolean isAudioEnabled = true;
     private boolean isVideoEnabled = true;
-    private PersonDetection personDetection;
-    private boolean isUsingFrontCamera = true;
-
-    // For recording functionality
-    private MediaRecorder mediaRecorder;
+    
+    // Recording state
     private boolean isRecording = false;
-    public boolean replayBufferOn = false;
-    private File currentVideoFile;
-
-    // WebRTC components
-    private EglBase rootEglBase;
-    private PeerConnectionFactory peerConnectionFactory;
-    private VideoSource videoSource;
-    private VideoTrack localVideoTrack;
-    private AudioSource audioSource;
-    private AudioTrack localAudioTrack;
-    private MediaStream localMediaStream;
-    private PeerConnection peerConnection;
-    private List<PeerConnection.IceServer> iceServers;
-
-    public RTCJoiner(Context context, String sessionId, SurfaceViewRenderer renderer, DatabaseReference firebaseDatabase) {
+    private boolean isReplayBufferRunning = false;
+    private String recordingPath = null;
+    private MediaRecorder mediaRecorder = null;
+    
+    // WebRTC TURN/STUN server configuration
+    private final String stunServer = "stun:stun.relay.metered.ca:80";
+   
+    
+    private final String meteredApiKey = "4611ab82d5ec3882669178686393394a7ca4";
+    
+    // Add these fields to the top of the class with other field declarations
+    private com.summersoft.heliocam.detection.PersonDetection personDetection;
+    private org.webrtc.VideoSink detectionVideoSink;
+    
+    /**
+     * Constructor for RTCJoiner
+     * @param context Android context
+     * @param localView Surface view for rendering the camera feed
+     * @param firebaseDatabase Firebase database reference
+     */
+    public RTCJoiner(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
         this.context = context;
-        this.sessionId = sessionId;
-        this.renderer = renderer;
+        this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
-        this.sfuManager = initializeSfuManager();
-
-        setupRenderer();
-        initializeWebRTCComponents();
+        
+        // Get user email
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth.getCurrentUser() != null) {
+            this.userEmail = auth.getCurrentUser().getEmail();
+            this.formattedUserEmail = this.userEmail.replace(".", "_");
+        } else {
+            Log.e(TAG, "User is not authenticated");
+            throw new IllegalStateException("User must be authenticated");
+        }
+        
+        // Initialize WebRTC components
+        initializeWebRTC();
     }
-
-    private void initializeWebRTCComponents() {
-        rootEglBase = EglBase.create();
-
-        PeerConnectionFactory.InitializationOptions initializationOptions =
+    
+    /**
+     * Check if recording can be started
+     */
+    public boolean canStartRecording() {
+        // Recording functionality disabled
+        return false;
+    }
+    
+    /**
+     * Start recording the camera feed
+     */
+    public void startRecording() {
+        // Recording functionality disabled
+        Log.w(TAG, "Recording functionality is currently disabled");
+    }
+    
+    /**
+     * Stop recording
+     */
+    public void stopRecording() {
+        // Recording functionality disabled
+        Log.w(TAG, "Recording functionality is currently disabled");
+    }
+    
+    /**
+     * Release MediaRecorder resources
+     */
+    private void releaseMediaRecorder() {
+        // Recording functionality disabled
+    }
+    
+    /**
+     * Check if replay buffer can be started
+     */
+    public boolean canStartReplayBuffer() {
+        // Replay buffer functionality disabled
+        return false;
+    }
+    
+    /**
+     * Start replay buffer (circular recording buffer)
+     */
+    public void startReplayBuffer() {
+        // Replay buffer functionality disabled
+        Log.w(TAG, "Replay buffer functionality is currently disabled");
+    }
+    
+    /**
+     * Stop replay buffer and save the recording
+     */
+    public void stopReplayBuffer() {
+        // Replay buffer functionality disabled
+        Log.w(TAG, "Replay buffer functionality is currently disabled");
+    }
+    
+    /**
+     * Initialize WebRTC components
+     */
+    private void initializeWebRTC() {
+        // Create EGL context
+        eglBase = EglBase.create();
+        
+        // Initialize the local view
+        localView.init(eglBase.getEglBaseContext(), null);
+        localView.setMirror(true);
+        
+        // Initialize the PeerConnectionFactory
+        PeerConnectionFactory.InitializationOptions options = 
                 PeerConnectionFactory.InitializationOptions.builder(context)
                         .createInitializationOptions();
-        PeerConnectionFactory.initialize(initializationOptions);
-
-        PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+        PeerConnectionFactory.initialize(options);
+        
+        DefaultVideoEncoderFactory encoderFactory = 
+                new DefaultVideoEncoderFactory(eglBase.getEglBaseContext(), true, true);
+        DefaultVideoDecoderFactory decoderFactory = 
+                new DefaultVideoDecoderFactory(eglBase.getEglBaseContext());
+        
+        PeerConnectionFactory.Options peerOptions = new PeerConnectionFactory.Options();
+        
         peerConnectionFactory = PeerConnectionFactory.builder()
-                .setOptions(options)
+                .setOptions(peerOptions)
+                .setVideoEncoderFactory(encoderFactory)
+                .setVideoDecoderFactory(decoderFactory)
                 .createPeerConnectionFactory();
-
-        // Initialize ice servers
-        iceServers = new ArrayList<>();
-        iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
     }
-
-    private SfuManager initializeSfuManager() {
-        return new SfuManager(context, new SfuManager.SignalingInterface() {
+    
+    /**
+     * Start camera capture
+     * @param useFrontCamera Whether to use front camera
+     */
+    public void startCamera(boolean useFrontCamera) {
+        this.isUsingFrontCamera = useFrontCamera;
+        
+        // Check if camera is already running
+        if (videoCapturer != null) {
+            Log.d(TAG, "Camera is already running");
+            return;
+        }
+        
+        // Create camera capturer
+        Camera2Enumerator enumerator = new Camera2Enumerator(context);
+        videoCapturer = createCameraCapturer(enumerator, useFrontCamera);
+        
+        if (videoCapturer == null) {
+            Log.e(TAG, "Failed to create camera capturer");
+            Toast.makeText(context, "Failed to access camera", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        // Create surface texture helper
+        surfaceTextureHelper = 
+                SurfaceTextureHelper.create("CaptureThread", eglBase.getEglBaseContext());
+        
+        // Create video source and track
+        videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
+        videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
+        localVideoTrack = peerConnectionFactory.createVideoTrack("video", videoSource);
+        localVideoTrack.setEnabled(true);
+        localVideoTrack.addSink(localView);
+        // Connect to person detection if available
+        if (personDetection != null) {
+            Log.d(TAG, "Connecting video track to person detection");
+            localVideoTrack.addSink(personDetection);
+        }
+        
+        // Create audio source and track
+        MediaConstraints audioConstraints = new MediaConstraints();
+        audioConstraints.mandatory.add(
+                new MediaConstraints.KeyValuePair("googEchoCancellation", "true"));
+        audioConstraints.mandatory.add(
+                new MediaConstraints.KeyValuePair("googAutoGainControl", "true"));
+        audioConstraints.mandatory.add(
+                new MediaConstraints.KeyValuePair("googHighpassFilter", "true"));
+        audioConstraints.mandatory.add(
+                new MediaConstraints.KeyValuePair("googNoiseSuppression", "true"));
+                
+        audioSource = peerConnectionFactory.createAudioSource(audioConstraints);
+        localAudioTrack = peerConnectionFactory.createAudioTrack("audio", audioSource);
+        localAudioTrack.setEnabled(true);
+        
+        // Start capture
+        try {
+            videoCapturer.startCapture(640, 480, 30);
+            Log.d(TAG, "Camera started with " + (useFrontCamera ? "front" : "back") + " camera");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start camera capture", e);
+        }
+    }
+    
+    /**
+     * Join a session as a camera
+     * @param hostEmail Email of the host
+     * @param sessionId Session ID to join
+     */
+    public void joinSession(String hostEmail, String sessionId) {
+        this.hostEmail = hostEmail;
+        this.formattedHostEmail = hostEmail.replace(".", "_");
+        this.sessionId = sessionId;
+        this.joinerId = UUID.randomUUID().toString();
+        
+        Log.d(TAG, "Joining session: " + sessionId + " hosted by: " + hostEmail);
+        
+        // Send join request
+        Map<String, Object> joinRequest = new HashMap<>();
+        joinRequest.put("email", userEmail);
+        joinRequest.put("timestamp", System.currentTimeMillis());
+        
+        DatabaseReference joinRequestRef = firebaseDatabase.child("users")
+                .child(formattedHostEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("join_requests")
+                .child(joinerId);
+                
+        joinRequestRef.setValue(joinRequest)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Join request sent successfully");
+                    listenForOffer();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to send join request", e);
+                    Toast.makeText(context, "Failed to join session", Toast.LENGTH_SHORT).show();
+                });
+    }
+    
+    /**
+     * Listen for SDP offer from host
+     */
+    private void listenForOffer() {
+        DatabaseReference offerRef = firebaseDatabase.child("users")
+                .child(formattedUserEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("Offer");
+                
+        offerRef.addValueEventListener(new ValueEventListener() {
             @Override
-            public void sendOffer(SessionDescription offer, String sessionId, String role) {
-                String hostEmail = getHostEmailFromSessionId(sessionId);
-                firebaseDatabase.child("users")
-                        .child(hostEmail)
-                        .child("sessions")
-                        .child(sessionId)
-                        .child("JoinerOffer")
-                        .setValue(offer.description);
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    String offerSdp = dataSnapshot.getValue(String.class);
+                    if (offerSdp != null) {
+                        Log.d(TAG, "Received offer from host");
+                        
+                        // Initialize peer connection now that we have an offer
+                        initializePeerConnection(offerSdp);
+                        
+                        // Remove this listener after getting the offer
+                        offerRef.removeEventListener(this);
+                    }
+                }
             }
-
+            
             @Override
-            public void sendAnswer(SessionDescription answer, String sessionId, String role) {
-                String hostEmail = getHostEmailFromSessionId(sessionId);
-                firebaseDatabase.child("users")
-                        .child(hostEmail)
-                        .child("sessions")
-                        .child(sessionId)
-                        .child("JoinerAnswer")
-                        .setValue(answer.description);
-            }
-
-            @Override
-            public void sendIceCandidate(IceCandidate candidate, String sessionId, String role) {
-                String hostEmail = getHostEmailFromSessionId(sessionId);
-
-                IceCandidateData candidateData = new IceCandidateData(
-                        candidate.sdp,
-                        candidate.sdpMid,
-                        candidate.sdpMLineIndex
-                );
-
-                firebaseDatabase.child("users")
-                        .child(hostEmail)
-                        .child("sessions")
-                        .child(sessionId)
-                        .child("JoinerCandidate")
-                        .setValue(candidateData);
+            public void onCancelled(DatabaseError databaseError) {
+                Log.e(TAG, "Failed to listen for offer: " + databaseError.getMessage());
             }
         });
     }
-
-    private void setupRenderer() {
-        if (renderer != null) {
-            renderer.setVisibility(View.VISIBLE);
-
-            // Initialize the renderer with EglBase context
-            if (rootEglBase != null) {
-                renderer.init(rootEglBase.getEglBaseContext(), null);
-                renderer.setZOrderMediaOverlay(true);
-                renderer.setEnableHardwareScaler(true);
-            }
-
-            sfuManager.attachRemoteView(renderer);
-        }
-    }
-
-    public void startCamera(Context context, boolean useFrontCamera) {
-        this.isUsingFrontCamera = useFrontCamera;
-        try {
-            Camera2Enumerator enumerator = new Camera2Enumerator(context);
-            String[] deviceNames = enumerator.getDeviceNames();
-
-            String selectedCamera = null;
-            for (String deviceName : deviceNames) {
-                if (useFrontCamera && enumerator.isFrontFacing(deviceName)) {
-                    selectedCamera = deviceName;
-                    break;
-                } else if (!useFrontCamera && enumerator.isBackFacing(deviceName)) {
-                    selectedCamera = deviceName;
-                    break;
-                }
-            }
-
-            if (selectedCamera == null && deviceNames.length > 0) {
-                selectedCamera = deviceNames[0];
-            }
-
-            if (selectedCamera != null) {
-                videoCapturer = enumerator.createCapturer(selectedCamera, null);
-                if (videoCapturer != null) {
-                    sfuManager.setupLocalMediaStream(videoCapturer);
-
-                    // Also setup local media stream for our class
-                    setupLocalMediaStream();
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error starting camera: " + e.getMessage());
-        }
-    }
-
-    public void setupLocalMediaStream() {
-        if (videoCapturer == null) return;
-
-        SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
-        videoSource = peerConnectionFactory.createVideoSource(false);
-        videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
-
-        MediaConstraints constraints = new MediaConstraints();
-        videoCapturer.startCapture(1280, 720, 30);
-
-        localVideoTrack = peerConnectionFactory.createVideoTrack("video", videoSource);
-        localVideoTrack.setEnabled(isVideoEnabled);
-
-        // Create audio source and track
-        audioSource = peerConnectionFactory.createAudioSource(constraints);
-        localAudioTrack = peerConnectionFactory.createAudioTrack("audio", audioSource);
-        localAudioTrack.setEnabled(isAudioEnabled);
-
-        // Create media stream
-        localMediaStream = peerConnectionFactory.createLocalMediaStream("stream");
-        localMediaStream.addTrack(localVideoTrack);
-        localMediaStream.addTrack(localAudioTrack);
-
-        // Attach the video to the renderer
-        if (renderer != null) {
-            localVideoTrack.addSink(renderer);
-        }
-    }
-
-    public void setupLocalMediaStream(CameraVideoCapturer videoCapturer) {
-        this.videoCapturer = videoCapturer;
-        setupLocalMediaStream();
-    }
-
-    public void initializePeerConnection(String sessionId, String email) {
-        // Create PeerConnection
-        PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
-        rtcConfig.enableDtlsSrtp = true;
-
+    
+    /**
+     * Initialize peer connection with received offer
+     */
+    private void initializePeerConnection(String offerSdp) {
+        // Create RTCConfiguration with ICE servers
+        PeerConnection.RTCConfiguration rtcConfig = 
+                new PeerConnection.RTCConfiguration(getIceServers());
+        rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
+        
+        // Create peer connection
         peerConnection = peerConnectionFactory.createPeerConnection(
                 rtcConfig,
-                new PeerConnection.Observer() {
+                new PeerConnectionAdapter() {
                     @Override
-                    public void onSignalingChange(PeerConnection.SignalingState signalingState) {
-                        Log.d(TAG, "onSignalingChange: " + signalingState);
+                    public void onIceCandidate(IceCandidate candidate) {
+                        super.onIceCandidate(candidate);
+                        sendIceCandidateToHost(candidate);
                     }
-
+                    
                     @Override
-                    public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
-                        Log.d(TAG, "onIceConnectionChange: " + iceConnectionState);
-                        if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
-                            // Update Firebase with connection status
-                            String hostEmail = getHostEmailFromSessionId(sessionId);
-                            firebaseDatabase.child("users")
-                                    .child(hostEmail)
-                                    .child("sessions")
-                                    .child(sessionId)
-                                    .child("connection_state")
-                                    .setValue("connected");
+                    public void onAddStream(MediaStream stream) {
+                        super.onAddStream(stream);
+                        // Handle incoming audio from host if needed
+                        if (stream.audioTracks.size() > 0) {
+                            stream.audioTracks.get(0).setEnabled(true);
                         }
-                    }
-
-                    @Override
-                    public void onIceConnectionReceivingChange(boolean b) {
-                        Log.d(TAG, "onIceConnectionReceivingChange: " + b);
-                    }
-
-                    @Override
-                    public void onIceGatheringChange(PeerConnection.IceGatheringState iceGatheringState) {
-                        Log.d(TAG, "onIceGatheringChange: " + iceGatheringState);
-                    }
-
-                    @Override
-                    public void onIceCandidate(IceCandidate iceCandidate) {
-                        Log.d(TAG, "onIceCandidate: " + iceCandidate);
-                        sfuManager.handleLocalIceCandidate(iceCandidate);
-                    }
-
-                    @Override
-                    public void onIceCandidatesRemoved(IceCandidate[] iceCandidates) {
-                        Log.d(TAG, "onIceCandidatesRemoved: " + iceCandidates.length);
-                    }
-
-                    @Override
-                    public void onAddStream(MediaStream mediaStream) {
-                        Log.d(TAG, "onAddStream: " + mediaStream.getId());
-                        if (mediaStream.videoTracks.size() > 0) {
-                            VideoTrack remoteVideoTrack = mediaStream.videoTracks.get(0);
-                            remoteVideoTrack.addSink(renderer);
-                        }
-                    }
-
-                    @Override
-                    public void onRemoveStream(MediaStream mediaStream) {
-                        Log.d(TAG, "onRemoveStream: " + mediaStream.getId());
-                    }
-
-                    @Override
-                    public void onDataChannel(DataChannel dataChannel) {
-                        Log.d(TAG, "onDataChannel: " + dataChannel.label());
-                    }
-
-                    @Override
-                    public void onRenegotiationNeeded() {
-                        Log.d(TAG, "onRenegotiationNeeded");
-                    }
-
-                    @Override
-                    public void onAddTrack(RtpReceiver rtpReceiver, MediaStream[] mediaStreams) {
-                        Log.d(TAG, "onAddTrack");
                     }
                 });
-
-        // Add streams
-        if (localMediaStream != null) {
-            peerConnection.addStream(localMediaStream);
+                
+        if (peerConnection == null) {
+            Log.e(TAG, "Failed to create peer connection");
+            return;
         }
+        
+        // Add local media stream with video and audio
+        MediaStream localStream = peerConnectionFactory.createLocalMediaStream("cameraStream");
+        if (localVideoTrack != null) {
+            localStream.addTrack(localVideoTrack);
+        }
+        if (localAudioTrack != null) {
+            localStream.addTrack(localAudioTrack);
+        }
+        peerConnection.addStream(localStream);
+        
+        // Set remote description (the host's offer)
+        SessionDescription offer = new SessionDescription(
+                SessionDescription.Type.OFFER, offerSdp);
+                
+        peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription") {
+            @Override
+            public void onSetSuccess() {
+                super.onSetSuccess();
+                
+                // Create answer
+                createAnswer();
+            }
+            
+            @Override
+            public void onSetFailure(String error) {
+                Log.e(TAG, "Failed to set remote description: " + error);
+            }
+        }, offer);
+        
+        // Listen for ICE candidates from host
+        listenForHostIceCandidates();
     }
-
-    public void createOffer(String sessionId, String email) {
+    
+    /**
+     * Create SDP answer
+     */
+    private void createAnswer() {
         MediaConstraints constraints = new MediaConstraints();
         constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
-        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
-
-        peerConnection.createOffer(new SdpObserverImpl("createOffer") {
+        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"));
+        
+        peerConnection.createAnswer(new SdpAdapter("CreateAnswer") {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
-                Log.d(TAG, "Offer created successfully");
-                peerConnection.setLocalDescription(new SdpObserverImpl("setLocalDescription") {
-                    @Override
-                    public void onSetSuccess() {
-                        Log.d(TAG, "Local description set successfully");
-                        // Send offer to Firebase
-                        String hostEmail = email.replace(".", "_");
-                        firebaseDatabase.child("users")
-                                .child(hostEmail)
-                                .child("sessions")
-                                .child(sessionId)
-                                .child("Offer")
-                                .setValue(sessionDescription.description);
-                    }
-
-                    @Override
-                    public void onSetFailure(String s) {
-                        Log.e(TAG, "Failed to set local description: " + s);
-                    }
-                }, sessionDescription);
+                super.onCreateSuccess(sessionDescription);
+                
+                peerConnection.setLocalDescription(
+                        new SdpAdapter("SetLocalDescription"), sessionDescription);
+                
+                // Send answer to host
+                sendAnswerToHost(sessionDescription);
             }
-
+            
             @Override
-            public void onCreateFailure(String s) {
-                Log.e(TAG, "Failed to create offer: " + s);
+            public void onCreateFailure(String error) {
+                Log.e(TAG, "Failed to create answer: " + error);
             }
         }, constraints);
     }
-
-    public void initiateSessionJoin(String sessionId, String hostEmail) {
-        if (sessionId == null || hostEmail == null) {
-            Log.e(TAG, "Invalid session parameters");
-            return;
-        }
-
-        String formattedHostEmail = hostEmail.replace(".", "_");
+    
+    /**
+     * Send SDP answer to host
+     */
+    private void sendAnswerToHost(SessionDescription answer) {
+        DatabaseReference answerRef = firebaseDatabase.child("users")
+                .child(formattedUserEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("Answer");
+                
+        answerRef.setValue(answer.description)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Answer sent to host successfully");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to send answer to host", e);
+                });
+    }
+    
+    /**
+     * Send ICE candidate to host
+     */
+    private void sendIceCandidateToHost(IceCandidate candidate) {
+        DatabaseReference iceCandidatesRef = firebaseDatabase.child("users")
+                .child(formattedUserEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("ice_candidates");
+                
+        String candidateId = "camera_candidate_" + UUID.randomUUID().toString().substring(0, 8);
         
-        try {
-            // First set up listeners to prevent missing any signals
-            listenForHostSignaling(sessionId, formattedHostEmail);
-            
-            // Ensure EGL context is initialized
-            if (rootEglBase == null) {
-                rootEglBase = EglBase.create();
-            }
-            
-            // Initialize renderer with EGL context if needed
-            if (renderer != null) {
-                try {
-                    renderer.init(rootEglBase.getEglBaseContext(), null);
-                    renderer.setZOrderMediaOverlay(true);
-                    renderer.setEnableHardwareScaler(true);
-                } catch (IllegalStateException e) {
-                    // Already initialized
-                    Log.d(TAG, "Renderer already initialized: " + e.getMessage());
+        Map<String, Object> candidateData = new HashMap<>();
+        candidateData.put("candidate", candidate.sdp);
+        candidateData.put("sdpMid", candidate.sdpMid);
+        candidateData.put("sdpMLineIndex", candidate.sdpMLineIndex);
+        
+        iceCandidatesRef.child(candidateId).setValue(candidateData)
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to send ICE candidate to host", e);
+                });
+    }
+    
+    /**
+     * Listen for ICE candidates from host
+     */
+    private void listenForHostIceCandidates() {
+        DatabaseReference hostCandidatesRef = firebaseDatabase.child("users")
+                .child(formattedUserEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("host_candidates");
+                
+        hostCandidatesRef.addChildEventListener(new ChildEventListener() {
+            @Override
+            public void onChildAdded(DataSnapshot dataSnapshot, String previousChildName) {
+                String sdp = dataSnapshot.child("sdp").getValue(String.class);
+                String sdpMid = dataSnapshot.child("sdpMid").getValue(String.class);
+                Integer sdpMLineIndex = dataSnapshot.child("sdpMLineIndex").getValue(Integer.class);
+                
+                if (sdp != null && sdpMid != null && sdpMLineIndex != null) {
+                    IceCandidate iceCandidate = new IceCandidate(sdpMid, sdpMLineIndex, sdp);
+                    
+                    if (peerConnection != null) {
+                        peerConnection.addIceCandidate(iceCandidate);
+                        Log.d(TAG, "Added ICE candidate from host");
+                    }
                 }
             }
-            
-            // Make sure camera is started
-            startCamera(context, isUsingFrontCamera);
-            
-            // Setup local media stream before joining
-            if (videoCapturer != null) {
-                sfuManager.setupLocalMediaStream(videoCapturer);
-            } else {
-                Log.w(TAG, "Video capturer not initialized, trying to join without camera");
-                sfuManager.setupLocalMediaStream();
-            }
-            
-            // Join the session
-            sfuManager.joinSession(sessionId);
 
-            // Request to join after setup is complete
+            @Override
+            public void onChildChanged(DataSnapshot dataSnapshot, String previousChildName) {}
+
+            @Override
+            public void onChildRemoved(DataSnapshot dataSnapshot) {}
+
+            @Override
+            public void onChildMoved(DataSnapshot dataSnapshot, String previousChildName) {}
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                Log.e(TAG, "Failed to listen for ICE candidates: " + databaseError.getMessage());
+            }
+        });
+    }
+    
+    /**
+     * Create camera capturer
+     */
+    private CameraVideoCapturer createCameraCapturer(Camera2Enumerator enumerator, 
+                                                    boolean useFrontCamera) {
+        for (String deviceName : enumerator.getDeviceNames()) {
+            if (useFrontCamera && enumerator.isFrontFacing(deviceName)) {
+                return enumerator.createCapturer(deviceName, null);
+            } else if (!useFrontCamera && enumerator.isBackFacing(deviceName)) {
+                return enumerator.createCapturer(deviceName, null);
+            }
+        }
+        
+        // If specific camera not found, try any camera
+        for (String deviceName : enumerator.getDeviceNames()) {
+            return enumerator.createCapturer(deviceName, null);
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Switch between front and back camera
+     */
+    public void switchCamera() {
+        if (videoCapturer != null) {
+            ((CameraVideoCapturer) videoCapturer).switchCamera(null);
+            isUsingFrontCamera = !isUsingFrontCamera;
+            localView.setMirror(isUsingFrontCamera);
+        }
+    }
+    
+    /**
+     * Toggle video on/off
+     */
+    public void toggleVideo() {
+        if (localVideoTrack != null) {
+            isVideoEnabled = !isVideoEnabled;
+            localVideoTrack.setEnabled(isVideoEnabled);
+            String message = isVideoEnabled ? "Video enabled" : "Video disabled";
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    /**
+     * Mute microphone
+     */
+    public void muteMic() {
+        if (localAudioTrack != null) {
+            isAudioEnabled = false;
+            localAudioTrack.setEnabled(false);
+        }
+    }
+    
+    /**
+     * Unmute microphone
+     */
+    public void unmuteMic() {
+        if (localAudioTrack != null) {
+            isAudioEnabled = true;
+            localAudioTrack.setEnabled(true);
+        }
+    }
+    
+    /**
+     * Get ICE servers list
+     */
+    private List<PeerConnection.IceServer> getIceServers() {
+        return Arrays.asList(
+            PeerConnection.IceServer.builder("stun:stun.relay.metered.ca:80").createIceServer(),
+            PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:80")
+                .setUsername("08a10b202c595304495012c2")
+                .setPassword("JnsH2+jc2q3/uGon")
+                .createIceServer(),
+            PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:80?transport=tcp")
+                .setUsername("08a10b202c595304495012c2")
+                .setPassword("JnsH2+jc2q3/uGon")
+                .createIceServer(),
+            PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:443")
+                .setUsername("08a10b202c595304495012c2")
+                .setPassword("JnsH2+jc2q3/uGon")
+                .createIceServer(),
+            PeerConnection.IceServer.builder("turns:asia.relay.metered.ca:443?transport=tcp")
+                .setUsername("08a10b202c595304495012c2")
+                .setPassword("JnsH2+jc2q3/uGon")
+                .createIceServer()
+        );
+    }
+    
+    /**
+     * Dispose of all resources
+     */
+    public void dispose() {
+        // Stop recording if active
+        if (isRecording || isReplayBufferRunning) {
+            releaseMediaRecorder();
+            isRecording = false;
+            isReplayBufferRunning = false;
+        }
+        
+        // Remove join request from Firebase
+        if (joinerId != null && formattedHostEmail != null && sessionId != null) {
             firebaseDatabase.child("users")
                     .child(formattedHostEmail)
                     .child("sessions")
                     .child(sessionId)
-                    .child("want_join")
-                    .setValue(1)
-                    .addOnSuccessListener(aVoid -> Log.d(TAG, "Join request sent successfully"))
-                    .addOnFailureListener(e -> Log.e(TAG, "Failed to send join request", e));
-        } catch (Exception e) {
-            Log.e(TAG, "Error initiating session join", e);
+                    .child("join_requests")
+                    .child(joinerId)
+                    .removeValue();
         }
-    }
-
-    private void listenForHostSignaling(String sessionId, String hostEmail) {
-        if (hostSignalingListener != null) {
-            return;
-        }
-
-        DatabaseReference hostRef = firebaseDatabase.child("users")
-                .child(hostEmail)
-                .child("sessions")
-                .child(sessionId);
-
-        hostSignalingListener = new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                handleHostSignalingData(snapshot);
-            }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                Log.e(TAG, "Host signaling listener cancelled", error.toException());
-            }
-        };
-
-        hostRef.addValueEventListener(hostSignalingListener);
-    }
-
-    private void handleHostSignalingData(DataSnapshot snapshot) {
-        if (!snapshot.exists()) return;
-
-        try {
-            // Check if join was approved
-            if (snapshot.hasChild("join_approved")) {
-                int joinApproved = snapshot.child("join_approved").getValue(Integer.class);
-                if (joinApproved == 1) {
-                    Log.d(TAG, "Join request approved");
-                }
-            }
-
-            // Handle ICE candidates
-            DataSnapshot candidateSnapshot = snapshot.child("HostCandidate");
-            if (candidateSnapshot.exists()) {
-                String candidateStr = candidateSnapshot.child("candidate").getValue(String.class);
-                String sdpMid = candidateSnapshot.child("sdpMid").getValue(String.class);
-                Integer sdpMLineIndex = candidateSnapshot.child("sdpMLineIndex").getValue(Integer.class);
-                
-                if (candidateStr != null && sdpMid != null && sdpMLineIndex != null) {
-                    IceCandidate candidate = new IceCandidate(
-                            sdpMid,
-                            sdpMLineIndex,
-                            candidateStr
-                    );
-                    
-                    if (sfuManager != null) {
-                        sfuManager.handleRemoteIceCandidate(candidate);
-                    } else {
-                        Log.e(TAG, "SFU Manager is null when processing ICE candidate");
-                    }
-                }
-            }
-
-            // Handle SDP offer
-            DataSnapshot offerSnapshot = snapshot.child("Offer");
-            if (offerSnapshot.exists() && offerSnapshot.getValue() != null) {
-                String sdp = offerSnapshot.getValue(String.class);
-                if (sdp != null && sfuManager != null) {
-                    SessionDescription offer = new SessionDescription(
-                            SessionDescription.Type.OFFER,
-                            sdp
-                    );
-                    sfuManager.handleRemoteOffer(offer);
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error processing signaling data", e);
-        }
-    }
-
-    public void switchCamera() {
-        if (videoCapturer != null) {
-            try {
-                videoCapturer.switchCamera(null);
-                isUsingFrontCamera = !isUsingFrontCamera;
-            } catch (Exception e) {
-                Log.e(TAG, "Error switching camera: " + e.getMessage());
-            }
-        }
-    }
-
-    public void toggleVideo() {
-        isVideoEnabled = !isVideoEnabled;
-        if (localVideoTrack != null) {
-            localVideoTrack.setEnabled(isVideoEnabled);
-        }
-    }
-
-    public void toggleAudio() {
-        isAudioEnabled = !isAudioEnabled;
-        if (localAudioTrack != null) {
-            localAudioTrack.setEnabled(isAudioEnabled);
-        }
-    }
-
-    public void muteMic() {
-        if (localAudioTrack != null) {
-            localAudioTrack.setEnabled(false);
-            isAudioEnabled = false;
-        }
-    }
-
-    public void unmuteMic() {
-        if (localAudioTrack != null) {
-            localAudioTrack.setEnabled(true);
-            isAudioEnabled = true;
-        }
-    }
-
-    public void setPersonDetection(PersonDetection personDetection) {
-        this.personDetection = personDetection;
-    }
-
-    // Recording functionality
-    public void startRecording(Context context) {
-        if (isRecording) {
-            Log.w(TAG, "Recording already in progress");
-            return;
-        }
-
-        try {
-            File videoDir = new File(context.getExternalFilesDir(null), "HelioCam");
-            if (!videoDir.exists()) {
-                videoDir.mkdirs();
-            }
-
-            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-            currentVideoFile = new File(videoDir, "VID_" + timestamp + ".mp4");
-
-            mediaRecorder = new MediaRecorder();
-            mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            mediaRecorder.setVideoSize(1280, 720);
-            mediaRecorder.setVideoFrameRate(30);
-            mediaRecorder.setOutputFile(currentVideoFile.getAbsolutePath());
-            mediaRecorder.prepare();
-            mediaRecorder.start();
-
-            isRecording = true;
-            Log.d(TAG, "Recording started: " + currentVideoFile.getAbsolutePath());
-        } catch (IOException e) {
-            Log.e(TAG, "Error starting recording: " + e.getMessage());
-            if (mediaRecorder != null) {
-                mediaRecorder.release();
-                mediaRecorder = null;
-            }
-        }
-    }
-
-    public void stopRecording() {
-        if (!isRecording || mediaRecorder == null) {
-            Log.w(TAG, "No recording in progress");
-            return;
-        }
-
-        try {
-            mediaRecorder.stop();
-            mediaRecorder.release();
-            mediaRecorder = null;
-            isRecording = false;
-            Log.d(TAG, "Recording stopped and saved: " + currentVideoFile.getAbsolutePath());
-        } catch (Exception e) {
-            Log.e(TAG, "Error stopping recording: " + e.getMessage());
-        }
-    }
-
-    public void joinSession(String sessionId) {
-        sfuManager.joinSession(sessionId);
-    }
-
-    public void handleRemoteOffer(SessionDescription offer) {
-        sfuManager.handleRemoteOffer(offer);
-    }
-
-    public void handleRemoteIceCandidate(IceCandidate candidate) {
-        sfuManager.handleRemoteIceCandidate(candidate);
-    }
-
-    public void dispose() {
-        if (hostSignalingListener != null) {
-            String hostEmail = getHostEmailFromSessionId(sessionId);
-            firebaseDatabase.child("users")
-                    .child(hostEmail)
-                    .child("sessions")
-                    .child(sessionId)
-                    .removeEventListener(hostSignalingListener);
-            hostSignalingListener = null;
-        }
-
+        
+        // Stop camera capture
         if (videoCapturer != null) {
             try {
                 videoCapturer.stopCapture();
             } catch (InterruptedException e) {
-                Log.e(TAG, "Error stopping video capture", e);
+                Log.e(TAG, "Failed to stop camera", e);
             }
             videoCapturer.dispose();
             videoCapturer = null;
         }
-
-        if (sfuManager != null) {
-            sfuManager.release();
-        }
-
-        // Clean up WebRTC resources
-        if (localVideoTrack != null) {
-            localVideoTrack.dispose();
-        }
-
-        if (videoSource != null) {
-            videoSource.dispose();
-        }
-
-        if (audioSource != null) {
-            audioSource.dispose();
-        }
-
+        
+        // Close peer connection
         if (peerConnection != null) {
             peerConnection.close();
-            peerConnection.dispose();
+            peerConnection = null;
         }
-
+        
+        // Dispose of video source
+        if (videoSource != null) {
+            videoSource.dispose();
+            videoSource = null;
+        }
+        
+        // Dispose of audio source
+        if (audioSource != null) {
+            audioSource.dispose();
+            audioSource = null;
+        }
+        
+        // Release surface texture helper
+        if (surfaceTextureHelper != null) {
+            surfaceTextureHelper.dispose();
+            surfaceTextureHelper = null;
+        }
+        
+        // Release local view
+        if (localView != null) {
+            localView.release();
+        }
+        
+        // Release EGL base
+        if (eglBase != null) {
+            eglBase.release();
+            eglBase = null;
+        }
+        
+        // Dispose of factory
         if (peerConnectionFactory != null) {
             peerConnectionFactory.dispose();
-        }
-
-        if (renderer != null) {
-            renderer.release();
-        }
-
-        if (rootEglBase != null) {
-            rootEglBase.release();
-        }
-
-        // Stop recording if in progress
-        if (isRecording) {
-            stopRecording();
+            peerConnectionFactory = null;
         }
     }
-
-    private String getHostEmailFromSessionId(String sessionId) {
-        return sessionId.split("_")[0].replace(".", "_");
-    }
-
-    private static class IceCandidateData {
-        public String candidate;
-        public String sdpMid;
-        public int sdpMLineIndex;
-
-        public IceCandidateData() {} // Required for Firebase
-
-        public IceCandidateData(String candidate, String sdpMid, int sdpMLineIndex) {
-            this.candidate = candidate;
-            this.sdpMid = sdpMid;
-            this.sdpMLineIndex = sdpMLineIndex;
-        }
-    }
-
-    // SdpObserver implementation for WebRTC
-    private abstract class SdpObserverImpl implements org.webrtc.SdpObserver {
-        private String tag;
-
-        SdpObserverImpl(String tag) {
-            this.tag = tag;
-        }
-
-        @Override
-        public void onCreateSuccess(SessionDescription sessionDescription) {
-            Log.d(TAG, tag + ": onCreateSuccess");
-        }
-
-        @Override
-        public void onSetSuccess() {
-            Log.d(TAG, tag + ": onSetSuccess");
-        }
-
-        @Override
-        public void onCreateFailure(String s) {
-            Log.e(TAG, tag + ": onCreateFailure: " + s);
-        }
-
-        @Override
-        public void onSetFailure(String s) {
-            Log.e(TAG, tag + ": onSetFailure: " + s);
-        }
-    }
-
-    // Add to RTCJoiner.java to monitor connection state
-    private void monitorConnectionState() {
-        if (peerConnection != null) {
-            new Handler().postDelayed(() -> {
-                if (peerConnection != null) {
-                    PeerConnection.IceConnectionState state = peerConnection.iceConnectionState();
-                    Log.d(TAG, "Current ICE connection state: " + state);
-                    
-                    if (state == PeerConnection.IceConnectionState.FAILED || 
-                        state == PeerConnection.IceConnectionState.DISCONNECTED) {
-                        Log.w(TAG, "Connection appears to be failing, attempting recovery");
-                        // Try to recreate the connection
-                        initiateSessionJoin(sessionId, getHostEmailFromSessionId(sessionId));
-                    } else if (state != PeerConnection.IceConnectionState.CONNECTED && 
-                             state != PeerConnection.IceConnectionState.COMPLETED) {
-                        // If not yet connected, keep monitoring
-                        monitorConnectionState();
-                    }
-                }
-            }, 5000); // Check every 5 seconds
+    
+    // Add this method to set the PersonDetection instance
+    /**
+     * Set person detection module to receive video frames
+     * @param personDetection The PersonDetection instance
+     */
+    public void setPersonDetection(com.summersoft.heliocam.detection.PersonDetection personDetection) {
+        this.personDetection = personDetection;
+        
+        // If we have a video track, connect it to the person detection
+        if (localVideoTrack != null && personDetection != null) {
+            Log.d(TAG, "Connecting video track to person detection");
+            localVideoTrack.addSink(personDetection);
         }
     }
 }
+

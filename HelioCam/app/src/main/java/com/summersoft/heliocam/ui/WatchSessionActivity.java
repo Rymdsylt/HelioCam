@@ -875,21 +875,58 @@ public class WatchSessionActivity extends AppCompatActivity {
         int activeCount = activeJoiners != null ? activeJoiners.length : 0;
         Log.d(TAG, "Active joiners count: " + activeCount);
         
-        // Determine position for this joiner
+        // First, check if this joiner already has a renderer assigned
+        SurfaceViewRenderer existingRenderer = null;
+        if (rtcHost.isRendererAssignedToJoiner(joinerId, feedView1)) {
+            existingRenderer = feedView1;
+        } else if (rtcHost.isRendererAssignedToJoiner(joinerId, feedView2)) {
+            existingRenderer = feedView2;
+        } else if (rtcHost.isRendererAssignedToJoiner(joinerId, feedView3)) {
+            existingRenderer = feedView3;
+        } else if (rtcHost.isRendererAssignedToJoiner(joinerId, feedView4)) {
+            existingRenderer = feedView4;
+        }
+        
+        if (existingRenderer != null) {
+            Log.d(TAG, "Joiner " + joinerId + " already has a renderer assigned, skipping reassignment");
+            return;
+        }
+        
+        // Now find which position this joiner should get
         int position = -1;
-        for (int i = 0; i < activeJoiners.length; i++) {
-            if (joinerId.equals(activeJoiners[i])) {
+        
+        // Check which renderers are already assigned
+        boolean[] rendererAssigned = new boolean[4];
+        
+        // Check if each renderer is already assigned to any joiner
+        for (String activeJoiner : activeJoiners) {
+            if (rtcHost.isRendererAssignedToJoiner(activeJoiner, feedView1)) {
+                rendererAssigned[0] = true;
+            } else if (rtcHost.isRendererAssignedToJoiner(activeJoiner, feedView2)) {
+                rendererAssigned[1] = true;
+            } else if (rtcHost.isRendererAssignedToJoiner(activeJoiner, feedView3)) {
+                rendererAssigned[2] = true;
+            } else if (rtcHost.isRendererAssignedToJoiner(activeJoiner, feedView4)) {
+                rendererAssigned[3] = true;
+            }
+        }
+        
+        // Find the first unassigned position
+        for (int i = 0; i < 4; i++) {
+            if (!rendererAssigned[i]) {
                 position = i;
                 break;
             }
         }
         
-        // If not found, use next position
+        // If all renderers are assigned (shouldn't happen), use position based on count
         if (position == -1) {
-            position = activeCount > 0 ? activeCount - 1 : 0;
+            position = Math.min(activeCount, 3); // Max 4 renderers (0-3)
         }
         
-        // Update grid layout
+        Log.d(TAG, "Assigning joiner " + joinerId + " to position " + position);
+        
+        // Update grid layout based on the number of active cameras
         updateGridLayout(Math.max(activeCount, position + 1));
         
         // Assign renderer based on position
@@ -949,6 +986,11 @@ public class WatchSessionActivity extends AppCompatActivity {
             }
         } else {
             Log.e(TAG, "No renderer available for position " + position);
+        }
+
+        // Add to the end of assignCameraToRenderer method
+        if (rtcHost != null) {
+            rtcHost.logRendererAssignments();
         }
     }
 
@@ -1012,7 +1054,17 @@ public class WatchSessionActivity extends AppCompatActivity {
             return;
         }
         
-        // Set visibility for all containers (with logging)
+        // Create a new constraint set to establish layout rules
+        ConstraintSet constraintSet = new ConstraintSet();
+        constraintSet.clone(gridLayout);
+        
+        // First clear all existing constraints for the containers
+        constraintSet.clear(R.id.feed_container_1);
+        constraintSet.clear(R.id.feed_container_2);
+        constraintSet.clear(R.id.feed_container_3);
+        constraintSet.clear(R.id.feed_container_4);
+        
+        // Set visibility for all containers
         feedContainer1.setVisibility(cameraCount >= 1 ? View.VISIBLE : View.GONE);
         feedContainer2.setVisibility(cameraCount >= 2 ? View.VISIBLE : View.GONE);
         feedContainer3.setVisibility(cameraCount >= 3 ? View.VISIBLE : View.GONE);
@@ -1024,7 +1076,151 @@ public class WatchSessionActivity extends AppCompatActivity {
               "3=" + (feedContainer3.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
               "4=" + (feedContainer4.getVisibility() == View.VISIBLE ? "visible" : "gone"));
         
-        // Continue with existing constraint setup...
+        // Create constraints based on camera count
+        switch (cameraCount) {
+            case 1:
+                // Single camera - full screen
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                break;
+                
+            case 2:
+                // Two cameras - side by side (horizontal layout)
+                
+                // First camera - left half
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                
+                // Second camera - right half
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                
+                // Make them equal width
+                constraintSet.createHorizontalChain(
+                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                    new int[]{R.id.feed_container_1, R.id.feed_container_2},
+                    new float[]{1, 1},
+                    ConstraintSet.CHAIN_PACKED
+                );
+                break;
+                
+            case 3:
+                // Three cameras - 2 on top, 1 on bottom
+                
+                // Top left
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
+                
+                // Top right
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
+                
+                // Bottom (centered)
+                constraintSet.connect(R.id.feed_container_3, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                constraintSet.connect(R.id.feed_container_3, ConstraintSet.TOP, R.id.feed_container_1, ConstraintSet.BOTTOM);
+                constraintSet.connect(R.id.feed_container_3, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                constraintSet.connect(R.id.feed_container_3, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                
+                // Make the top two equal width
+                constraintSet.createHorizontalChain(
+                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                    new int[]{R.id.feed_container_1, R.id.feed_container_2},
+                    new float[]{1, 1},
+                    ConstraintSet.CHAIN_PACKED
+                );
+                
+                // Height distribution - top row 50%, bottom row 50%
+                constraintSet.setVerticalWeight(R.id.feed_container_1, 1);
+                constraintSet.setVerticalWeight(R.id.feed_container_3, 1);
+                break;
+                
+            case 4:
+                // Four cameras - 2x2 grid
+                
+                // Top left
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
+                constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
+                
+                // Top right
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, R.id.feed_container_4, ConstraintSet.TOP);
+                
+                // Bottom left
+                constraintSet.connect(R.id.feed_container_3, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                constraintSet.connect(R.id.feed_container_3, ConstraintSet.TOP, R.id.feed_container_1, ConstraintSet.BOTTOM);
+                constraintSet.connect(R.id.feed_container_3, ConstraintSet.END, R.id.feed_container_4, ConstraintSet.START);
+                constraintSet.connect(R.id.feed_container_3, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                
+                // Bottom right
+                constraintSet.connect(R.id.feed_container_4, ConstraintSet.START, R.id.feed_container_3, ConstraintSet.END);
+                constraintSet.connect(R.id.feed_container_4, ConstraintSet.TOP, R.id.feed_container_2, ConstraintSet.BOTTOM);
+                constraintSet.connect(R.id.feed_container_4, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                constraintSet.connect(R.id.feed_container_4, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                
+                // Make rows and columns equal
+                constraintSet.createHorizontalChain(
+                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                    new int[]{R.id.feed_container_1, R.id.feed_container_2},
+                    new float[]{1, 1},
+                    ConstraintSet.CHAIN_PACKED
+                );
+                
+                constraintSet.createHorizontalChain(
+                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                    new int[]{R.id.feed_container_3, R.id.feed_container_4},
+                    new float[]{1, 1},
+                    ConstraintSet.CHAIN_PACKED
+                );
+                
+                // Equal height for rows
+                constraintSet.setVerticalWeight(R.id.feed_container_1, 1);
+                constraintSet.setVerticalWeight(R.id.feed_container_3, 1);
+                break;
+        }
+
+        // Add this inside the updateGridLayout method, after the switch statement
+        // Add margins between containers (8dp)
+        int margin = (int) (8 * getResources().getDisplayMetrics().density);
+        constraintSet.setMargin(R.id.feed_container_1, ConstraintSet.START, margin);
+        constraintSet.setMargin(R.id.feed_container_1, ConstraintSet.TOP, margin);
+        constraintSet.setMargin(R.id.feed_container_1, ConstraintSet.END, margin);
+        constraintSet.setMargin(R.id.feed_container_1, ConstraintSet.BOTTOM, margin);
+
+        constraintSet.setMargin(R.id.feed_container_2, ConstraintSet.START, margin);
+        constraintSet.setMargin(R.id.feed_container_2, ConstraintSet.TOP, margin);
+        constraintSet.setMargin(R.id.feed_container_2, ConstraintSet.END, margin);
+        constraintSet.setMargin(R.id.feed_container_2, ConstraintSet.BOTTOM, margin);
+
+        constraintSet.setMargin(R.id.feed_container_3, ConstraintSet.START, margin);
+        constraintSet.setMargin(R.id.feed_container_3, ConstraintSet.TOP, margin);
+        constraintSet.setMargin(R.id.feed_container_3, ConstraintSet.END, margin);
+        constraintSet.setMargin(R.id.feed_container_3, ConstraintSet.BOTTOM, margin);
+
+        constraintSet.setMargin(R.id.feed_container_4, ConstraintSet.START, margin);
+        constraintSet.setMargin(R.id.feed_container_4, ConstraintSet.TOP, margin);
+        constraintSet.setMargin(R.id.feed_container_4, ConstraintSet.END, margin);
+        constraintSet.setMargin(R.id.feed_container_4, ConstraintSet.BOTTOM, margin);
+        
+        // Apply the constraints
+        constraintSet.applyTo(gridLayout);
         
         // Make sure to initialize renderers that should be visible
         if (cameraCount >= 1) {
@@ -1040,7 +1236,7 @@ public class WatchSessionActivity extends AppCompatActivity {
             initializeRenderer(feedView4);
         }
         
-        Log.d(TAG, "Grid layout updated for " + cameraCount + " cameras - renderers initialized");
+        Log.d(TAG, "Grid layout updated for " + cameraCount + " cameras");
     }
 
     // Then modify the initializeRenderer method

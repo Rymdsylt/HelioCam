@@ -310,6 +310,10 @@ public class RTCHost {
                                         Log.e(TAG, "Error adding video sink in onAddStream: " + e.getMessage(), e);
                                     }
                                 }
+                                Log.d(TAG, "TRACK DEBUG - Adding video track to renderer: " + 
+                                      (assignedRenderer == null ? "null" : assignedRenderer.toString()) + 
+                                      " for joiner " + joinerId + 
+                                      " with joiners assigned to renderers: " + joinerRenderers.toString());
                             } else {
                                 Log.w(TAG, "Stream has no video tracks from joiner: " + joinerId);
                             }
@@ -527,6 +531,9 @@ public class RTCHost {
             Log.e(TAG, "Cannot assign null renderer to joiner");
             return;
         }
+        
+        // Clear any existing assignments for this renderer
+        clearAssignmentsForRenderer(renderer);
         
         // Initialize renderer if needed - THIS IS CRITICAL
         try {
@@ -819,6 +826,40 @@ public class RTCHost {
     public boolean isRendererAssignedToJoiner(String joinerId, SurfaceViewRenderer renderer) {
         SurfaceViewRenderer assignedRenderer = joinerRenderers.get(joinerId);
         return assignedRenderer != null && assignedRenderer == renderer;
+    }
+
+    /**
+     * Clear any existing renderer assignments for this renderer
+     * @param renderer The renderer to clear assignments for
+     */
+    private void clearAssignmentsForRenderer(SurfaceViewRenderer renderer) {
+        // Remove any existing assignments of this renderer to other joiners
+        String joinerToRemove = null;
+        
+        for (Map.Entry<String, SurfaceViewRenderer> entry : joinerRenderers.entrySet()) {
+            if (entry.getValue() == renderer) {
+                joinerToRemove = entry.getKey();
+                break;
+            }
+        }
+        
+        if (joinerToRemove != null && joinerToRemove.length() > 0) {
+            Log.d(TAG, "Clearing previous assignment of renderer to joiner: " + joinerToRemove);
+            joinerRenderers.remove(joinerToRemove);
+        }
+    }
+
+    /**
+     * Debug method to print current renderer assignments
+     */
+    public void logRendererAssignments() {
+        StringBuilder sb = new StringBuilder("Current renderer assignments:\n");
+        for (Map.Entry<String, SurfaceViewRenderer> entry : joinerRenderers.entrySet()) {
+            sb.append("Joiner: ").append(entry.getKey())
+              .append(" -> Renderer: ").append(entry.getValue())
+              .append("\n");
+        }
+        Log.d(TAG, sb.toString());
     }
 }
 

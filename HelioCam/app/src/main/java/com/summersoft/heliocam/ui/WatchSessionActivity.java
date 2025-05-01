@@ -8,6 +8,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.CheckBox;
+import android.widget.FrameLayout;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -77,6 +78,9 @@ public class WatchSessionActivity extends AppCompatActivity {
 
     // Add this as a class field
     private Map<SurfaceViewRenderer, Boolean> initializedRenderers = new HashMap<>();
+
+    // Add this to WatchSessionActivity.java class variables
+    private int focusedCamera = -1; // -1 means no focus (grid view)
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -363,10 +367,39 @@ public class WatchSessionActivity extends AppCompatActivity {
         joinRequestsListener = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                // Show notification if there are pending requests
-                boolean hasRequests = dataSnapshot.exists() && dataSnapshot.getChildrenCount() > 0;
+                // Show notification if there are pending requests (not accepted yet)
+                boolean hasPendingRequests = false;
+                
+                if (dataSnapshot.exists()) {
+                    for (DataSnapshot requestSnapshot : dataSnapshot.getChildren()) {
+                        String status = requestSnapshot.child("status").getValue(String.class);
+                        if (status == null || !status.equals("accepted")) {
+                            hasPendingRequests = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // Always show the notification if there are pending requests, regardless of ignore setting
                 if (joinRequestNotification != null) {
-                    joinRequestNotification.setVisibility(hasRequests && !ignoreJoinRequests ? View.VISIBLE : View.GONE);
+                    joinRequestNotification.setVisibility(hasPendingRequests ? View.VISIBLE : View.GONE);
+                    
+                    // Update the notification badge counter
+                    View notificationBadge = findViewById(R.id.notification_count);
+                    TextView notificationCount = findViewById(R.id.notification_count_text);
+                    if (notificationBadge != null && notificationCount != null) {
+                        // Count pending requests
+                        int pendingCount = 0;
+                        for (DataSnapshot requestSnapshot : dataSnapshot.getChildren()) {
+                            String status = requestSnapshot.child("status").getValue(String.class);
+                            if (status == null || !status.equals("accepted")) {
+                                pendingCount++;
+                            }
+                        }
+                        
+                        notificationBadge.setVisibility(pendingCount > 0 ? View.VISIBLE : View.GONE);
+                        notificationCount.setText(String.valueOf(pendingCount));
+                    }
                 }
             }
             
@@ -1064,139 +1097,240 @@ public class WatchSessionActivity extends AppCompatActivity {
         constraintSet.clear(R.id.feed_container_3);
         constraintSet.clear(R.id.feed_container_4);
         
-        // Set visibility for all containers
-        feedContainer1.setVisibility(cameraCount >= 1 ? View.VISIBLE : View.GONE);
-        feedContainer2.setVisibility(cameraCount >= 2 ? View.VISIBLE : View.GONE);
-        feedContainer3.setVisibility(cameraCount >= 3 ? View.VISIBLE : View.GONE);
-        feedContainer4.setVisibility(cameraCount >= 4 ? View.VISIBLE : View.GONE);
+        // Clear all click listeners before setting new ones
+        feedContainer1.setOnClickListener(null);
+        feedContainer2.setOnClickListener(null);
+        feedContainer3.setOnClickListener(null);
+        feedContainer4.setOnClickListener(null);
         
-        Log.d(TAG, "Container visibility set: " +
-              "1=" + (feedContainer1.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
-              "2=" + (feedContainer2.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
-              "3=" + (feedContainer3.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
-              "4=" + (feedContainer4.getVisibility() == View.VISIBLE ? "visible" : "gone"));
-        
-        // Create constraints based on camera count
-        switch (cameraCount) {
-            case 1:
-                // Single camera - full screen
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                break;
-                
-            case 2:
-                // Two cameras - side by side (horizontal layout)
-                
-                // First camera - left half
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                
-                // Second camera - right half
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                
-                // Make them equal width
-                constraintSet.createHorizontalChain(
-                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                    new int[]{R.id.feed_container_1, R.id.feed_container_2},
-                    new float[]{1, 1},
-                    ConstraintSet.CHAIN_PACKED
-                );
-                break;
-                
-            case 3:
-                // Three cameras - 2 on top, 1 on bottom
-                
-                // Top left
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
-                
-                // Top right
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
-                
-                // Bottom (centered)
-                constraintSet.connect(R.id.feed_container_3, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
-                constraintSet.connect(R.id.feed_container_3, ConstraintSet.TOP, R.id.feed_container_1, ConstraintSet.BOTTOM);
-                constraintSet.connect(R.id.feed_container_3, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
-                constraintSet.connect(R.id.feed_container_3, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                
-                // Make the top two equal width
-                constraintSet.createHorizontalChain(
-                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                    new int[]{R.id.feed_container_1, R.id.feed_container_2},
-                    new float[]{1, 1},
-                    ConstraintSet.CHAIN_PACKED
-                );
-                
-                // Height distribution - top row 50%, bottom row 50%
-                constraintSet.setVerticalWeight(R.id.feed_container_1, 1);
-                constraintSet.setVerticalWeight(R.id.feed_container_3, 1);
-                break;
-                
-            case 4:
-                // Four cameras - 2x2 grid
-                
-                // Top left
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
-                constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
-                
-                // Top right
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
-                constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, R.id.feed_container_4, ConstraintSet.TOP);
-                
-                // Bottom left
-                constraintSet.connect(R.id.feed_container_3, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
-                constraintSet.connect(R.id.feed_container_3, ConstraintSet.TOP, R.id.feed_container_1, ConstraintSet.BOTTOM);
-                constraintSet.connect(R.id.feed_container_3, ConstraintSet.END, R.id.feed_container_4, ConstraintSet.START);
-                constraintSet.connect(R.id.feed_container_3, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                
-                // Bottom right
-                constraintSet.connect(R.id.feed_container_4, ConstraintSet.START, R.id.feed_container_3, ConstraintSet.END);
-                constraintSet.connect(R.id.feed_container_4, ConstraintSet.TOP, R.id.feed_container_2, ConstraintSet.BOTTOM);
-                constraintSet.connect(R.id.feed_container_4, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
-                constraintSet.connect(R.id.feed_container_4, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                
-                // Make rows and columns equal
-                constraintSet.createHorizontalChain(
-                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                    new int[]{R.id.feed_container_1, R.id.feed_container_2},
-                    new float[]{1, 1},
-                    ConstraintSet.CHAIN_PACKED
-                );
-                
-                constraintSet.createHorizontalChain(
-                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                    new int[]{R.id.feed_container_3, R.id.feed_container_4},
-                    new float[]{1, 1},
-                    ConstraintSet.CHAIN_PACKED
-                );
-                
-                // Equal height for rows
-                constraintSet.setVerticalWeight(R.id.feed_container_1, 1);
-                constraintSet.setVerticalWeight(R.id.feed_container_3, 1);
-                break;
+        // Check if we're in focused mode
+        if (focusedCamera != -1 && focusedCamera < cameraCount) {
+            // Show only the focused camera, hide others
+            feedContainer1.setVisibility(focusedCamera == 0 ? View.VISIBLE : View.GONE);
+            feedContainer2.setVisibility(focusedCamera == 1 ? View.VISIBLE : View.GONE);
+            feedContainer3.setVisibility(focusedCamera == 2 ? View.VISIBLE : View.GONE);
+            feedContainer4.setVisibility(focusedCamera == 3 ? View.VISIBLE : View.GONE);
+            
+            // Get the focused container
+            View focusedContainer;
+            switch (focusedCamera) {
+                case 0: focusedContainer = feedContainer1; break;
+                case 1: focusedContainer = feedContainer2; break;
+                case 2: focusedContainer = feedContainer3; break;
+                case 3: focusedContainer = feedContainer4; break;
+                default: focusedContainer = feedContainer1; break;
+            }
+            
+            // Full screen constraints for focused camera
+            constraintSet.connect(focusedContainer.getId(), ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+            constraintSet.connect(focusedContainer.getId(), ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+            constraintSet.connect(focusedContainer.getId(), ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+            constraintSet.connect(focusedContainer.getId(), ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+            
+            // Make the container clickable to exit focus mode
+            focusedContainer.setOnClickListener(v -> {
+                showFocusHint(focusedContainer);
+                focusedCamera = -1;
+                updateGridLayout(cameraCount);
+            });
+        } else {
+            // Set visibility for normal grid display
+            feedContainer1.setVisibility(cameraCount >= 1 ? View.VISIBLE : View.GONE);
+            feedContainer2.setVisibility(cameraCount >= 2 ? View.VISIBLE : View.GONE);
+            feedContainer3.setVisibility(cameraCount >= 3 ? View.VISIBLE : View.GONE);
+            feedContainer4.setVisibility(cameraCount >= 4 ? View.VISIBLE : View.GONE);
+            
+            Log.d(TAG, "Container visibility set: " +
+                  "1=" + (feedContainer1.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
+                  "2=" + (feedContainer2.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
+                  "3=" + (feedContainer3.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
+                  "4=" + (feedContainer4.getVisibility() == View.VISIBLE ? "visible" : "gone"));
+            
+            // Create constraints based on camera count
+            switch (cameraCount) {
+                case 1:
+                    // Single camera - full screen
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                    
+                    // Add click listener for focus mode
+                    feedContainer1.setOnClickListener(v -> {
+                        showFocusHint(feedContainer1);
+                        focusedCamera = 0;
+                        updateGridLayout(cameraCount);
+                    });
+                    break;
+                    
+                case 2:
+                    // Two cameras - 2x1 grid (square cells)
+                    
+                    // Set up container 1 (top left)
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                    
+                    // Set up container 2 (top right)
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                    
+                    // Make them equal width
+                    constraintSet.createHorizontalChain(
+                        ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                        ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                        new int[]{R.id.feed_container_1, R.id.feed_container_2},
+                        new float[]{1, 1},
+                        ConstraintSet.CHAIN_PACKED
+                    );
+                    
+                    // Add click listeners for focus mode
+                    feedContainer1.setOnClickListener(v -> {
+                        showFocusHint(feedContainer1);
+                        focusedCamera = 0;
+                        updateGridLayout(cameraCount);
+                    });
+                    
+                    feedContainer2.setOnClickListener(v -> {
+                        showFocusHint(feedContainer2);
+                        focusedCamera = 1;
+                        updateGridLayout(cameraCount);
+                    });
+                    break;
+                    
+                case 3:
+                    // Three cameras - 2x2 grid with one larger cell
+                    
+                    // Top left
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
+                    
+                    // Top right
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
+                    
+                    // Bottom (full width)
+                    constraintSet.connect(R.id.feed_container_3, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_3, ConstraintSet.TOP, R.id.feed_container_1, ConstraintSet.BOTTOM);
+                    constraintSet.connect(R.id.feed_container_3, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_3, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                    
+                    // Make the top two equal width
+                    constraintSet.createHorizontalChain(
+                        ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                        ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                        new int[]{R.id.feed_container_1, R.id.feed_container_2},
+                        new float[]{1, 1},
+                        ConstraintSet.CHAIN_PACKED
+                    );
+                    
+                    // Equal height distribution (50% top row, 50% bottom row)
+                    constraintSet.setVerticalWeight(R.id.feed_container_1, 1);
+                    constraintSet.setVerticalWeight(R.id.feed_container_3, 1);
+                    
+                    // Add click listeners for focus mode
+                    feedContainer1.setOnClickListener(v -> {
+                        showFocusHint(feedContainer1);
+                        focusedCamera = 0;
+                        updateGridLayout(cameraCount);
+                    });
+                    
+                    feedContainer2.setOnClickListener(v -> {
+                        showFocusHint(feedContainer2);
+                        focusedCamera = 1;
+                        updateGridLayout(cameraCount);
+                    });
+                    
+                    feedContainer3.setOnClickListener(v -> {
+                        showFocusHint(feedContainer3);
+                        focusedCamera = 2;
+                        updateGridLayout(cameraCount);
+                    });
+                    break;
+                    
+                case 4:
+                    // Four cameras - 2x2 grid
+                    
+                    // Top left
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
+                    
+                    // Top right
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, R.id.feed_container_4, ConstraintSet.TOP);
+                    
+                    // Bottom left
+                    constraintSet.connect(R.id.feed_container_3, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_3, ConstraintSet.TOP, R.id.feed_container_1, ConstraintSet.BOTTOM);
+                    constraintSet.connect(R.id.feed_container_3, ConstraintSet.END, R.id.feed_container_4, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_3, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                    
+                    // Bottom right
+                    constraintSet.connect(R.id.feed_container_4, ConstraintSet.START, R.id.feed_container_3, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_4, ConstraintSet.TOP, R.id.feed_container_2, ConstraintSet.BOTTOM);
+                    constraintSet.connect(R.id.feed_container_4, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_4, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                    
+                    // Equal width for both columns
+                    constraintSet.createHorizontalChain(
+                        ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                        ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                        new int[]{R.id.feed_container_1, R.id.feed_container_2},
+                        new float[]{1, 1},
+                        ConstraintSet.CHAIN_PACKED
+                    );
+                    
+                    constraintSet.createHorizontalChain(
+                        ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                        ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                        new int[]{R.id.feed_container_3, R.id.feed_container_4},
+                        new float[]{1, 1},
+                        ConstraintSet.CHAIN_PACKED
+                    );
+                    
+                    // Equal height for both rows
+                    constraintSet.setVerticalWeight(R.id.feed_container_1, 1);
+                    constraintSet.setVerticalWeight(R.id.feed_container_3, 1);
+                    
+                    // Add click listeners for focus mode
+                    feedContainer1.setOnClickListener(v -> {
+                        showFocusHint(feedContainer1);
+                        focusedCamera = 0;
+                        updateGridLayout(cameraCount);
+                    });
+                    
+                    feedContainer2.setOnClickListener(v -> {
+                        showFocusHint(feedContainer2);
+                        focusedCamera = 1;
+                        updateGridLayout(cameraCount);
+                    });
+                    
+                    feedContainer3.setOnClickListener(v -> {
+                        showFocusHint(feedContainer3);
+                        focusedCamera = 2;
+                        updateGridLayout(cameraCount);
+                    });
+                    
+                    feedContainer4.setOnClickListener(v -> {
+                        showFocusHint(feedContainer4);
+                        focusedCamera = 3;
+                        updateGridLayout(cameraCount);
+                    });
+                    break;
+            }
         }
 
-        // Add this inside the updateGridLayout method, after the switch statement
         // Add margins between containers (8dp)
         int margin = (int) (8 * getResources().getDisplayMetrics().density);
         constraintSet.setMargin(R.id.feed_container_1, ConstraintSet.START, margin);
@@ -1223,20 +1357,31 @@ public class WatchSessionActivity extends AppCompatActivity {
         constraintSet.applyTo(gridLayout);
         
         // Make sure to initialize renderers that should be visible
-        if (cameraCount >= 1) {
+        if ((focusedCamera == 0 || focusedCamera == -1) && cameraCount >= 1) {
             initializeRenderer(feedView1);
         }
-        if (cameraCount >= 2) {
+        if ((focusedCamera == 1 || focusedCamera == -1) && cameraCount >= 2) {
             initializeRenderer(feedView2);
         }
-        if (cameraCount >= 3) {
+        if ((focusedCamera == 2 || focusedCamera == -1) && cameraCount >= 3) {
             initializeRenderer(feedView3);
         }
-        if (cameraCount >= 4) {
+        if ((focusedCamera == 3 || focusedCamera == -1) && cameraCount >= 4) {
             initializeRenderer(feedView4);
         }
         
-        Log.d(TAG, "Grid layout updated for " + cameraCount + " cameras");
+        // Show/hide back button based on focus state
+        FloatingActionButton backButton = findViewById(R.id.back_to_grid_button);
+        if (backButton != null) {
+            backButton.setVisibility(focusedCamera != -1 ? View.VISIBLE : View.GONE);
+            backButton.setOnClickListener(v -> {
+                focusedCamera = -1;
+                updateGridLayout(cameraCount);
+            });
+        }
+        
+        Log.d(TAG, "Grid layout updated for " + cameraCount + " cameras with focus mode: " + 
+              (focusedCamera == -1 ? "none" : focusedCamera));
     }
 
     // Then modify the initializeRenderer method
@@ -1293,5 +1438,32 @@ public class WatchSessionActivity extends AppCompatActivity {
                 });
     }
 
-
+    /**
+     * Show a focus animation hint
+     */
+    private void showFocusHint(View container) {
+        // Create a temporary overlay for the focus animation
+        View focusOverlay = new View(this);
+        focusOverlay.setBackgroundColor(ContextCompat.getColor(this, R.color.white));
+        focusOverlay.setAlpha(0.3f);
+        
+        if (container instanceof FrameLayout) {
+            // Add the overlay to the container
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+            );
+            ((FrameLayout) container).addView(focusOverlay, params);
+            
+            // Animate the overlay
+            focusOverlay.animate()
+                    .alpha(0f)
+                    .setDuration(300)
+                    .withEndAction(() -> {
+                        // Remove the overlay when animation is done
+                        ((FrameLayout) container).removeView(focusOverlay);
+                    })
+                    .start();
+        }
+    }
 }

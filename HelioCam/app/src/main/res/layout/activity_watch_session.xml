@@ -292,18 +292,21 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Join Request Notification -->
+    <!-- Join Request Notification - always fixed at the top -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/join_request_notification"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="top"
         android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="70dp"
         android:visibility="gone"
         app:cardBackgroundColor="#2E7D32"
-        app:cardCornerRadius="8dp"
-        app:cardElevation="4dp">
+        app:cardCornerRadius="12dp"
+        app:cardElevation="8dp"
+        app:layout_anchor="@id/session_title"
+        app:layout_anchorGravity="bottom|center"
+        app:strokeColor="#4CAF50"
+        app:strokeWidth="1dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -311,21 +314,73 @@
             android:orientation="horizontal"
             android:padding="12dp">
 
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="12dp"
+                android:src="@android:drawable/ic_menu_add"
+                android:tint="#FFFFFF" />
+
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
                 android:layout_weight="1"
                 android:text="New join request"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp" />
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/allow_join_button"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Allow"
-                android:textColor="#FFFFFF" />
+                android:layout_height="40dp"
+                android:text="View"
+                android:textColor="#FFFFFF"
+                app:cornerRadius="20dp"
+                app:strokeColor="#FFFFFF"
+                app:strokeWidth="1dp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
+
+    <!-- Notification Badge -->
+    <FrameLayout
+        android:id="@+id/notification_count"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="top|end"
+        android:layout_marginEnd="4dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/notification_badge_background"
+        android:visibility="gone"
+        app:layout_anchor="@id/join_request_notification"
+        app:layout_anchorGravity="top|end">
+
+        <TextView
+            android:id="@+id/notification_count_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="1"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </FrameLayout>
+
+    <!-- Back to Grid Button - only shown in focus mode -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/back_to_grid_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="16dp"
+        android:contentDescription="Back to grid view"
+        android:visibility="gone"
+        app:backgroundTint="#3F51B5"
+        app:elevation="6dp"
+        app:fabSize="normal"
+        app:srcCompat="@android:drawable/ic_menu_revert"
+        app:tint="#FFFFFF" />
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

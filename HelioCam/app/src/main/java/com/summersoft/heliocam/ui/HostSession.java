@@ -2,6 +2,7 @@ package com.summersoft.heliocam.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -17,8 +18,13 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
 
 import java.security.SecureRandom;
+import java.util.HashMap;
+import java.util.Map;
 
 public class HostSession extends AppCompatActivity {
+
+    public static final String EXTRA_SESSION_ID = "session_id";
+    public static final String EXTRA_SESSION_NAME = "session_name";
 
     private EditText passkeyInput, sessionNameInput;
     private SecureRandom random;
@@ -85,25 +91,42 @@ public class HostSession extends AppCompatActivity {
     private void proceedWithAddingSession(String sessionName, String passkey) {
         // Get the current user's email
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+        String originalEmail = mAuth.getCurrentUser().getEmail();
 
-        // Create a unique session ID (e.g., session_1, session_2, etc.)
+        // Create a unique session ID
         String sessionId = "session_" + (System.currentTimeMillis() / 1000);
 
-        // Create the session data
-        Session session = new Session(passkey, sessionName);
+        // Create the session data - MODIFIED HERE
+        Map<String, Object> sessionData = new HashMap<>();
+        sessionData.put("passkey", passkey);
+        sessionData.put("session_name", sessionName);
+        sessionData.put("active", true);  // Add this line
+        sessionData.put("created_at", System.currentTimeMillis());  // Optional: add creation timestamp
 
-        // Save the session under the current user's sessions node
-        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId).setValue(session)
+        // Save the session under the current user's sessions node - MODIFIED
+        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId).setValue(sessionData)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        Toast.makeText(this, "Session added successfully", Toast.LENGTH_SHORT).show();
-
-                        // After adding the session, open WatchSessionActivity
-                        Intent intent = new Intent(HostSession.this, WatchSessionActivity.class);
-                        intent.putExtra("SESSION_KEY", sessionId);
-                        intent.putExtra("SESSION_NAME", sessionName);
-                        startActivity(intent);
-                        finish(); // Close this activity
+                        // IMPORTANT: Also save a reference to the session in a lookup table
+                        Map<String, Object> sessionCodeData = new HashMap<>();
+                        sessionCodeData.put("session_id", sessionId);
+                        sessionCodeData.put("host_email", originalEmail);
+                        
+                        mDatabase.child("session_codes").child(passkey).setValue(sessionCodeData)
+                                .addOnCompleteListener(codeTask -> {
+                                    if (codeTask.isSuccessful()) {
+                                        Toast.makeText(this, "Session added successfully", Toast.LENGTH_SHORT).show();
+                                        
+                                        // After adding the session, open WatchSessionActivity
+                                        Intent intent = new Intent(HostSession.this, WatchSessionActivity.class);
+                                        intent.putExtra(EXTRA_SESSION_ID, sessionId);
+                                        intent.putExtra(EXTRA_SESSION_NAME, sessionName);
+                                        startActivity(intent);
+                                        finish(); // Close this activity
+                                    } else {
+                                        Toast.makeText(this, "Failed to register session code", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
                     } else {
                         Toast.makeText(this, "Failed to add session", Toast.LENGTH_SHORT).show();
                     }

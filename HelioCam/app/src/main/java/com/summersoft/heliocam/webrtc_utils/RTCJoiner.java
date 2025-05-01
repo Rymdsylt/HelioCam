@@ -683,7 +683,6 @@ public class RTCJoiner {
         }
     }
     
-    // Add this method to set the PersonDetection instance
     /**
      * Set person detection module to receive video frames
      * @param personDetection The PersonDetection instance
@@ -696,6 +695,46 @@ public class RTCJoiner {
             Log.d(TAG, "Connecting video track to person detection");
             localVideoTrack.addSink(personDetection);
         }
+    }
+    
+    /**
+     * Find a session by session code (passkey)
+     * @param sessionCode The 6-digit session code entered by user
+     */
+    public static void findSessionByCode(String sessionCode, SessionFoundCallback callback) {
+        DatabaseReference sessionCodeRef = FirebaseDatabase.getInstance().getReference().child("session_codes").child(sessionCode);
+    
+        sessionCodeRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    String sessionId = dataSnapshot.child("session_id").getValue(String.class);
+                    String hostEmail = dataSnapshot.child("host_email").getValue(String.class);
+                    
+                    if (sessionId != null && hostEmail != null) {
+                        callback.onSessionFound(sessionId, hostEmail);
+                    } else {
+                        callback.onError("Session data incomplete", null);
+                    }
+                } else {
+                    callback.onSessionNotFound();
+                }
+            }
+            
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                callback.onError("Database error", databaseError.toException());
+            }
+        });
+    }
+    
+    /**
+     * Callback interface for session lookup
+     */
+    public interface SessionFoundCallback {
+        void onSessionFound(String sessionId, String hostEmail);
+        void onSessionNotFound();
+        void onError(String message, Exception e);
     }
 }
 

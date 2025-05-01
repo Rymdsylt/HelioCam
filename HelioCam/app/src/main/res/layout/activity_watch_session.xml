@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#121212">
@@ -34,7 +35,7 @@
         android:paddingTop="6dp"
         android:paddingEnd="12dp"
         android:paddingBottom="6dp"
-        android:text="Participants: 1"
+        android:text="0 cameras connected"
         android:textColor="#FFFFFF"
         android:textSize="14sp" />
 
@@ -45,19 +46,51 @@
         android:layout_height="match_parent"
         android:layout_marginBottom="80dp">
 
-        <!-- Individual feed views -->
-        <org.webrtc.SurfaceViewRenderer
-            android:id="@+id/feed_view_1"
+        <!-- Feed Container 1 -->
+        <FrameLayout
+            android:id="@+id/feed_container_1"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_margin="2dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent">
+            
+            <org.webrtc.SurfaceViewRenderer
+                android:id="@+id/feed_view_1"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+                
+            <TextView
+                android:id="@+id/camera_off_message_1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:background="@drawable/rounded_background"
+                android:padding="12dp"
+                android:text="Camera Off"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:visibility="gone" />
+                
+            <TextView
+                android:id="@+id/mic_status_1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|start"
+                android:layout_margin="8dp"
+                android:background="@drawable/rounded_background"
+                android:padding="4dp"
+                android:text="Mic Off"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </FrameLayout>
 
-        <org.webrtc.SurfaceViewRenderer
-            android:id="@+id/feed_view_2"
+        <!-- Feed Container 2 -->
+        <FrameLayout
+            android:id="@+id/feed_container_2"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_margin="2dp"
@@ -65,59 +98,124 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/feed_view_1" />
+            app:layout_constraintTop_toBottomOf="@id/feed_container_1">
+            
+            <org.webrtc.SurfaceViewRenderer
+                android:id="@+id/feed_view_2"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+                
+            <TextView
+                android:id="@+id/camera_off_message_2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:background="@drawable/rounded_background"
+                android:padding="12dp"
+                android:text="Camera Off"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:visibility="gone" />
+                
+            <TextView
+                android:id="@+id/mic_status_2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|start"
+                android:layout_margin="8dp"
+                android:background="@drawable/rounded_background"
+                android:padding="4dp"
+                android:text="Mic Off"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </FrameLayout>
 
-        <org.webrtc.SurfaceViewRenderer
-            android:id="@+id/feed_view_3"
+        <!-- Feed Container 3 -->
+        <FrameLayout
+            android:id="@+id/feed_container_3"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_margin="2dp"
             android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/feed_view_4"
+            app:layout_constraintEnd_toStartOf="@id/feed_container_4"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/feed_view_1" />
+            app:layout_constraintTop_toBottomOf="@id/feed_container_1">
+            
+            <org.webrtc.SurfaceViewRenderer
+                android:id="@+id/feed_view_3"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+                
+            <TextView
+                android:id="@+id/camera_off_message_3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:background="@drawable/rounded_background"
+                android:padding="12dp"
+                android:text="Camera Off"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:visibility="gone" />
+                
+            <TextView
+                android:id="@+id/mic_status_3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|start"
+                android:layout_margin="8dp"
+                android:background="@drawable/rounded_background"
+                android:padding="4dp"
+                android:text="Mic Off"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </FrameLayout>
 
-        <org.webrtc.SurfaceViewRenderer
-            android:id="@+id/feed_view_4"
+        <!-- Feed Container 4 -->
+        <FrameLayout
+            android:id="@+id/feed_container_4"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_margin="2dp"
             android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@id/feed_view_3"
-            app:layout_constraintTop_toBottomOf="@id/feed_view_2" />
-
-        <!-- Status messages -->
-        <TextView
-            android:id="@+id/mic_status_message"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:background="@drawable/rounded_background"
-            android:padding="8dp"
-            android:text="Host's Mic is off"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:visibility="gone"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <TextView
-            android:id="@+id/camera_disabled_message"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/rounded_background"
-            android:padding="16dp"
-            android:text="Camera Disabled"
-            android:textColor="#FFFFFF"
-            android:textSize="24sp"
-            android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintStart_toEndOf="@id/feed_container_3"
+            app:layout_constraintTop_toBottomOf="@id/feed_container_2">
+            
+            <org.webrtc.SurfaceViewRenderer
+                android:id="@+id/feed_view_4"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+                
+            <TextView
+                android:id="@+id/camera_off_message_4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:background="@drawable/rounded_background"
+                android:padding="12dp"
+                android:text="Camera Off"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:visibility="gone" />
+                
+            <TextView
+                android:id="@+id/mic_status_4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|start"
+                android:layout_margin="8dp"
+                android:background="@drawable/rounded_background"
+                android:padding="4dp"
+                android:text="Mic Off"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </FrameLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- Bottom Control Bar with Material Design -->
@@ -151,12 +249,33 @@
                 android:insetRight="0dp"
                 android:insetBottom="0dp"
                 app:cornerRadius="28dp"
-                app:icon="@drawable/ic_baseline_mic_24"
+                app:icon="@android:drawable/ic_btn_speak_now"
                 app:iconGravity="textStart"
                 app:iconPadding="0dp"
                 app:iconSize="24dp"
                 app:iconTint="#FFFFFF"
                 app:strokeColor="#FFFFFF"
+                app:strokeWidth="1dp" />
+
+            <!-- End Session Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/end_session_button"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginHorizontal="16dp"
+                android:contentDescription="End Session"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                app:cornerRadius="28dp"
+                app:icon="@android:drawable/ic_menu_close_clear_cancel"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="24dp"
+                app:iconTint="#FFFFFF"
+                app:strokeColor="#F44336"
                 app:strokeWidth="1dp" />
 
             <!-- Settings Button -->
@@ -168,7 +287,7 @@
                 android:contentDescription="Settings"
                 app:backgroundTint="#FF9800"
                 app:fabSize="normal"
-                app:srcCompat="@drawable/baseline_settings_24"
+                app:srcCompat="@android:drawable/ic_menu_manage"
                 app:tint="#FFFFFF" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

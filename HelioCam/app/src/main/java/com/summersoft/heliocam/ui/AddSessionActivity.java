@@ -17,6 +17,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.summersoft.heliocam.R;
+import com.summersoft.heliocam.webrtc_utils.RTCJoiner;
 
 import java.util.Map;
 
@@ -74,48 +75,47 @@ public class AddSessionActivity extends AppCompatActivity {
             return;
         }
         
-        // Search for session with this code
-        String userEmail = mAuth.getCurrentUser().getEmail();
-        String formattedEmail = userEmail.replace(".", "_");
+        // Show loading indicator
+        showLoading(true);
         
-        // Query all users looking for this session code
-        mDatabase.child("users").addListenerForSingleValueEvent(new ValueEventListener() {
+        // Use RTCJoiner instead of RTCHost to find the session
+        RTCJoiner.findSessionByCode(sessionCode, new RTCJoiner.SessionFoundCallback() {
             @Override
-            public void onDataChange(DataSnapshot allUsersSnapshot) {
-                boolean sessionFound = false;
+            public void onSessionFound(String sessionId, String hostEmail) {
+                // Hide loading indicator
+                showLoading(false);
                 
-                // Search through all users
-                for (DataSnapshot userSnapshot : allUsersSnapshot.getChildren()) {
-                    String hostEmail = userSnapshot.getKey();
-                    
-                    // Search for sessions under this user
-                    DataSnapshot sessionsSnapshot = userSnapshot.child("sessions");
-                    for (DataSnapshot sessionSnapshot : sessionsSnapshot.getChildren()) {
-                        // Check if this session has the code we're looking for
-                        String sessionId = sessionSnapshot.getKey();
-                        String sessionCode = sessionSnapshot.child("session_code").getValue(String.class);
-                        
-                        if (sessionCode != null && sessionCode.equals(sessionInput.getText().toString().trim())) {
-                            // Session found
-                            sessionFound = true;
-                            String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
-                            connectToSession(sessionId, hostEmail.replace("_", "."), sessionName);
-                            break;
-                        }
-                    }
-                    
-                    if (sessionFound) break;
-                }
-                
-                if (!sessionFound) {
-                    showToast("No session found with that code");
-                }
+                // Retrieve session name and connect
+                mDatabase.child("users")
+                        .child(hostEmail.replace(".", "_"))
+                        .child("sessions")
+                        .child(sessionId)
+                        .child("session_name")
+                        .get()
+                        .addOnSuccessListener(snapshot -> {
+                            String sessionName = snapshot.getValue(String.class);
+                            if (sessionName == null) sessionName = "Unnamed Session";
+                            connectToSession(sessionId, hostEmail, sessionName);
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "Failed to get session name", e);
+                            connectToSession(sessionId, hostEmail, "Unnamed Session");
+                        });
             }
 
             @Override
-            public void onCancelled(DatabaseError databaseError) {
-                Log.e(TAG, "Database error: " + databaseError.getMessage());
-                showToast("Error searching for session: " + databaseError.getMessage());
+            public void onSessionNotFound() {
+                // Hide loading indicator
+                showLoading(false);
+                showToast("No session found with that code");
+            }
+
+            @Override
+            public void onError(String message, Exception e) {
+                // Hide loading indicator
+                showLoading(false);
+                Log.e(TAG, message, e);
+                showToast("Error searching for session: " + message);
             }
         });
     }
@@ -166,5 +166,11 @@ public class AddSessionActivity extends AppCompatActivity {
     
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    // Add this helper method
+    private void showLoading(boolean isLoading) {
+        // Update UI to show/hide loading indicator
+        // This is just a stub - implement with your actual loading UI
     }
 }

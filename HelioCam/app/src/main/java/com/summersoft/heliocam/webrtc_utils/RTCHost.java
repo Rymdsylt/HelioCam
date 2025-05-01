@@ -24,6 +24,7 @@ import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
+import org.webrtc.RtpTransceiver;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceViewRenderer;
 
@@ -50,7 +51,7 @@ public class RTCHost {
     private Context context;
     
     // Firebase components
-    private DatabaseReference firebaseDatabase;
+    private DatabaseReference mDatabase;
     private String sessionId;
     private String userEmail;
     private String formattedEmail;
@@ -78,34 +79,67 @@ public class RTCHost {
 
     // Multiple camera support
     private Map<String, SurfaceViewRenderer> joinerRenderers = new HashMap<>();
+    private HashMap<Object, Object> assignedRenderers;
 
-    public RTCHost(Context context, SurfaceViewRenderer mainView, DatabaseReference firebaseDatabase) {
-        this.mainView = mainView;
-        this.firebaseDatabase = firebaseDatabase;
+    public RTCHost(Context context, SurfaceViewRenderer mainView, DatabaseReference mDatabase) {
         this.context = context;
+        this.mainView = mainView;
+        this.mDatabase = mDatabase;
         
-        // Get user email for Firebase
-        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-        if (email != null) {
-            this.userEmail = email;
-            this.formattedEmail = email.replace(".", "_");
-        } else {
-            Log.e(TAG, "User not authenticated");
+        // Initialize user info
+        FirebaseAuth mAuth = FirebaseAuth.getInstance();
+        if (mAuth.getCurrentUser() != null) {
+            userEmail = mAuth.getCurrentUser().getEmail();
+            formattedEmail = userEmail.replace(".", "_");
         }
-
-        // Initialize WebRTC
-        initializeWebRTC();
+        
+        try {
+            initializeWebRTC();
+        } catch (IllegalStateException e) {
+            // Already initialized - try to recover
+            Log.e(TAG, "Surface already initialized, trying to recover", e);
+            
+            try {
+                // Try to release and reinitialize - No need to check getEglBaseContext()
+                safeReleaseRenderer(mainView);
+                initializeWebRTC();
+            } catch (Exception ex) {
+                Log.e(TAG, "Failed to recover from initialization error", ex);
+                throw ex; // Rethrow if recovery fails
+            }
+        }
     }
     
-    private void initializeWebRTC() {
-        // Initialize PeerConnectionFactory
-        PeerConnectionFactory.InitializationOptions options =
-                PeerConnectionFactory.InitializationOptions.builder(context).createInitializationOptions();
-        PeerConnectionFactory.initialize(options);
+    // Helper method to safely release a renderer
+    private void safeReleaseRenderer(SurfaceViewRenderer renderer) {
+        if (renderer != null) {
+            try {
+                renderer.release();
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing renderer: " + e.getMessage());
+            }
+        }
+    }
 
+    private void initializeWebRTC() {
+        // Initialize the PeerConnectionFactory first (MISSING STEP)
+        PeerConnectionFactory.InitializationOptions initOptions = PeerConnectionFactory.InitializationOptions.builder(context)
+            .setEnableInternalTracer(true)
+            .createInitializationOptions();
+        PeerConnectionFactory.initialize(initOptions);
+        
+        // Create an EglBase instance for rendering
         rootEglBase = EglBase.create();
-        mainView.init(rootEglBase.getEglBaseContext(), null);
-        mainView.setMirror(false);
+        
+        // Initialize the renderer
+        try {
+            mainView.init(rootEglBase.getEglBaseContext(), null);
+            mainView.setEnableHardwareScaler(true);
+            mainView.setMirror(false);
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Error initializing main view: " + e.getMessage());
+            throw e; // Let the caller handle it
+        }
 
         PeerConnectionFactory.Options peerOptions = new PeerConnectionFactory.Options();
         peerOptions.disableNetworkMonitor = true;
@@ -140,6 +174,9 @@ public class RTCHost {
     public String createSession(String sessionName) {
         sessionId = UUID.randomUUID().toString();
         
+        // Create a simple session code (last 6 chars of UUID)
+        String simpleSessionCode = sessionId.substring(sessionId.length() - 6);
+        
         // Create session data
         Map<String, Object> sessionData = new HashMap<>();
         sessionData.put("session_name", sessionName);
@@ -148,9 +185,10 @@ public class RTCHost {
         sessionData.put("active", true);
         sessionData.put("max_joiners", MAX_JOINERS);
         sessionData.put("current_joiners", 0);
+        sessionData.put("session_code", simpleSessionCode);  // Add this line
         
         // Save session to Firebase
-        DatabaseReference sessionRef = firebaseDatabase.child("users")
+        DatabaseReference sessionRef = mDatabase.child("users")
                 .child(formattedEmail)
                 .child("sessions")
                 .child(sessionId);
@@ -172,7 +210,7 @@ public class RTCHost {
      * Listen for join requests from cameras
      */
     private void listenForJoinRequests() {
-        DatabaseReference joinRequestsRef = firebaseDatabase.child("users")
+        DatabaseReference joinRequestsRef = mDatabase.child("users")
                 .child(formattedEmail)
                 .child("sessions")
                 .child(sessionId)
@@ -218,7 +256,9 @@ public class RTCHost {
     }
     
     /**
-     * Create peer connection for a new camera joiner
+     * Create peer connection for a joiner
+     * @param joinerId Joiner ID
+     * @param joinerEmail Joiner email
      */
     private void createPeerConnectionForJoiner(String joinerId, String joinerEmail) {
         // Create RTCConfiguration with ICE servers
@@ -238,19 +278,40 @@ public class RTCHost {
                     @Override
                     public void onAddStream(MediaStream stream) {
                         super.onAddStream(stream);
-                        Log.d(TAG, "Remote stream added from joiner: " + joinerId);
+                        Log.d(TAG, "Remote stream added from joiner: " + joinerId + 
+                              " with video tracks: " + stream.videoTracks.size());
                         
                         // Handle incoming video/audio from camera
                         new Handler(Looper.getMainLooper()).post(() -> {
                             if (stream.videoTracks.size() > 0) {
-                                // If this is the first joiner, use the main view
-                                if (peerConnections.size() == 1 || 
-                                        joinerRenderers.get(joinerId) == mainView) {
-                                    stream.videoTracks.get(0).addSink(mainView);
-                                } else if (joinerRenderers.containsKey(joinerId)) {
-                                    // Use assigned renderer for this joiner
-                                    stream.videoTracks.get(0).addSink(joinerRenderers.get(joinerId));
+                                // Get the assigned renderer for this joiner
+                                SurfaceViewRenderer assignedRenderer = joinerRenderers.get(joinerId);
+                                
+                                // If no renderer assigned yet or it's the main view for first joiner
+                                if (assignedRenderer == null) {
+                                    // If this is the first joiner and no specific assignment
+                                    if (peerConnections.size() == 1) {
+                                        try {
+                                            // Use VideoTrack.addSink directly from the stream's videoTracks
+                                            stream.videoTracks.get(0).addSink(mainView);
+                                            joinerRenderers.put(joinerId, mainView);
+                                            Log.d(TAG, "Added video sink to main view for first joiner: " + joinerId);
+                                        } catch (Exception e) {
+                                            Log.e(TAG, "Error adding sink to main view: " + e.getMessage(), e);
+                                        }
+                                    }
+                                } else {
+                                    // Use the assigned renderer
+                                    try {
+                                        // Use VideoTrack.addSink directly from the stream's videoTracks
+                                        stream.videoTracks.get(0).addSink(assignedRenderer);
+                                        Log.d(TAG, "Added video sink to assigned renderer for joiner: " + joinerId);
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "Error adding video sink in onAddStream: " + e.getMessage(), e);
+                                    }
                                 }
+                            } else {
+                                Log.w(TAG, "Stream has no video tracks from joiner: " + joinerId);
                             }
                         });
                     }
@@ -293,7 +354,7 @@ public class RTCHost {
                 // Send offer to joiner via Firebase
                 String formattedJoinerEmail = joinerEmail.replace(".", "_");
                 
-                DatabaseReference joinerSessionRef = firebaseDatabase.child("users")
+                DatabaseReference joinerSessionRef = mDatabase.child("users")
                         .child(formattedJoinerEmail)
                         .child("sessions")
                         .child(sessionId);
@@ -322,7 +383,7 @@ public class RTCHost {
     private void listenForAnswer(String joinerId, String joinerEmail, PeerConnection peerConnection) {
         String formattedJoinerEmail = joinerEmail.replace(".", "_");
         
-        DatabaseReference answerRef = firebaseDatabase.child("users")
+        DatabaseReference answerRef = mDatabase.child("users")
                 .child(formattedJoinerEmail)
                 .child("sessions")
                 .child(sessionId)
@@ -365,7 +426,7 @@ public class RTCHost {
                                         PeerConnection peerConnection) {
         String formattedJoinerEmail = joinerEmail.replace(".", "_");
         
-        DatabaseReference iceCandidatesRef = firebaseDatabase.child("users")
+        DatabaseReference iceCandidatesRef = mDatabase.child("users")
                 .child(formattedJoinerEmail)
                 .child("sessions")
                 .child(sessionId)
@@ -408,7 +469,7 @@ public class RTCHost {
                                          IceCandidate candidate) {
         String formattedJoinerEmail = joinerEmail.replace(".", "_");
         
-        DatabaseReference hostCandidatesRef = firebaseDatabase.child("users")
+        DatabaseReference hostCandidatesRef = mDatabase.child("users")
                 .child(formattedJoinerEmail)
                 .child("sessions")
                 .child(sessionId)
@@ -433,7 +494,7 @@ public class RTCHost {
      * Update joiner count in Firebase
      */
     private void updateJoinerCount() {
-        firebaseDatabase.child("users")
+        mDatabase.child("users")
                 .child(formattedEmail)
                 .child("sessions")
                 .child(sessionId)
@@ -460,10 +521,44 @@ public class RTCHost {
      * @param renderer Surface view renderer to use
      */
     public void assignRendererToJoiner(String joinerId, SurfaceViewRenderer renderer) {
-        if (renderer != null) {
-            renderer.init(rootEglBase.getEglBaseContext(), null);
-            renderer.setMirror(false);
-            joinerRenderers.put(joinerId, renderer);
+        Log.d(TAG, "assignRendererToJoiner called for " + joinerId + " with renderer: " + renderer);
+        
+        if (renderer == null) {
+            Log.e(TAG, "Cannot assign null renderer to joiner");
+            return;
+        }
+        
+        // Initialize renderer if needed - THIS IS CRITICAL
+        try {
+            if (rootEglBase != null) {
+                // Always re-initialize to ensure clean state
+                renderer.release();
+                renderer.init(rootEglBase.getEglBaseContext(), null);
+                renderer.setEnableHardwareScaler(true);
+                renderer.setMirror(false);
+                Log.d(TAG, "Renderer initialized with EGL context: " + rootEglBase.getEglBaseContext());
+            } else {
+                Log.e(TAG, "Root EglBase is null, cannot initialize renderer");
+                return;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing renderer: " + e.getMessage(), e);
+            return;
+        }
+        
+        // Store renderer assignment - this is what matters for onAddStream
+        joinerRenderers.put(joinerId, renderer);
+        Log.d(TAG, "Stored renderer assignment for joiner: " + joinerId);
+        
+        // Handle any existing streams for this joiner
+        PeerConnection pc = peerConnections.get(joinerId);
+        if (pc != null) {
+            // We'll rely on the onAddStream callback to actually connect 
+            // the video track to the renderer
+            Log.d(TAG, "Peer connection exists for joiner: " + joinerId + 
+                  ", connection will be handled by onAddStream");
+        } else {
+            Log.w(TAG, "No peer connection found for joiner: " + joinerId);
         }
     }
 
@@ -484,7 +579,13 @@ public class RTCHost {
      * @return Array of joiner IDs
      */
     public String[] getActiveJoiners() {
-        return peerConnections.keySet().toArray(new String[0]);
+        // Add this debug statement
+        Log.d(TAG, "getActiveJoiners called, peers: " + peerConnections.size());
+        
+        // Add more detail on what's being returned
+        String[] joiners = peerConnections.keySet().toArray(new String[0]);
+        Log.d(TAG, "Returning joiners array of length: " + joiners.length);
+        return joiners;
     }
     
     /**
@@ -525,13 +626,199 @@ public class RTCHost {
         
         // Delete session in Firebase
         if (sessionId != null) {
-            firebaseDatabase.child("users")
+            mDatabase.child("users")
                     .child(formattedEmail)
                     .child("sessions")
                     .child(sessionId)
                     .child("active")
                     .setValue(false);
         }
+    }
+
+    /**
+     * Initialize a session with the given ID
+     */
+    public void initializeSession(String sessionId) {
+        this.sessionId = sessionId;
+        Log.d(TAG, "Initializing session: " + sessionId);
+        
+        // Set up listeners for incoming connections
+        setupJoinListeners();
+    }
+
+    private void setupJoinListeners() {
+        String userEmail = this.formattedEmail;
+        
+        if (sessionId == null || userEmail == null) {
+            Log.e(TAG, "Cannot setup join listeners: missing sessionId or userEmail");
+            return;
+        }
+        
+        // Listen for accepted join requests
+        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                .child("join_requests").orderByChild("status").equalTo("accepted")
+                .addChildEventListener(new ChildEventListener() {
+                    @Override
+                    public void onChildAdded(DataSnapshot dataSnapshot, String previousChildName) {
+                        String requestId = dataSnapshot.getKey();
+                        Log.d(TAG, "Join request accepted: " + requestId);
+                        
+                        // Start connection process with this joiner
+                        createPeerConnection(requestId);
+                    }
+                    
+                    @Override
+                    public void onChildChanged(DataSnapshot dataSnapshot, String previousChildName) {}
+                    
+                    @Override
+                    public void onChildRemoved(DataSnapshot dataSnapshot) {}
+                    
+                    @Override
+                    public void onChildMoved(DataSnapshot dataSnapshot, String previousChildName) {}
+                    
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {}
+                });
+    }
+
+    // Add methods for mute/unmute if missing
+    public void muteMic() {
+        // Implement audio muting
+        Log.d(TAG, "Muting microphone");
+    }
+
+    public void unmuteMic() {
+        // Implement audio unmuting
+        Log.d(TAG, "Unmuting microphone");
+    }
+
+    /**
+     * Create peer connection for a joiner from a request ID
+     * @param requestId The ID of the join request
+     */
+    public void createPeerConnection(String requestId) {
+        // First, get the joiner's email from the request data
+        String userEmail = this.formattedEmail;
+        if (sessionId == null || userEmail == null || requestId == null) {
+            Log.e(TAG, "Cannot create peer connection: missing required information");
+            return;
+        }
+        
+        DatabaseReference requestRef = mDatabase.child("users").child(userEmail)
+                .child("sessions").child(sessionId)
+                .child("join_requests").child(requestId);
+                
+        requestRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful() && task.getResult().exists()) {
+                String joinerEmail = task.getResult().child("email").getValue(String.class);
+                if (joinerEmail != null) {
+                    // Now call the existing method with both required parameters
+                    createPeerConnectionForJoiner(requestId, joinerEmail);
+                } else {
+                    Log.e(TAG, "Failed to get joiner email for request: " + requestId);
+                }
+            } else {
+                Log.e(TAG, "Failed to fetch join request data", task.getException());
+            }
+        });
+    }
+
+    /**
+     * Find a session by session code (passkey)
+     * @param sessionCode The 6-digit session code entered by user
+     */
+    public static void findSessionByCode(String sessionCode, SessionFoundCallback callback) {
+        // Add debug logging
+        Log.d(TAG, "Looking for session with code: " + sessionCode);
+        
+        // Normalize session code (trim whitespace, convert to lowercase)
+        String normalizedCode = sessionCode.trim().toLowerCase();
+        
+        // First check in the users path where sessions are actually created
+        DatabaseReference usersRef = FirebaseDatabase.getInstance().getReference("users");
+        
+        // Use a single query instead of fetching all users
+        usersRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                boolean found = false;
+                Log.d(TAG, "Searching through " + task.getResult().getChildrenCount() + " users");
+                
+                // Iterate through all users
+                for (DataSnapshot userSnapshot : task.getResult().getChildren()) {
+                    DataSnapshot sessionsSnapshot = userSnapshot.child("sessions");
+                    
+                    // Search sessions for this user
+                    for (DataSnapshot sessionSnapshot : sessionsSnapshot.getChildren()) {
+                        String code = sessionSnapshot.child("session_code").getValue(String.class);
+                        Boolean active = sessionSnapshot.child("active").getValue(Boolean.class);
+                        
+                        Log.d(TAG, "Found session with code: " + code + ", active: " + active + 
+                              " (comparing with: " + normalizedCode + ")");
+                        
+                        // Check if session is active and code matches (case-insensitive)
+                        if (code != null && active != null && active && 
+                                code.equalsIgnoreCase(normalizedCode)) {
+                            String sessionId = sessionSnapshot.getKey();
+                            String hostEmail = sessionSnapshot.child("host_email").getValue(String.class);
+                            
+                            if (hostEmail != null) {
+                                Log.d(TAG, "Session found! ID: " + sessionId + ", Host: " + hostEmail);
+                                callback.onSessionFound(sessionId, hostEmail);
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (found) break;
+                }
+                
+                if (!found) {
+                    Log.d(TAG, "No session found with code: " + normalizedCode);
+                    callback.onSessionNotFound();
+                }
+            } else {
+                Log.e(TAG, "Failed to search for sessions", task.getException());
+                callback.onError("Failed to search for sessions", task.getException());
+            }
+        });
+    }
+
+    /**
+     * Callback interface for session lookup
+     */
+    public interface SessionFoundCallback {
+        void onSessionFound(String sessionId, String hostEmail);
+        void onSessionNotFound();
+        void onError(String message, Exception e);
+    }
+
+    /**
+     * Check if a joiner needs a renderer assignment
+     * @param joinerId The joiner ID to check
+     * @return true if needs assignment, false if already assigned
+     */
+    public boolean needsRendererAssignment(String joinerId) {
+        return !joinerRenderers.containsKey(joinerId);
+    }
+
+    /**
+     * Get the EglBase context for initializing renderers
+     * @return EglBase.Context used for rendering
+     */
+    public EglBase.Context getEglBaseContext() {
+        return rootEglBase != null ? rootEglBase.getEglBaseContext() : null;
+    }
+
+    /**
+     * Check if a renderer is assigned to a specific joiner
+     * @param joinerId The joiner ID to check
+     * @param renderer The renderer to check
+     * @return true if this renderer is assigned to this joiner
+     */
+    public boolean isRendererAssignedToJoiner(String joinerId, SurfaceViewRenderer renderer) {
+        SurfaceViewRenderer assignedRenderer = joinerRenderers.get(joinerId);
+        return assignedRenderer != null && assignedRenderer == renderer;
     }
 }
 

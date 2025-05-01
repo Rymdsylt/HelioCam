@@ -242,8 +242,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/WatchSessionActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/WatchSessionActivity.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_watch_session.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_watch_session.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -384,8 +382,8 @@
       <recent name="com.summersoft.heliocam" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
-      <recent name="C:\Users\nisga\OneDrive\Documents\GitHub\HelioCam\HelioCam\app\src\main\res\drawable" />
       <recent name="C:\Users\david\Desktop\ACADS\3rd Year\HelioCam\HelioCam\HelioCam\app\src\main\res\drawable" />
+      <recent name="C:\Users\nisga\OneDrive\Documents\GitHub\HelioCam\HelioCam\app\src\main\res\drawable" />
       <recent name="C:\Users\Daniel\Desktop\Heliocam\HelioCam\HelioCam\app\src\main\res\drawable" />
     </key>
     <key name="android.template.1504126726">

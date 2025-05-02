@@ -37,7 +37,9 @@ import org.webrtc.EglBase;
 import org.webrtc.SurfaceViewRenderer;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class WatchSessionActivity extends AppCompatActivity {
     private static final String TAG = "WatchSessionActivity";
@@ -81,6 +83,12 @@ public class WatchSessionActivity extends AppCompatActivity {
 
     // Add this to WatchSessionActivity.java class variables
     private int focusedCamera = -1; // -1 means no focus (grid view)
+
+    // Add these to your class variables
+    private Map<String, TextView> cameraNumberLabels = new HashMap<>();
+    private Map<String, TextView> cameraTimestamps = new HashMap<>();
+    private Handler timestampUpdateHandler = new Handler(Looper.getMainLooper());
+    private Runnable timestampUpdateRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -164,6 +172,9 @@ public class WatchSessionActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (timestampUpdateRunnable != null) {
+            timestampUpdateHandler.removeCallbacks(timestampUpdateRunnable);
+        }
         super.onDestroy();
         
         // Clean up resources
@@ -264,6 +275,42 @@ public class WatchSessionActivity extends AppCompatActivity {
                 micView.setVisibility(View.GONE);
             }
         }
+
+        // Initialize camera number labels and timestamps
+        cameraNumberLabels.clear();
+        cameraTimestamps.clear();
+        
+        // Add camera number and timestamp views for each feed
+        if (feedContainer1 != null) {
+            TextView cameraNumber1 = feedContainer1.findViewById(R.id.camera_number_1);
+            TextView timestamp1 = feedContainer1.findViewById(R.id.camera_timestamp_1);
+            if (cameraNumber1 != null) cameraNumberLabels.put("feed1", cameraNumber1);
+            if (timestamp1 != null) cameraTimestamps.put("feed1", timestamp1);
+        }
+        
+        if (feedContainer2 != null) {
+            TextView cameraNumber2 = feedContainer2.findViewById(R.id.camera_number_2);
+            TextView timestamp2 = feedContainer2.findViewById(R.id.camera_timestamp_2);
+            if (cameraNumber2 != null) cameraNumberLabels.put("feed2", cameraNumber2);
+            if (timestamp2 != null) cameraTimestamps.put("feed2", timestamp2);
+        }
+        
+        if (feedContainer3 != null) {
+            TextView cameraNumber3 = feedContainer3.findViewById(R.id.camera_number_3);
+            TextView timestamp3 = feedContainer3.findViewById(R.id.camera_timestamp_3);
+            if (cameraNumber3 != null) cameraNumberLabels.put("feed3", cameraNumber3);
+            if (timestamp3 != null) cameraTimestamps.put("feed3", timestamp3);
+        }
+        
+        if (feedContainer4 != null) {
+            TextView cameraNumber4 = feedContainer4.findViewById(R.id.camera_number_4);
+            TextView timestamp4 = feedContainer4.findViewById(R.id.camera_timestamp_4);
+            if (cameraNumber4 != null) cameraNumberLabels.put("feed4", cameraNumber4);
+            if (timestamp4 != null) cameraTimestamps.put("feed4", timestamp4);
+        }
+        
+        // Start the timestamp update scheduler
+        startTimestampUpdates();
 
         participantsCount.setOnClickListener(v -> {
             // Show detailed participant list when count is clicked
@@ -370,8 +417,20 @@ public class WatchSessionActivity extends AppCompatActivity {
                 // Show notification if there are pending requests (not accepted yet)
                 boolean hasPendingRequests = false;
                 
+                // Keep track of processed request IDs to avoid duplicates
+                Set<String> processedRequestIds = new HashSet<>();
+                
                 if (dataSnapshot.exists()) {
                     for (DataSnapshot requestSnapshot : dataSnapshot.getChildren()) {
+                        String requestId = requestSnapshot.getKey();
+                        
+                        // Skip if we've already processed this request
+                        if (processedRequestIds.contains(requestId)) {
+                            continue;
+                        }
+                        
+                        processedRequestIds.add(requestId);
+                        
                         String status = requestSnapshot.child("status").getValue(String.class);
                         if (status == null || !status.equals("accepted")) {
                             hasPendingRequests = true;
@@ -719,6 +778,9 @@ public class WatchSessionActivity extends AppCompatActivity {
                             if (requestsGrid != null) {
                                 boolean hasValidRequests = false;
                                 
+                                // Track unique emails to prevent duplicates
+                                Set<String> uniqueEmails = new HashSet<>();
+                                
                                 for (DataSnapshot requestSnapshot : task.getResult().getChildren()) {
                                     String requestId = requestSnapshot.getKey();
                                     String requestEmail = requestSnapshot.child("email").getValue(String.class);
@@ -726,6 +788,10 @@ public class WatchSessionActivity extends AppCompatActivity {
                                     // Skip requests that already have status "accepted"
                                     String status = requestSnapshot.child("status").getValue(String.class);
                                     if ("accepted".equals(status)) continue;
+                                    
+                                    // Skip duplicate emails
+                                    if (uniqueEmails.contains(requestEmail)) continue;
+                                    uniqueEmails.add(requestEmail);
                                     
                                     // Add request entry to the grid
                                     addRequestToGrid(requestsGrid, requestId, requestEmail != null ? requestEmail : "Unknown");
@@ -1025,6 +1091,54 @@ public class WatchSessionActivity extends AppCompatActivity {
         if (rtcHost != null) {
             rtcHost.logRendererAssignments();
         }
+
+        // After assigning the renderer, also update the camera number label
+        switch (position) {
+            case 0:
+                TextView cameraNumber1 = cameraNumberLabels.get("feed1");
+                if (cameraNumber1 != null) {
+                    cameraNumber1.setText("Camera 1: " + joinerEmail);
+                    cameraNumber1.setVisibility(View.VISIBLE);
+                }
+                TextView timestamp1 = cameraTimestamps.get("feed1");
+                if (timestamp1 != null) {
+                    timestamp1.setVisibility(View.VISIBLE);
+                }
+                break;
+            case 1:
+                TextView cameraNumber2 = cameraNumberLabels.get("feed2");
+                if (cameraNumber2 != null) {
+                    cameraNumber2.setText("Camera 2: " + joinerEmail);
+                    cameraNumber2.setVisibility(View.VISIBLE);
+                }
+                TextView timestamp2 = cameraTimestamps.get("feed2");
+                if (timestamp2 != null) {
+                    timestamp2.setVisibility(View.VISIBLE);
+                }
+                break;
+            case 2:
+                TextView cameraNumber3 = cameraNumberLabels.get("feed3");
+                if (cameraNumber3 != null) {
+                    cameraNumber3.setText("Camera 3: " + joinerEmail);
+                    cameraNumber3.setVisibility(View.VISIBLE);
+                }
+                TextView timestamp3 = cameraTimestamps.get("feed3");
+                if (timestamp3 != null) {
+                    timestamp3.setVisibility(View.VISIBLE);
+                }
+                break;
+            case 3:
+                TextView cameraNumber4 = cameraNumberLabels.get("feed4");
+                if (cameraNumber4 != null) {
+                    cameraNumber4.setText("Camera 4: " + joinerEmail);
+                    cameraNumber4.setVisibility(View.VISIBLE);
+                }
+                TextView timestamp4 = cameraTimestamps.get("feed4");
+                if (timestamp4 != null) {
+                    timestamp4.setVisibility(View.VISIBLE);
+                }
+                break;
+        }
     }
 
     /**
@@ -1164,28 +1278,23 @@ public class WatchSessionActivity extends AppCompatActivity {
                     break;
                     
                 case 2:
-                    // Two cameras - 2x1 grid (square cells)
+                    // Two cameras - top and bottom grid (vertical layout)
                     
-                    // Set up container 1 (top left)
+                    // Set up container 1 (top)
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
-                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                    constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, R.id.feed_container_2, ConstraintSet.TOP);
                     
-                    // Set up container 2 (top right)
-                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
-                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                    // Set up container 2 (bottom)
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                    constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, R.id.feed_container_1, ConstraintSet.BOTTOM);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
                     
-                    // Make them equal width
-                    constraintSet.createHorizontalChain(
-                        ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                        ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                        new int[]{R.id.feed_container_1, R.id.feed_container_2},
-                        new float[]{1, 1},
-                        ConstraintSet.CHAIN_PACKED
-                    );
+                    // Make them equal height
+                    constraintSet.setVerticalWeight(R.id.feed_container_1, 1);
+                    constraintSet.setVerticalWeight(R.id.feed_container_2, 1);
                     
                     // Add click listeners for focus mode
                     feedContainer1.setOnClickListener(v -> {
@@ -1465,5 +1574,42 @@ public class WatchSessionActivity extends AppCompatActivity {
                     })
                     .start();
         }
+    }
+
+    // Add this method to start regular timestamp updates
+    private void startTimestampUpdates() {
+        // Stop any existing updates
+        if (timestampUpdateRunnable != null) {
+            timestampUpdateHandler.removeCallbacks(timestampUpdateRunnable);
+        }
+        
+        // Create a new update runnable
+        timestampUpdateRunnable = new Runnable() {
+            @Override
+            public void run() {
+                updateAllTimestamps();
+                // Schedule next update in 1 second
+                timestampUpdateHandler.postDelayed(this, 1000);
+            }
+        };
+        
+        // Start updates
+        timestampUpdateHandler.post(timestampUpdateRunnable);
+    }
+    
+    // Method to update all timestamps
+    private void updateAllTimestamps() {
+        String timeString = getFormattedTime();
+        for (TextView timestampView : cameraTimestamps.values()) {
+            if (timestampView != null && timestampView.getVisibility() == View.VISIBLE) {
+                timestampView.setText(timeString);
+            }
+        }
+    }
+    
+    // Helper method to get formatted time
+    private String getFormattedTime() {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault());
+        return sdf.format(new java.util.Date());
     }
 }

@@ -540,4 +540,18 @@ public class PersonDetection implements VideoSink {
             this.boundingBox = boundingBox;
         }
     }
+
+    // In PersonDetection.java, inside your person detection callback
+
+    // When a person is detected
+    private void onPersonDetected(int personCount) {
+        // Your existing person detection code...
+        
+        // Report using the new method in RTCJoiner
+        if (rtcJoiner != null) {
+            rtcJoiner.reportPersonDetection(personCount);
+        }
+        
+        // Rest of your event handling...
+    }
 }

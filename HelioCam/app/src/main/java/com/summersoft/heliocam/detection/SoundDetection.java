@@ -108,6 +108,7 @@ public class SoundDetection {
                         if (currentTime - lastDetectionTime > detectionLatency) {
                             lastDetectionTime = currentTime;
                             triggerSoundDetected();
+                            onSoundDetected(amplitude);
                         }
                     }
                 }
@@ -295,5 +296,15 @@ public class SoundDetection {
         return detectionLatency/1000;
     }
 
-
+    // When sound is detected
+    private void onSoundDetected(double amplitude) {
+        // Your existing sound detection code...
+        
+        // Report using the new method in RTCJoiner
+        if (webRTCClient != null) {
+            webRTCClient.reportSoundDetection(amplitude);
+        }
+        
+        // Rest of your event handling...
+    }
 }

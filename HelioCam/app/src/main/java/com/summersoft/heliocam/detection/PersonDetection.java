@@ -342,6 +342,12 @@ public class PersonDetection implements VideoSink {
                         canvas.drawRect(detection.boundingBox, boxPaint);
                     }
 
+                    // Count the number of persons detected
+                    int personCount = detections.size();
+                    
+                    // Call the method to report the detection to the host
+                    onPersonDetected(personCount);
+
                     handler.post(() -> {
                         // Only enter latency period if we're not already in it
                         if (isInLatencyPeriod.compareAndSet(false, true)) {
@@ -548,8 +554,8 @@ public class PersonDetection implements VideoSink {
         // Your existing person detection code...
         
         // Report using the new method in RTCJoiner
-        if (rtcJoiner != null) {
-            rtcJoiner.reportPersonDetection(personCount);
+        if (webRTCClient != null) {  // CHANGED from rtcJoiner to webRTCClient
+            webRTCClient.reportPersonDetection(personCount);
         }
         
         // Rest of your event handling...

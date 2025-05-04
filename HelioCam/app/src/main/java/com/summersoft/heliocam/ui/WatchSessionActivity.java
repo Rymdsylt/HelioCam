@@ -992,7 +992,7 @@ public class WatchSessionActivity extends AppCompatActivity {
         }
         
         // Now find which position this joiner should get
-        int position = -1;
+        final int position;  // Make this final or effectively final for lambda
         
         // Check which renderers are already assigned
         boolean[] rendererAssigned = new boolean[4];
@@ -1011,19 +1011,34 @@ public class WatchSessionActivity extends AppCompatActivity {
         }
         
         // Find the first unassigned position
+        int posTemp = -1;
         for (int i = 0; i < 4; i++) {
             if (!rendererAssigned[i]) {
-                position = i;
+                posTemp = i;
                 break;
             }
         }
         
         // If all renderers are assigned (shouldn't happen), use position based on count
-        if (position == -1) {
-            position = Math.min(activeCount, 3); // Max 4 renderers (0-3)
+        if (posTemp == -1) {
+            posTemp = Math.min(activeCount, 3); // Max 4 renderers (0-3)
         }
         
+        position = posTemp;  // Assign to final position
+        
         Log.d(TAG, "Assigning joiner " + joinerId + " to position " + position);
+        
+        // Now set the assigned_camera value in Firebase
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+        DatabaseReference requestRef = mDatabase.child("users")
+                .child(userEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("join_requests")
+                .child(joinerId);
+                
+        // Send the camera position+1 to the joiner
+        requestRef.child("assigned_camera").setValue(position + 1); // Position 0-3 to camera 1-4
         
         // Update grid layout based on the number of active cameras
         updateGridLayout(Math.max(activeCount, position + 1));
@@ -1138,6 +1153,19 @@ public class WatchSessionActivity extends AppCompatActivity {
                     timestamp4.setVisibility(View.VISIBLE);
                 }
                 break;
+        }
+
+        // In assignCameraToRenderer method in WatchSessionActivity
+        String deviceName = rtcHost.getJoinerDeviceName(joinerId);
+        String displayText = "Camera " + (position+1) + ": " + joinerEmail;
+        if (deviceName != null && !deviceName.isEmpty()) {
+            displayText += " (" + deviceName + ")";
+        }
+
+        TextView cameraNumber = cameraNumberLabels.get("feed" + (position+1));
+        if (cameraNumber != null) {
+            cameraNumber.setText(displayText);
+            cameraNumber.setVisibility(View.VISIBLE);
         }
     }
 

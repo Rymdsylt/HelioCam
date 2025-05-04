@@ -81,6 +81,16 @@ public class RTCHost {
     private Map<String, SurfaceViewRenderer> joinerRenderers = new HashMap<>();
     private HashMap<Object, Object> assignedRenderers;
 
+    // Add these fields to your RTCHost class
+    private Map<String, String> joinerDeviceIds = new HashMap<>();
+    private Map<String, String> joinerDeviceNames = new HashMap<>();
+
+    // Undefined variables
+    private Map<String, String> joinerEmails = new HashMap<>(); // Missing declaration
+    private SurfaceViewRenderer[] videoRenderers; // Missing declaration
+    private JoinRequestCallback joinRequestCallback; // Missing declaration
+    private Map<String, Map<String, String>> joinerInfoMap = new HashMap<>(); // Missing declaration
+
     public RTCHost(Context context, SurfaceViewRenderer mainView, DatabaseReference mDatabase) {
         this.context = context;
         this.mainView = mainView;
@@ -860,6 +870,112 @@ public class RTCHost {
               .append("\n");
         }
         Log.d(TAG, sb.toString());
+    }
+
+    // Modify handleJoinRequest method to include device identifiers
+    private void handleJoinRequest(String joinerId, String joinerEmail, DataSnapshot requestData) {
+        // Extract device information from join request
+        String deviceId = requestData.child("deviceId").getValue(String.class);
+        String deviceName = requestData.child("deviceName").getValue(String.class);
+        
+        // Create composite unique identifier
+        String uniqueJoinerId = deviceId != null ? joinerEmail + "_" + deviceId : joinerId;
+        
+        // Store device info
+        if (deviceId != null) joinerDeviceIds.put(joinerId, deviceId);
+        if (deviceName != null) joinerDeviceNames.put(joinerId, deviceName);
+        
+        Log.d(TAG, "Handling join request from: " + joinerEmail + 
+              " (Device: " + (deviceName != null ? deviceName : "Unknown") + ")");
+        
+        // Rest of your existing join request handling code...
+        
+        // When notifying UI about new join request, include device info
+        if (joinRequestCallback != null) {
+            joinRequestCallback.onJoinRequest(joinerId, joinerEmail, deviceName);
+        }
+    }
+
+    // Update your join request callback interface to include device name
+    public interface JoinRequestCallback {
+        void onJoinRequest(String joinerId, String joinerEmail, String deviceName);
+    }
+
+    public void acceptJoinRequest(String joinerId, String joinerEmail, int position) {
+        // Get device info for this joiner
+        String deviceName = joinerDeviceNames.getOrDefault(joinerId, "Unknown Device");
+        String deviceId = joinerDeviceIds.getOrDefault(joinerId, "unknown");
+        
+        Log.d(TAG, "Accepting join request from: " + joinerEmail + 
+              " (Device: " + deviceName + ") at position " + position);
+        
+        // Update firebase status for this joiner
+        String formattedJoinerEmail = joinerEmail.replace(".", "_");
+        DatabaseReference joinRequestRef = mDatabase.child("users")
+                .child(formattedEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("join_requests")
+                .child(joinerId);
+                
+        // Set status to accepted and include camera position assignment
+        joinRequestRef.child("status").setValue("accepted");
+        joinRequestRef.child("assigned_camera").setValue(position + 1);
+        
+        // Create a connection for this joiner
+        createPeerConnectionForJoiner(joinerId, joinerEmail, deviceId, deviceName, position);
+    }
+
+    private void createPeerConnectionForJoiner(String joinerId, String joinerEmail, 
+                                          String deviceId, String deviceName, int position) {
+        // Store which renderer is used by this joiner
+        joinerRenderers.put(joinerId, videoRenderers[position]);
+        
+        // Store composite info in joinerEmails map 
+        joinerEmails.put(joinerId, joinerEmail + " (" + deviceName + ")");
+        
+        // Add device info to joinerInfo for UI display
+        Map<String, String> joinerInfo = new HashMap<>();
+        joinerInfo.put("email", joinerEmail);
+        joinerInfo.put("deviceName", deviceName);
+        joinerInfo.put("deviceId", deviceId);
+        joinerInfo.put("position", String.valueOf(position));
+        joinerInfoMap.put(joinerId, joinerInfo);
+        
+        // Rest of your existing code...
+    }
+
+    // Add these methods to RTCHost for accessing device info
+    public String getJoinerDeviceName(String joinerId) {
+        return joinerDeviceNames.getOrDefault(joinerId, "");
+    }
+
+    public String getJoinerDeviceId(String joinerId) {
+        return joinerDeviceIds.getOrDefault(joinerId, "");
+    }
+
+    public String getJoinerDisplayName(String joinerId) {
+        String email = joinerEmails.getOrDefault(joinerId, "Unknown");
+        String deviceName = getJoinerDeviceName(joinerId);
+        
+        if (deviceName != null && !deviceName.isEmpty()) {
+            return email + " (" + deviceName + ")";
+        }
+        return email;
+    }
+
+    // In your notification handler
+    private void handleDetectionEvent(String joinerId, String eventType, Map<String, Object> eventData) {
+        String joinerEmail = joinerEmails.get(joinerId);
+        String deviceName = joinerDeviceNames.get(joinerId);
+        
+        String notificationText = eventType + " detected from " + joinerEmail;
+        if (deviceName != null && !deviceName.isEmpty()) {
+            notificationText += " (" + deviceName + ")";
+        }
+        
+        // Show notification with device-specific information
+        // ...
     }
 }
 

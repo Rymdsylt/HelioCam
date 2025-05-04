@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.MediaRecorder;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 import android.widget.Toast;
@@ -95,6 +96,9 @@ public class RTCJoiner {
     // Add these fields to the top of the class with other field declarations
     private com.summersoft.heliocam.detection.PersonDetection personDetection;
     private org.webrtc.VideoSink detectionVideoSink;
+    
+    // Add to RTCJoiner class fields
+    private int assignedCameraNumber = 1; // Default to 1, but will be set by host
     
     /**
      * Constructor for RTCJoiner
@@ -283,10 +287,19 @@ public class RTCJoiner {
         
         Log.d(TAG, "Joining session: " + sessionId + " hosted by: " + hostEmail);
         
-        // Send join request
+        // Get unique device identifiers
+        String deviceId = android.provider.Settings.Secure.getString(
+                context.getContentResolver(), 
+                android.provider.Settings.Secure.ANDROID_ID);
+        
+        String deviceName = Build.MANUFACTURER + " " + Build.MODEL;
+        
+        // Send join request with device identifiers
         Map<String, Object> joinRequest = new HashMap<>();
         joinRequest.put("email", userEmail);
         joinRequest.put("timestamp", System.currentTimeMillis());
+        joinRequest.put("deviceId", deviceId);  // Add unique device ID
+        joinRequest.put("deviceName", deviceName);  // Add device name
         
         DatabaseReference joinRequestRef = firebaseDatabase.child("users")
                 .child(formattedHostEmail)
@@ -336,6 +349,31 @@ public class RTCJoiner {
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 Log.e(TAG, "Failed to listen for offer: " + databaseError.getMessage());
+            }
+        });
+
+        DatabaseReference assignedCameraRef = firebaseDatabase.child("users")
+                .child(formattedHostEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("join_requests")
+                .child(joinerId)
+                .child("assigned_camera");
+                
+        assignedCameraRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    Integer cameraNumber = dataSnapshot.getValue(Integer.class);
+                    if (cameraNumber != null) {
+                        setAssignedCameraNumber(cameraNumber);
+                    }
+                }
+            }
+            
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                // Handle error
             }
         });
     }
@@ -735,6 +773,69 @@ public class RTCJoiner {
         void onSessionFound(String sessionId, String hostEmail);
         void onSessionNotFound();
         void onError(String message, Exception e);
+    }
+
+    /**
+     * Report a detection event to the host session
+     * @param detectionType Type of detection (sound, person)
+     * @param detectionData Additional data about the detection
+     */
+    public void reportDetectionEvent(String detectionType, Map<String, Object> detectionData) {
+        if (sessionId == null || hostEmail == null) {
+            Log.e(TAG, "Cannot report detection - missing session or host info");
+            return;
+        }
+
+        // Get the current time for the event ID
+        long timestamp = System.currentTimeMillis();
+        
+        // Create detection event data matching the web format
+        Map<String, Object> detectionEvent = new HashMap<>();
+        detectionEvent.put("type", detectionType);
+        detectionEvent.put("timestamp", timestamp);
+        detectionEvent.put("cameraNumber", assignedCameraNumber); // Use assigned number
+        detectionEvent.put("deviceName", Build.MANUFACTURER + " " + Build.MODEL);
+        detectionEvent.put("email", userEmail);
+        
+        // Add any additional data
+        if (detectionData != null) {
+            detectionEvent.put("data", detectionData);
+        }
+        
+        // Use the detection_events path that matches the web app
+        String detectionPath = "users/" + formattedHostEmail + "/sessions/" + sessionId + 
+                "/detection_events/" + timestamp;
+        
+        // Send to Firebase
+        firebaseDatabase.child(detectionPath).setValue(detectionEvent)
+            .addOnSuccessListener(aVoid -> {
+                Log.d(TAG, "Reported " + detectionType + " detection to host");
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error reporting detection", e);
+            });
+    }
+
+    // Helper methods for specific detection types (no motion detection)
+    public void reportSoundDetection(double audioLevel) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("level", audioLevel);
+        reportDetectionEvent("sound", data);
+    }
+
+    public void reportPersonDetection(int personCount) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("count", personCount);
+        reportDetectionEvent("person", data);
+    }
+
+    /**
+     * Set the camera number assigned by the host
+     * @param cameraNumber The assigned camera number (1-4)
+     */
+    public void setAssignedCameraNumber(int cameraNumber) {
+        this.assignedCameraNumber = cameraNumber;
+        Log.d(TAG, "Camera assigned number: " + cameraNumber);
     }
 }
 

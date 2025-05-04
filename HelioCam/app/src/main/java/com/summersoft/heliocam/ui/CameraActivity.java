@@ -190,125 +190,96 @@ public class CameraActivity extends AppCompatActivity {
         Log.d("CameraActivity", "Resources disposed successfully.");
     }
 
-
-
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
-        Context context = CameraActivity.this;
-
-
-
-        // Check if the app has permission to write to external storage
+        
+        // Initialize non-camera components first
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
-
-        // Initialize cameraView
+        
+        // Get session ID from intent
+        String sessionId = getIntent().getStringExtra("session_id");
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+        
+        // Set up UI elements
         cameraView = findViewById(R.id.camera_view);
-
-        // Create webRTCClient ONLY ONCE
-        rtcJoiner = new com.summersoft.heliocam.webrtc_utils.RTCJoiner(this, cameraView, mDatabase);
-
-        // Initialize person detection
-        personDetection = new PersonDetection(this, rtcJoiner);
-        personDetection.start();
-
-        // Connect person detection to WebRTC client
-        rtcJoiner.setPersonDetection(personDetection);
-
-
-        // Check permissions and other setup code
+        // ... other UI initialization ...
+        
+        // Check for required permissions BEFORE starting camera
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
                 ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-
+            
+            // Request permissions and return - the rest will happen in onRequestPermissionsResult
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, 100);
+                    new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, 
+                    CAMERA_PERMISSION_REQUEST_CODE);
+            return; // ← Important! Don't continue execution
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-        }
+        
+        // Only initialize camera if we already have permissions
+        initializeCamera();
+        initializeWebRTC(sessionId, userEmail);
+    }
 
+    // Add constant for request code
+    private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;
 
-        String sessionId = getIntent().getStringExtra("session_id");
-
-        cameraView = findViewById(R.id.camera_view);
-        ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
-        ImageButton toggleCameraButton = findViewById(R.id.video_button);
-        ImageButton micButton = findViewById(R.id.mic_button);  // Add mic button
-
-        // Initialize your camera and WebRTC components
+    // Add this method to initialize camera-related components
+    private void initializeCamera() {
+        // Create webRTCClient
+        rtcJoiner = new com.summersoft.heliocam.webrtc_utils.RTCJoiner(this, cameraView, mDatabase);
+        
+        // Initialize detection components
+        personDetection = new PersonDetection(this, rtcJoiner);
+        personDetection.start();
+        rtcJoiner.setPersonDetection(personDetection);
+        
+        // Initialize sound detection
         soundDetection = new SoundDetection(this, rtcJoiner);
         soundDetection.setSoundThreshold(3000);
         soundDetection.setDetectionLatency(3000);
         soundDetection.startDetection();
+        
+        // Start camera (rtcJoiner will handle this)
+        rtcJoiner.startCamera(true); // Start with front camera
+    }
 
-        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-        initializeWebRTC(sessionId, userEmail);
-
-        // Setup buttons
-
-        // Switch camera button
-        switchCameraButton.setOnClickListener(v -> {
-            rtcJoiner.switchCamera();
-        });
-
-
-        // Toggle camera button
-        toggleCameraButton.setOnClickListener(v -> {
-            rtcJoiner.toggleVideo();
-
-            if (isCameraOn) {
-
-                if (sessionId != null && !sessionId.isEmpty()) {
-                    mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                            .child("camera_off").setValue(1);
-                }
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            // Check if permission was granted
+            if (grantResults.length > 0 && 
+                grantResults[0] == PackageManager.PERMISSION_GRANTED && 
+                grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+                
+                // Permission granted, initialize camera
+                String sessionId = getIntent().getStringExtra("session_id");
+                String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+                
+                initializeCamera();
+                initializeWebRTC(sessionId, userEmail);
+                
+                Toast.makeText(this, "Permissions granted. You can now use the camera and audio.", Toast.LENGTH_SHORT).show();
             } else {
-
-
-                if (sessionId != null && !sessionId.isEmpty()) {
-                    mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                            .child("camera_off").removeValue();
-                }
+                // Permission denied
+                Toast.makeText(this, "Camera and microphone permissions are required", Toast.LENGTH_LONG).show();
+                finish(); // Close the activity as it can't function without camera
             }
-
-            isCameraOn = !isCameraOn;
-        });
-
-        micButton.setOnClickListener(v -> {
-            toggleMic();
-        });
-
-
-
-        ImageButton settingsButton = findViewById(R.id.settings_button);
-
-        registerForContextMenu(settingsButton);
-
-        settingsButton.setOnClickListener(v -> {
-            Log.d("CameraActivity", "Settings button clicked!");
-            v.showContextMenu();  // Show the context menu
-        });
-
-
-        directoryManager = new DetectionDirectoryManager(this);
-
-        // Check if we already have a valid directory, if not request one
-        if (!directoryManager.hasValidDirectory()) {
-            // Show dialog explaining why we need directory access
-            new AlertDialog.Builder(this)
-                    .setTitle("Select Storage Location")
-                    .setMessage("HelioCam needs to save detection images. Please select a folder to store these files.")
-                    .setPositiveButton("Select Folder", (dialog, which) -> {
-                        openDirectoryPicker();
-                    })
-                    .setCancelable(false)
-                    .show();
         }
-
+        
+        // Handle storage permissions result (request code 1)
+        if (requestCode == 1) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // You can now save the video file
+                Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Storage permission is required to save video files.", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     public void captureCameraView(OnBitmapCapturedListener listener) {
@@ -532,31 +503,6 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
-
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 100) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED &&
-                    grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Permissions granted. You can now use the camera and audio.", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Camera and audio permissions are required to use this feature.", Toast.LENGTH_SHORT).show();
-                finish(); // Close the activity if permissions are not granted
-            }
-        }
-
-        // Handle storage permissions result
-        if (requestCode == 1) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // You can now save the video file
-                Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Storage permission is required to save video files.", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
 
 
     private void fetchSessionName() {

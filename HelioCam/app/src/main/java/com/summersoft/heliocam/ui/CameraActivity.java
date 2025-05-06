@@ -1,12 +1,39 @@
 package com.summersoft.heliocam.ui;
 
+import static com.summersoft.heliocam.status.IMEI_Util.TAG;
+
+
+
 import android.Manifest;
+import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.net.Uri;
+
 import android.os.Bundle;
+import android.os.Environment;
+import android.util.Log;
+import android.view.ContextMenu;
+import android.view.LayoutInflater;
+import android.view.MenuItem;
+import android.view.MenuInflater;
 import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import android.app.AlertDialog;
+
+
+import android.os.StatFs;
+
+
+
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -17,148 +44,496 @@ import org.webrtc.Camera2Enumerator;
 import org.webrtc.CameraVideoCapturer;
 import org.webrtc.EglBase;
 import org.webrtc.SurfaceViewRenderer;
-import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.SurfaceTextureHelper;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
-import com.summersoft.heliocam.databinding.ActivityCameraBinding;  // Import the generated binding class
-import com.summersoft.heliocam.status.LoginStatus;
+import com.summersoft.heliocam.detection.PersonDetection;
+import com.summersoft.heliocam.detection.SoundDetection;
+
+
+import com.summersoft.heliocam.utils.DetectionDirectoryManager;
+import com.summersoft.heliocam.webrtc_utils.RTCHost;
+
+import java.io.File;
+
 
 public class CameraActivity extends AppCompatActivity {
+    private DatabaseReference mDatabase;
+    private FirebaseAuth mAuth;
+    private SoundDetection soundDetection;
 
     private SurfaceViewRenderer cameraView;
     private PeerConnectionFactory peerConnectionFactory;
     private CameraVideoCapturer videoCapturer;
     private VideoTrack videoTrack;
     private EglBase rootEglBase;
-    private boolean isUsingFrontCamera = true; // Track the current camera
+    private boolean isUsingFrontCamera = true;
 
-    private boolean isCameraOn = true; // Track camera on/off state
+    private boolean isCameraOn = true;
+    public Context context;
+    public com.summersoft.heliocam.webrtc_utils.RTCJoiner rtcJoiner;
+    private static final int REQUEST_DIRECTORY_PICKER = 1001;
+    private PersonDetection personDetection;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_camera);
 
-        cameraView = findViewById(R.id.camera_view);
-        ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
-        ImageButton videoButton = findViewById(R.id.video_button);
+    private DetectionDirectoryManager directoryManager;
 
-        // Initialize WebRTC and check permissions
-        initializePeerConnectionFactory();
-        checkCameraPermission();
+    private boolean isMicOn = true;
 
-        // Handle switch camera button click
-        switchCameraButton.setOnClickListener(v -> switchCamera());
-
-        // Handle video button click
-        videoButton.setOnClickListener(v -> toggleCamera(videoButton));
-
-        LoginStatus.checkLoginStatus(this);
+    // Method to open directory picker
+    public void openDirectoryPicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        startActivityForResult(intent, REQUEST_DIRECTORY_PICKER);
     }
 
-    private void toggleCamera(ImageButton videoButton) {
-        if (videoCapturer == null) {
-            Toast.makeText(this, "Camera is not initialized.", Toast.LENGTH_SHORT).show();
-            return;
+    // Handle the result from directory picker
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_DIRECTORY_PICKER && resultCode == RESULT_OK) {
+            if (data != null && data.getData() != null) {
+                Uri selectedDirectoryUri = data.getData();
+                directoryManager.setBaseDirectory(selectedDirectoryUri);
+
+                // Update person detection to use the new directory
+                if (personDetection != null) {
+                    personDetection.setDirectoryUri(selectedDirectoryUri);
+                }
+            }
         }
+    }
 
-        // Get the camera disabled text view
-        TextView cameraDisabledText = findViewById(R.id.camera_disabled_text);
+    // You might also want to add a button or menu option to allow users to change the directory later
+    public void selectOutputDirectory() {
+        openDirectoryPicker();
+    }
 
-        if (isCameraOn) {
-            // Stop video feed
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        String sessionId = getSessionId();
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+
+        if (sessionId != null && !sessionId.isEmpty()) {
+            mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                    .removeValue()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Log.d("CameraActivity", "Session deleted successfully in onDestroy.");
+                        } else {
+                            Log.e("CameraActivity", "Failed to delete session in onDestroy: " + task.getException());
+                        }
+                    });
+        }
+        if (personDetection != null) {
+            personDetection.stop();
+        }
+        rtcJoiner.dispose();
+    }
+
+    @Override
+    public void onBackPressed() {
+        // Create a confirmation dialog
+        new AlertDialog.Builder(this)
+                .setTitle("End Session")
+                .setMessage("Closing will also end the session. Continue?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    // Delete session details from Firebase
+                    String sessionId = getSessionId();
+                    String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+                    if (sessionId != null && !sessionId.isEmpty()) {
+                        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                                .removeValue()
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful()) {
+                                        Log.d("CameraActivity", "Session deleted successfully.");
+                                    } else {
+                                        Log.e("CameraActivity", "Failed to delete session: " + task.getException());
+                                    }
+                                });
+                    }
+
+                    // Call the standard back button behavior to close the activity
+                    disposeResources();
+                    super.onBackPressed();
+                })
+                .setNegativeButton("No", (dialog, which) -> dialog.dismiss())
+                .setCancelable(true)
+                .create()
+                .show();
+    }
+
+    // Dispose resources properly
+    private void disposeResources() {
+        if (videoCapturer != null) {
             try {
                 videoCapturer.stopCapture();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            videoTrack.setEnabled(false); // Disable video track
-            videoButton.setImageResource(R.drawable.ic_baseline_videocam_off_24); // Update button icon
-
-            // Show "Camera Disabled" message
-            cameraDisabledText.setVisibility(View.VISIBLE);
-            cameraView.setVisibility(View.INVISIBLE); // Hide the camera view
-        } else {
-            // Restart video feed
-            try {
-                videoCapturer.startCapture(1280, 720, 30);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            videoTrack.setEnabled(true); // Enable video track
-            videoButton.setImageResource(R.drawable.ic_baseline_videocam_24); // Update button icon
-
-            // Hide "Camera Disabled" message
-            cameraDisabledText.setVisibility(View.GONE);
-            cameraView.setVisibility(View.VISIBLE); // Show the camera view
+            videoCapturer.dispose();
         }
-
-        isCameraOn = !isCameraOn; // Toggle state
+        if (peerConnectionFactory != null) {
+            peerConnectionFactory.dispose();
+        }
+        if (rootEglBase != null) {
+            rootEglBase.release();
+        }
+        Log.d("CameraActivity", "Resources disposed successfully.");
     }
 
-
-
-    private void initializePeerConnectionFactory() {
-        PeerConnectionFactory.InitializationOptions options =
-                PeerConnectionFactory.InitializationOptions.builder(this)
-                        .createInitializationOptions();
-        PeerConnectionFactory.initialize(options);
-        peerConnectionFactory = PeerConnectionFactory.builder().createPeerConnectionFactory();
-
-        rootEglBase = EglBase.create();
-        cameraView.init(rootEglBase.getEglBaseContext(), null);
-        cameraView.setMirror(true); // Enable mirroring for front camera
-    }
-
-    private void checkCameraPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_camera);
+        
+        // Initialize non-camera components first
+        mAuth = FirebaseAuth.getInstance();
+        mDatabase = FirebaseDatabase.getInstance().getReference();
+        
+        // Get session ID from intent
+        String sessionId = getIntent().getStringExtra("session_id");
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+        
+        // Set up UI elements
+        cameraView = findViewById(R.id.camera_view);
+        // ... other UI initialization ...
+        
+        // Check for required permissions BEFORE starting camera
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            
+            // Request permissions and return - the rest will happen in onRequestPermissionsResult
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA},
-                    100);
-        } else {
-            initializeCamera();
+                    new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, 
+                    CAMERA_PERMISSION_REQUEST_CODE);
+            return; // ← Important! Don't continue execution
         }
+        
+        // Only initialize camera if we already have permissions
+        initializeCamera();
+        initializeWebRTC(sessionId, userEmail);
+    }
+
+    // Add constant for request code
+    private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;
+
+    // Add this method to initialize camera-related components
+    private void initializeCamera() {
+        // Create webRTCClient
+        rtcJoiner = new com.summersoft.heliocam.webrtc_utils.RTCJoiner(this, cameraView, mDatabase);
+        
+        // Initialize detection components
+        personDetection = new PersonDetection(this, rtcJoiner);
+        personDetection.start();
+        rtcJoiner.setPersonDetection(personDetection);
+        
+        // Initialize sound detection
+        soundDetection = new SoundDetection(this, rtcJoiner);
+        soundDetection.setSoundThreshold(3000);
+        soundDetection.setDetectionLatency(3000);
+        soundDetection.startDetection();
+        
+        // Start camera (rtcJoiner will handle this)
+        rtcJoiner.startCamera(true); // Start with front camera
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 100) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        
+        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            // Check if permission was granted
+            if (grantResults.length > 0 && 
+                grantResults[0] == PackageManager.PERMISSION_GRANTED && 
+                grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+                
+                // Permission granted, initialize camera
+                String sessionId = getIntent().getStringExtra("session_id");
+                String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+                
                 initializeCamera();
+                initializeWebRTC(sessionId, userEmail);
+                
+                Toast.makeText(this, "Permissions granted. You can now use the camera and audio.", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "Camera permission is required to use this feature.", Toast.LENGTH_SHORT).show();
+                // Permission denied
+                Toast.makeText(this, "Camera and microphone permissions are required", Toast.LENGTH_LONG).show();
+                finish(); // Close the activity as it can't function without camera
+            }
+        }
+        
+        // Handle storage permissions result (request code 1)
+        if (requestCode == 1) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // You can now save the video file
+                Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Storage permission is required to save video files.", Toast.LENGTH_SHORT).show();
             }
         }
     }
 
-    private void initializeCamera() {
-        Camera2Enumerator cameraEnumerator = new Camera2Enumerator(this);
+    public void captureCameraView(OnBitmapCapturedListener listener) {
+        View cameraView = findViewById(R.id.camera_view); // Replace with your camera preview ID
+        if (cameraView != null) {
+            Bitmap bitmap = Bitmap.createBitmap(cameraView.getWidth(), cameraView.getHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            cameraView.draw(canvas);
+            listener.onBitmapCaptured(bitmap);
+        } else {
+            listener.onBitmapCaptured(null);
+        }
+    }
 
-        videoCapturer = createCameraCapturer(cameraEnumerator, isUsingFrontCamera);
-        if (videoCapturer == null) {
-            Toast.makeText(this, "Camera initialization failed.", Toast.LENGTH_LONG).show();
+    public interface OnBitmapCapturedListener {
+        void onBitmapCaptured(Bitmap bitmap);
+    }
+
+
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+        super.onCreateContextMenu(menu, v, menuInfo);
+
+        // Check if the clicked view is the settings button
+        if (v.getId() == R.id.settings_button) {
+
+            Log.w(TAG, "Im opened");
+
+            MenuInflater inflater = getMenuInflater();
+            inflater.inflate(R.menu.host_settings, menu);  // Inflate the context menu layout (camera_audio.xml)
+        }
+
+
+    }
+
+    @Override
+    public boolean onContextItemSelected(@NonNull MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.option_1: // Sound Detection Threshold
+                showThresholdDialog();
+                return true;
+            case R.id.option_2: // Sound Detection Notification Latency
+                showLatencyDialog();
+                return true;
+            case R.id.option_3: // Start/Stop Recording
+                showRecordDialog();
+                return true;
+            case R.id.option_5: // Person Detection Latency
+                showPersonLatencyDialog();
+                return true;
+            default:
+                return super.onContextItemSelected(item);
+        }
+    }
+
+
+    private void showRecordDialog() {
+        // Create a simple dialog informing users that recording functionality is disabled
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Recording Functionality")
+                .setMessage("Recording functionality is currently disabled in this version.")
+                .setPositiveButton("OK", (dialogInterface, i) -> dialogInterface.dismiss())
+                .setCancelable(true)
+                .create();
+
+        dialog.show();
+    }
+
+
+    private void updateSpaceLeft(TextView tvSpaceLeft, String path) {
+        try {
+            File storagePath = new File(path);
+            StatFs stat = new StatFs(storagePath.getPath());
+            long bytesAvailable = stat.getBlockSizeLong() * stat.getAvailableBlocksLong();
+            long megabytesAvailable = bytesAvailable / (1024 * 1024);
+            tvSpaceLeft.setText("Space Left: " + megabytesAvailable + " MB");
+        } catch (Exception e) {
+            tvSpaceLeft.setText("Space Left: Error calculating");
+            Log.e(TAG, "Error calculating space left: " + e.getMessage());
+        }
+    }
+
+
+    private void showThresholdDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Adjust Sound Threshold");
+
+        // Inflate custom layout
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_threshold, null);
+        SeekBar seekBar = view.findViewById(R.id.seekBar);
+        TextView valueText = view.findViewById(R.id.valueText);
+
+        // Initialize SeekBar
+        seekBar.setMax(10000); // Example: max threshold value
+        seekBar.setProgress(soundDetection.getSoundThreshold());
+        valueText.setText(String.valueOf(soundDetection.getSoundThreshold()));
+
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                valueText.setText(String.valueOf(progress));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        });
+
+        builder.setView(view);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            int threshold = seekBar.getProgress();
+            soundDetection.setSoundThreshold(threshold);
+            Toast.makeText(this, "Threshold updated to " + threshold, Toast.LENGTH_SHORT).show();
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        builder.create().show();
+    }
+
+
+    private void showLatencyDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Adjust Detection Latency (in Seconds)");
+
+        // Inflate custom layout
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_latency, null);
+        EditText latencyInput = view.findViewById(R.id.latencyInput);
+
+        // Initialize with current latency
+        latencyInput.setText(String.valueOf(soundDetection.getDetectionLatency()));
+
+        builder.setView(view);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            try {
+                int latency = Integer.parseInt(latencyInput.getText().toString());
+                soundDetection.setDetectionLatency(latency * 1000);
+                Toast.makeText(this, "Latency updated to " + latency, Toast.LENGTH_SHORT).show();
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Invalid input", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        builder.create().show();
+    }
+
+    // Add this new method to your CameraActivity class
+    private void showPersonLatencyDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Adjust Person Detection Latency (in Seconds)");
+
+        // Inflate custom layout
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_person_latency, null);
+        EditText latencyInput = view.findViewById(R.id.personLatencyInput);
+
+        // Initialize with current latency
+        latencyInput.setText(String.valueOf(personDetection.getDetectionLatency() / 1000));
+
+        builder.setView(view);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            try {
+                int latencySeconds = Integer.parseInt(latencyInput.getText().toString());
+                personDetection.setDetectionLatency(latencySeconds * 1000);
+                Toast.makeText(this, "Person detection latency updated to " + latencySeconds + " seconds", Toast.LENGTH_SHORT).show();
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Invalid input", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        builder.create().show();
+    }
+
+
+
+
+
+
+    private void initializeWebRTC(String sessionId, String email) { //a
+        rtcJoiner.startCamera(isUsingFrontCamera); // Start camera first
+        // In RTCJoiner, you'll need to implement the joinSession method
+        rtcJoiner.joinSession(email, sessionId);
+    }
+
+    private void toggleMic() {
+        // Toggle the microphone state
+        isMicOn = !isMicOn;
+
+        // Update the microphone state in Firebase
+        String sessionId = getSessionId();
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+
+        if (sessionId != null && !sessionId.isEmpty()) {
+            mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                    .child("mic_on").setValue(isMicOn ? 1 : 0);
+        }
+
+        // Update the mic button icon based on the state
+        ImageButton micButton = findViewById(R.id.mic_button);
+        if (isMicOn) {
+            micButton.setImageResource(R.drawable.ic_baseline_mic_24);  // Mic on icon
+            if (rtcJoiner != null) {
+                rtcJoiner.unmuteMic(); // Unmute the audio
+            }
+        } else {
+            micButton.setImageResource(R.drawable.ic_baseline_mic_off_24);  // Mic off icon
+            if (rtcJoiner != null) {
+                rtcJoiner.muteMic(); // Mute the audio
+            }
+        }
+    }
+
+
+
+    private void fetchSessionName() {
+        String sessionName = getIntent().getStringExtra("session_name");
+        String sessionId = getIntent().getStringExtra("session_id");
+
+        if (sessionId == null || sessionId.isEmpty()) {
+            Log.w("CameraActivity", "Session ID is missing.");
             return;
         }
 
-        VideoSource videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
-        videoCapturer.initialize(SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext()),
-                getApplicationContext(), videoSource.getCapturerObserver());
-        videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", videoSource);
+        Log.d("CameraActivity", "Camera is on session: " + sessionId);
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
 
-        cameraView.post(() -> {
-            videoTrack.addSink(cameraView);
-            try {
-                videoCapturer.startCapture(1280, 720, 30);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult().exists()) {
+                        DataSnapshot sessionSnapshot = task.getResult();
+                        String fetchedSessionName = sessionSnapshot.child("session_name").getValue(String.class);
+                        Log.d("CameraActivity", "Fetched session name: " + fetchedSessionName);
+                    } else {
+                        Log.w("CameraActivity", "Session not found for session ID: " + sessionId);
+                    }
+                });
     }
+
+
+
+
+
 
     private CameraVideoCapturer createCameraCapturer(Camera2Enumerator cameraEnumerator, boolean useFrontCamera) {
         for (String deviceName : cameraEnumerator.getDeviceNames()) {
@@ -171,36 +546,11 @@ public class CameraActivity extends AppCompatActivity {
         return null;
     }
 
-    private void switchCamera() {
-        if (videoCapturer != null) {
-            try {
-                videoCapturer.stopCapture();
-                videoCapturer.dispose();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
 
-            // Switch the camera
-            isUsingFrontCamera = !isUsingFrontCamera;
-            initializeCamera();
-        }
-    }
 
-    @Override
-    protected void onStop() {
-        super.onStop();
-        if (videoCapturer != null) {
-            try {
-                videoCapturer.stopCapture();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            videoCapturer.dispose();
-        }
-        peerConnectionFactory.dispose();
-        rootEglBase.release();
+
+
+    public String getSessionId() {
+        return getIntent().getStringExtra("session_id");
     }
 }
-
-
-

@@ -1,17 +1,21 @@
 package com.summersoft.heliocam.utils;
 
 public class UserModel {
-    private String fullname, username, contact, email;
+    private String fullname;
+    private String username;
+    private String contact;
+    private String email;
+    private String settingsKey;
 
-    // Constructor with only 4 parameters
-    public UserModel(String fullname, String username, String contact, String email) {
+    public UserModel(String fullname, String username, String contact, String email, String settingsKey) {
         this.fullname = fullname;
         this.username = username;
         this.contact = contact;
         this.email = email;
+        this.settingsKey = settingsKey;
     }
 
-    // Getters and setters (if needed for Firebase Realtime Database)
+    // Getters and setters for each field
     public String getFullname() {
         return fullname;
     }
@@ -42,5 +46,13 @@ public class UserModel {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getSettingsKey() {
+        return settingsKey;
+    }
+
+    public void setSettingsKey(String settingsKey) {
+        this.settingsKey = settingsKey;
     }
 }

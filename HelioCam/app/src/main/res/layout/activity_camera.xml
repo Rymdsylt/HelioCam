@@ -6,43 +6,27 @@
     android:keepScreenOn="true"
     android:background="#808080">
 
+
     <!-- Camera View Layout -->
     <RelativeLayout
         android:id="@+id/surveillanceLayout"
         android:layout_width="match_parent"
-<<<<<<< HEAD
-        android:layout_height="match_parent"
-        android:layout_below="@+id/incomingCallLayout"
-        android:id="@+id/whoToCallLayout">
-        <EditText
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:hint="who to call ?"
-            android:layout_margin="30dp"
-            android:id="@+id/targetUserNameEt"/>
-        <androidx.appcompat.widget.AppCompatButton
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:background="@drawable/rounded_button"
-            android:contentDescription="Call"
-            android:layout_below="@id/targetUserNameEt"
-            android:layout_marginHorizontal="30dp"
-            android:text="call"
-            android:id="@+id/callBtn"/>
-    </RelativeLayout>
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:id="@+id/callLayout"
-        android:visibility="gone"
-        tools:visibility="visible"
-=======
->>>>>>> new-branch
         android:layout_height="match_parent">
 
         <org.webrtc.SurfaceViewRenderer
             android:id="@+id/camera_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
+
+        <TextView
+            android:id="@+id/cameraStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Camera Off"
+            android:textSize="18sp"
+            android:textColor="#FFFFFF"
+            android:visibility="gone"
+            android:layout_centerInParent="true"/>
 
         <!-- Camera Disabled Text -->
         <TextView
@@ -73,24 +57,22 @@
             android:background="@drawable/curve_background"
             android:backgroundTint="@android:color/holo_orange_dark"
             android:gravity="center"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:padding="10dp"
+            >
 
             <!-- Mic Button -->
-            <ImageView
+            <ImageButton
                 android:id="@+id/mic_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="16dp"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="10dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
                 android:contentDescription="Microphone"
                 android:focusable="true"
                 android:padding="12dp"
-<<<<<<< HEAD
-                android:contentDescription="Mic"
-                android:background="@drawable/circle_background"
-=======
->>>>>>> new-branch
                 app:backgroundTint="@color/cardview_dark_background"
                 app:srcCompat="@drawable/ic_baseline_mic_24" />
 
@@ -99,67 +81,62 @@
                 android:id="@+id/end_surveillance_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="16dp"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="10dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
                 android:contentDescription="Stop Surveillance"
                 android:focusable="true"
                 android:padding="12dp"
                 app:backgroundTint="@android:color/holo_red_dark"
-                app:srcCompat="@drawable/ic_baseline_call_end_24" />
+                app:srcCompat="@drawable/baseline_stop_white_24" />
 
             <!-- Video Button -->
             <ImageButton
                 android:id="@+id/video_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="16dp"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="10dp"
                 android:background="@drawable/circle_background"
                 android:clickable="true"
                 android:contentDescription="Toggle Video"
                 android:focusable="true"
                 android:padding="12dp"
-<<<<<<< HEAD
-                android:contentDescription="Video"
-                android:background="@drawable/circle_background"
-                app:backgroundTint="@color/cardview_dark_background"
-                app:srcCompat="@drawable/ic_baseline_videocam_off_24" />
-            <ImageView
-                android:id="@+id/end_call_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_margin="16dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="12dp"
-                android:background="@drawable/circle_background"
-                app:backgroundTint="@android:color/holo_red_dark"
-                app:srcCompat="@drawable/ic_baseline_call_end_24"
-                android:contentDescription="End Call"/>
-            <ImageView
-=======
                 app:backgroundTint="@color/cardview_dark_background"
                 app:srcCompat="@drawable/ic_baseline_videocam_24" />
 
             <!-- Switch Camera Button -->
             <ImageButton
->>>>>>> new-branch
                 android:id="@+id/switch_camera_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_margin="16dp"
-                android:background="@drawable/circle_background"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="10dp"
+                android:background="@drawable/baseline_cameraswitch_24"
                 android:clickable="true"
-                android:contentDescription="Switch Camera"
+                android:contentDescription="SwitchCamera"
+                android:focusable="true"
+                android:padding="1dp"
+                app:backgroundTint="@color/cardview_dark_background"
+                />
+
+            <ImageButton
+                android:id="@+id/settings_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="10dp"
+                android:background="@drawable/baseline_settings_24"
+                android:clickable="true"
+                android:contentDescription="Setting"
                 android:focusable="true"
                 android:padding="12dp"
-<<<<<<< HEAD
-                android:contentDescription="Add Camera"
-                android:background="@drawable/circle_background"
-=======
->>>>>>> new-branch
-                app:backgroundTint="@color/cardview_dark_background"
-                tools:src="@drawable/baseline_settings_24" />
+                app:backgroundTint="@color/cardview_dark_background" />
+
+
         </LinearLayout>
+
+
     </RelativeLayout>
 </RelativeLayout>

@@ -5,8 +5,7 @@
     android:layout_height="wrap_content"
     android:layout_marginTop="8dp"
     android:backgroundTint="#FFA500"
-    app:cardCornerRadius="12dp"
-    >
+    app:cardCornerRadius="12dp">
 
     <LinearLayout
         android:id="@+id/device_info"
@@ -21,8 +20,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Device Name"
-            android:textColor="#000000"
-            android:textSize="20sp"
+            android:textColor="@color/white"
+            android:textSize="24sp"
             android:textStyle="bold" />
 
         <!-- Device Location -->
@@ -32,7 +31,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="Location"
-            android:textColor="#000000"
+            android:textColor="@color/white"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -54,7 +53,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="Last Active: Active"
-            android:textColor="#000000"
+            android:textColor="@color/white"
             android:textSize="15sp" />
     </LinearLayout>
 

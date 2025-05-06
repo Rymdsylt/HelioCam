@@ -1,3 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">HelioCam</string>
+    <string name="participants_count">Participants: %d</string>
+    <string name="back_button_description">Go back to previous screen</string>
 </resources>

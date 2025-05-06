@@ -1,0 +1,67 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tv_selected_path"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Selected Path: /default/path"
+        android:textSize="16sp"
+        android:paddingBottom="8dp" />
+
+    <Button
+        android:id="@+id/btn_select_path"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Select Path" />
+
+    <TextView
+        android:id="@+id/tv_space_left"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp"
+        android:paddingBottom="16dp"
+        android:text="Space Left: Calculating..."
+        android:textSize="14sp" />
+
+    <Button
+        android:id="@+id/btn_record_now"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Record Now"
+        android:backgroundTint="?attr/colorPrimary"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/btn_record_stop"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="?attr/colorPrimary"
+        android:text="Stop Record"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/btn_record_buffer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="?attr/colorPrimary"
+        android:text="Start Replay Buffer"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/btn_record_bufferStop"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="?attr/colorPrimary"
+        android:text="Stop Replay Buffer"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+</LinearLayout>

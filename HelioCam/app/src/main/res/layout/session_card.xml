@@ -1,120 +1,145 @@
-<com.google.android.material.card.MaterialCardView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginVertical="8dp"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="4dp"
-    app:strokeWidth="0dp"
-    app:cardBackgroundColor="@android:color/white">
+    android:layout_marginBottom="16dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:background="@drawable/orange_gradient_background">
 
-        <!-- Session Header with Gradient -->
-        <FrameLayout
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
 
+            <!-- Header section with title and delete button -->
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <!-- Session title with icon -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <!-- Icon container -->
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/circle_white_semi_transparent"
+                        android:padding="8dp">
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_camera"
+                            app:tint="#FFFFFF" />
+                    </FrameLayout>
+
+                    <!-- Session name -->
+                    <TextView
+                        android:id="@+id/session_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:text="Session Name"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Delete button -->
+                <ImageButton
+                    android:id="@+id/delete_button"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:background="@drawable/circle_white_semi_transparent"
+                    android:src="@drawable/ic_trash"
+                    android:contentDescription="Delete session"
+                    app:tint="#FFFFFF" />
+            </RelativeLayout>
+
+            <!-- Divider -->
             <View
                 android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:background="@drawable/session_header_gradient" />
+                android:layout_height="1dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp"
+                android:background="#33FFFFFF" />
 
+            <!-- Session details section -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:orientation="vertical">
 
+                <!-- Session creation date -->
+                <TextView
+                    android:id="@+id/session_creation_date"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:drawableStart="@drawable/ic_calendar"
+                    android:drawablePadding="8dp"
+                    android:text="Created: May 7, 2025"
+                    android:textColor="#EEFFFFFF"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="6dp" />
+
+                <!-- Session passkey -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="6dp">
+                    
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:drawableStart="@drawable/baseline_key_24"
+                        android:drawablePadding="8dp"
+                        android:text="Access Key: "
+                        android:textColor="#EEFFFFFF"
+                        android:textSize="14sp" />
+                        
+                    <TextView
+                        android:id="@+id/session_passkey"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/rounded_white_tag"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:text="ABC123"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="monospace"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <!-- Session number -->
                 <TextView
                     android:id="@+id/session_number"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
                     android:text="Session 1"
-                    android:textColor="@color/white"
-                    android:textSize="16sp"
-                    android:fontFamily="sans-serif-medium" />
-
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_camera"
-                    android:contentDescription="Camera icon"
-                    app:tint="@android:color/white" />
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="12sp" />
             </LinearLayout>
-        </FrameLayout>
-
-        <!-- Session Details with Material Design 3 Elements -->
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true">
-
-            <TextView
-                android:id="@+id/session_name"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:text="Kids Room"
-                android:textColor="@android:color/black"
-                android:textSize="18sp"
-                android:fontFamily="sans-serif-medium"
-                android:layout_marginEnd="16dp"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/iconSettings"
-                app:layout_constraintBottom_toBottomOf="parent" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/iconSettings"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                app:icon="@drawable/baseline_settings_24"
-                app:iconTint="#757575"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
-                app:strokeWidth="0dp"
-                android:insetLeft="0dp"
-                android:insetTop="0dp"
-                android:insetRight="0dp"
-                android:insetBottom="0dp"
-                android:padding="8dp"
-                app:cornerRadius="20dp"
-                android:contentDescription="Settings"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/delete_button"
-                android:layout_marginEnd="8dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/delete_button"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                app:icon="@drawable/ic_delete"
-                app:iconTint="#F44336"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
-                app:strokeWidth="0dp"
-                android:insetLeft="0dp"
-                android:insetTop="0dp"
-                android:insetRight="0dp"
-                android:insetBottom="0dp"
-                android:padding="8dp"
-                app:cornerRadius="20dp"
-                android:contentDescription="Delete"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
-        </androidx.constraintlayout.widget.ConstraintLayout>
+        </LinearLayout>
     </LinearLayout>
-</com.google.android.material.card.MaterialCardView>
+</androidx.cardview.widget.CardView>

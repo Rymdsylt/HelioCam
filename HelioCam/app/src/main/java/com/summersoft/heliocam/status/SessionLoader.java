@@ -22,9 +22,13 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.ui.HomeActivity;
+import com.summersoft.heliocam.ui.HostSession;
 import com.summersoft.heliocam.ui.SessionPreviewActivity;
 import com.summersoft.heliocam.ui.WatchSessionActivity;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 
 public class SessionLoader {
@@ -48,14 +52,21 @@ public class SessionLoader {
         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
+                if (sessionCardContainer == null) {
+                    Log.e("SessionLoader", "Session container is null");
+                    return;
+                }
+                
                 sessionCardContainer.removeAllViews();
                 Boolean sessionsFound = false;
+                int sessionCount = 1;
 
+                // First, check for sessions in login info (original approach)
                 for (DataSnapshot loginInfoSnapshot : dataSnapshot.getChildren()) {
-                    if (loginInfoSnapshot.hasChild("deviceName") && loginInfoSnapshot.child("deviceName").getValue().equals(deviceIdentifier)) {
+                    if (loginInfoSnapshot.hasChild("deviceName") && 
+                            loginInfoSnapshot.child("deviceName").getValue().equals(deviceIdentifier)) {
                         DataSnapshot sessionsAddedSnapshot = loginInfoSnapshot.child("sessions_added");
-                        int sessionCount = 1;
-
+                        
                         for (DataSnapshot sessionSnapshot : sessionsAddedSnapshot.getChildren()) {
                             String sessionKey = sessionSnapshot.getKey();
                             String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
@@ -66,14 +77,25 @@ public class SessionLoader {
                                 sessionsFound = true;
                             }
                         }
-
-                        String loginInfoKey = loginInfoSnapshot.getKey();
-
-                        if (!sessionsFound) {
-                            View noSessionsView = LayoutInflater.from(homeActivity).inflate(R.layout.no_sessions_placeholder, sessionCardContainer, false);
-                            sessionCardContainer.addView(noSessionsView);
-                        }
                     }
+                }
+                
+                // ADDED: Also check for sessions directly under the user's "sessions" node
+                DataSnapshot directSessionsSnapshot = dataSnapshot.child("sessions");
+                for (DataSnapshot sessionSnapshot : directSessionsSnapshot.getChildren()) {
+                    String sessionKey = sessionSnapshot.getKey();
+                    String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
+                    
+                    if (sessionName != null) {
+                        createSessionCard(sessionKey, sessionName, sessionCount);
+                        sessionCount++;
+                        sessionsFound = true;
+                    }
+                }
+
+                if (!sessionsFound) {
+                    View noSessionsView = LayoutInflater.from(homeActivity).inflate(R.layout.no_sessions_placeholder, sessionCardContainer, false);
+                    sessionCardContainer.addView(noSessionsView);
                 }
             }
 
@@ -89,17 +111,55 @@ public class SessionLoader {
         View sessionCardView = LayoutInflater.from(homeActivity).inflate(R.layout.session_card, sessionCardContainer, false);
         TextView sessionNameView = sessionCardView.findViewById(R.id.session_name);
         TextView sessionNumberView = sessionCardView.findViewById(R.id.session_number);
+        TextView sessionPasskeyView = sessionCardView.findViewById(R.id.session_passkey);
+        TextView sessionCreationDateView = sessionCardView.findViewById(R.id.session_creation_date);
 
         sessionNameView.setText(sessionName);
         sessionNumberView.setText("Session " + sessionCount);
 
-        // THIS IS THE KEY CHANGE: Make the session card open SessionPreviewActivity instead of WatchSessionActivity
-        View clickableArea = (View) sessionCardView.findViewById(R.id.session_name).getParent();
-        clickableArea.setOnClickListener(v -> {
-            // Open SessionPreviewActivity instead of WatchSessionActivity
-            Intent intent = new Intent(homeActivity, SessionPreviewActivity.class);
+        // Get additional session details
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+        DatabaseReference sessionRef = FirebaseDatabase.getInstance().getReference("users")
+                .child(userEmail).child("sessions").child(sessionKey);
+        
+        sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    // Get passkey and creation date
+                    String passkey = dataSnapshot.child("passkey").getValue(String.class);
+                    Long createdAt = dataSnapshot.child("created_at").getValue(Long.class);
+                    
+                    if (passkey != null) {
+                        sessionPasskeyView.setText(passkey);
+                    } else {
+                        sessionPasskeyView.setText("N/A");
+                    }
+                    
+                    if (createdAt != null) {
+                        SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
+                        sessionCreationDateView.setText("Created: " + sdf.format(new Date(createdAt)));
+                    } else {
+                        sessionCreationDateView.setText("Created: Unknown");
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                Log.e("SessionLoader", "Error loading session details: " + databaseError.getMessage());
+            }
+        });
+
+        // Make the card open HostSession with prefilled data
+        sessionCardView.setOnClickListener(v -> {
+            // Add an intent to open the HostSession activity with pre-filled data
+            Intent intent = new Intent(homeActivity, HostSession.class);
             intent.putExtra("SESSION_KEY", sessionKey);
             intent.putExtra("SESSION_NAME", sessionName);
+            intent.putExtra("RECREATE", true);
+            
+            // You can add more session data to pass as needed
             homeActivity.startActivity(intent);
         });
 
@@ -107,19 +167,26 @@ public class SessionLoader {
         View deleteButton = sessionCardView.findViewById(R.id.delete_button);
         if (deleteButton != null) {
             deleteButton.setOnClickListener(v -> {
-                String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+                // Renamed variable to avoid conflict with outer scope
+                String currentUserEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
                 String deviceIdentifier = Build.MANUFACTURER + " " + Build.DEVICE;
-                DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(userEmail);
+                DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(currentUserEmail);
 
                 userRef.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot loginInfoSnapshot : dataSnapshot.getChildren()) {
-                            if (loginInfoSnapshot.hasChild("deviceName") &&
-                                    loginInfoSnapshot.child("deviceName").getValue().equals(deviceIdentifier)) {
-                                String loginInfoKey = loginInfoSnapshot.getKey();
-                                deleteSession(userRef, loginInfoKey, sessionKey, sessionCardView);
-                                break;
+                        if (dataSnapshot.child("sessions").hasChild(sessionKey)) {
+                            // Delete from sessions node
+                            deleteSession(userRef, "sessions", sessionKey, sessionCardView);
+                        } else {
+                            // Try to find in login info (original approach)
+                            for (DataSnapshot loginInfoSnapshot : dataSnapshot.getChildren()) {
+                                if (loginInfoSnapshot.hasChild("deviceName") &&
+                                        loginInfoSnapshot.child("deviceName").getValue().equals(deviceIdentifier)) {
+                                    String loginInfoKey = loginInfoSnapshot.getKey();
+                                    deleteSession(userRef, loginInfoKey + "/sessions_added", sessionKey, sessionCardView);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -132,23 +199,15 @@ public class SessionLoader {
             });
         }
 
-        // Setup settings button
-        View settingsButton = sessionCardView.findViewById(R.id.iconSettings);
-        if (settingsButton != null) {
-            settingsButton.setOnClickListener(v -> {
-                Toast.makeText(homeActivity, "Settings not implemented yet", Toast.LENGTH_SHORT).show();
-            });
-        }
-
         sessionCardContainer.addView(sessionCardView);
     }
 
-    private void deleteSession(DatabaseReference userRef, String loginInfoKey, String sessionKey, View sessionCard) {
+    private void deleteSession(DatabaseReference userRef, String path, String sessionKey, View sessionCard) {
         new AlertDialog.Builder(sessionCardContainer.getContext())
                 .setTitle("Confirm Delete")
                 .setMessage("Are you sure you want to delete this session?")
                 .setPositiveButton("Yes", (dialog, which) -> {
-                    DatabaseReference sessionRef = userRef.child(loginInfoKey).child("sessions_added").child(sessionKey);
+                    DatabaseReference sessionRef = userRef.child(path).child(sessionKey);
 
                     sessionRef.removeValue().addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {

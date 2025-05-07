@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:background="#FFFFFF"
     android:fillViewport="true"
-    tools:context=".ui.NotificationSettings">
+    tools:context=".ui.PostLoginPreferencesActivity">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -33,7 +33,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:layout_marginHorizontal="24dp"
-            android:text="Notification Settings"
+            android:text="Customize Your Experience"
             android:textAlignment="center"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Headline4"
             android:textColor="#FF9B44"
@@ -49,7 +49,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:layout_marginHorizontal="32dp"
-            android:text="Manage all notification preferences"
+            android:text="Enable detection and notification settings"
             android:textAlignment="center"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
             android:textColor="#D17D2F"
@@ -129,52 +129,6 @@
                     android:background="#F0F0F0"
                     android:layout_marginBottom="20dp"/>
 
-                <!-- Email Notifications -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginStart="8dp"
-                        android:src="@drawable/ic_email"
-                        app:tint="#FF9B44" />
-                        
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="16dp">
-                        
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Email Notifications"
-                            android:textSize="16sp"
-                            android:textColor="@android:color/black" />
-                            
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Get notifications via email"
-                            android:textSize="14sp"
-                            android:textColor="#757575" />
-                    </LinearLayout>
-                    
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/email_notification_switch"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true"
-                        app:thumbTint="@color/track_color"
-                        app:trackTint="@color/thumb_color" />
-                </LinearLayout>
-                
                 <!-- Sound Detection -->
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -207,13 +161,13 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Enable sound alerts"
+                            android:text="Get notified when sounds are detected"
                             android:textSize="14sp"
                             android:textColor="#757575" />
                     </LinearLayout>
                     
                     <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/sound_detection_switch"
+                        android:id="@+id/sound_notification_switch"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:checked="true"
@@ -225,7 +179,6 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
                     
@@ -253,58 +206,13 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Get alerts when people are detected"
+                            android:text="Get alerted when people are detected"
                             android:textSize="14sp"
                             android:textColor="#757575" />
                     </LinearLayout>
                     
                     <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/person_detection_switch"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true"
-                        app:thumbTint="@color/track_color"
-                        app:trackTint="@color/thumb_color" />
-                </LinearLayout>
-                
-                <!-- In-app Notifications -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginStart="8dp"
-                        android:src="@drawable/ic_notifications"
-                        app:tint="#FF9B44" />
-                        
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="16dp">
-                        
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="In-app Notifications"
-                            android:textSize="16sp"
-                            android:textColor="@android:color/black" />
-                            
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Show notifications while using the app"
-                            android:textSize="14sp"
-                            android:textColor="#757575" />
-                    </LinearLayout>
-                    
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/in_app_notification_switch"
+                        android:id="@+id/person_notification_switch"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:checked="true"
@@ -314,23 +222,43 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Save Button -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/saveButton"
-            style="@style/Widget.MaterialComponents.Button"
+        <!-- Button Container -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:layout_marginHorizontal="16dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
             android:layout_marginTop="24dp"
-            android:backgroundTint="#FF9B44"
-            android:text="Save Changes"
-            android:textSize="16sp"
-            android:textColor="#FFFFFF"
-            app:cornerRadius="18dp"
-            app:rippleColor="#FFB472"
-            app:layout_constraintTop_toBottomOf="@id/notificationsCard"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            app:layout_constraintTop_toBottomOf="@id/notificationsCard">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/skipButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="Skip"
+                android:textSize="16sp"
+                android:textColor="#FF9B44"
+                app:strokeColor="#FF9B44"
+                app:rippleColor="#33FF9B44"
+                app:cornerRadius="18dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/saveButton"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:backgroundTint="#FF9B44"
+                android:text="Save"
+                android:textSize="16sp"
+                android:textColor="#FFFFFF"
+                app:cornerRadius="18dp"
+                app:rippleColor="#FFB472" />
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.core.widget.NestedScrollView>

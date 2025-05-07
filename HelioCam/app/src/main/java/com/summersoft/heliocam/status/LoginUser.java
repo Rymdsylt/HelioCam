@@ -15,6 +15,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.ValueEventListener;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.ui.HomeActivity;
+import com.summersoft.heliocam.ui.PostLoginPreferencesActivity;
 
 import android.util.Log; // Import for logging
 import java.util.Map;
@@ -46,8 +47,8 @@ public class LoginUser {
                         if (user != null && user.isEmailVerified()) {
                             Log.d(TAG, "Email verified for user: " + email);
 
-                            // Proceed to home activity if email is verified
-                            Intent intent = new Intent(context, HomeActivity.class);
+                            // Proceed to preferences activity if email is verified
+                            Intent intent = new Intent(context, PostLoginPreferencesActivity.class);
                             context.startActivity(intent);
 
                             // Format the email by replacing "." with "_"

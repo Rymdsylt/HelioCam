@@ -49,6 +49,37 @@ public class HostSession extends AppCompatActivity {
             return insets;
         });
 
+        // Handle recreate intent
+        boolean isRecreating = getIntent().getBooleanExtra("RECREATE", false);
+        if (isRecreating) {
+            String sessionName = getIntent().getStringExtra("SESSION_NAME");
+            String sessionKey = getIntent().getStringExtra("SESSION_KEY");
+            
+            if (sessionName != null) {
+                sessionNameInput.setText(sessionName);
+            }
+            
+            // If we have a session key, fetch the passkey
+            if (sessionKey != null) {
+                String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+                mDatabase.child("users")
+                        .child(userEmail)
+                        .child("sessions")
+                        .child(sessionKey)
+                        .child("passkey")
+                        .get()
+                        .addOnSuccessListener(snapshot -> {
+                            String passkey = snapshot.getValue(String.class);
+                            if (passkey != null) {
+                                passkeyInput.setText(passkey);
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(this, "Failed to load session details", Toast.LENGTH_SHORT).show();
+                        });
+            }
+        }
+
         findViewById(R.id.generateButton).setOnClickListener(view -> generateRandomPasskey());
         findViewById(R.id.cancelButton).setOnClickListener(view -> onBackPressed());
         findViewById(R.id.addButton).setOnClickListener(view -> addSession());

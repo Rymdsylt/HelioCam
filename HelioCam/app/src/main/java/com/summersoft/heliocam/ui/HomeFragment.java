@@ -1,5 +1,6 @@
 package com.summersoft.heliocam.ui;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -47,6 +48,7 @@ public class HomeFragment extends Fragment {
         // Required empty public constructor
     }
 
+    @SuppressLint("MissingInflatedId")
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -56,7 +58,7 @@ public class HomeFragment extends Fragment {
         mAuth = FirebaseAuth.getInstance();
 
         // Initialize UI components
-        sessionCardContainer = rootView.findViewById(R.id.notification_card_container);
+        sessionCardContainer = rootView.findViewById(R.id.sessionCardContainer);
         
         // Initialize tips array and UI components
         initializeTips();

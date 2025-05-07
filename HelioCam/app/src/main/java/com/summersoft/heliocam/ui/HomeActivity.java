@@ -152,4 +152,9 @@ public class HomeActivity extends AppCompatActivity {
             }
         }
     }
+
+    // Add this method to your HomeActivity class
+    public BottomNavigationView getBottomNavigationView() {
+        return findViewById(R.id.bottomNavigation);
+    }
 }

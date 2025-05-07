@@ -11,6 +11,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Button;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
@@ -18,7 +20,9 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.android.material.card.MaterialCardView;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.status.LoginStatus;
 import com.summersoft.heliocam.status.LogoutUser;
@@ -32,6 +36,12 @@ public class HomeFragment extends Fragment {
     private Runnable checkLoginStatusRunnable;
     private Runnable loadSessionsRunnable;
     private LinearLayout sessionCardContainer;
+    
+    // UI Components for the tips feature
+    private TextView tipTextView;
+    private Button nextTipButton;
+    private int currentTipIndex = 0;
+    private String[] helioCamTips;
 
     public HomeFragment() {
         // Required empty public constructor
@@ -47,6 +57,16 @@ public class HomeFragment extends Fragment {
 
         // Initialize UI components
         sessionCardContainer = rootView.findViewById(R.id.notification_card_container);
+        
+        // Initialize tips array and UI components
+        initializeTips();
+        setupTipsCarousel(rootView);
+        
+        // Setup quick action buttons
+        setupQuickActions(rootView);
+        
+        // Setup getting started section
+        setupGettingStarted(rootView);
 
         // Set padding for window insets
         ViewCompat.setOnApplyWindowInsetsListener(rootView.findViewById(R.id.mainpage), (v, insets) -> {
@@ -70,11 +90,14 @@ public class HomeFragment extends Fragment {
             showSessionOptionsDialog();
         });
 
-        // Also add click listener for FAB
+        /* // Also add click listener for FAB
         View fabCreateSession = rootView.findViewById(R.id.fragment_fab_create_session);
         fabCreateSession.setOnClickListener(v -> {
             showSessionOptionsDialog();
-        });
+        }); */
+        
+        // Update welcome text if user is logged in
+        updateWelcomeText(rootView);
 
         // Create a custom SessionLoader that updates the placeholder button
         SessionLoader sessionLoader = new SessionLoader(
@@ -108,6 +131,7 @@ public class HomeFragment extends Fragment {
             public void run() {
                 if (getActivity() != null && isAdded()) {
                     LoginStatus.checkLoginStatus(getActivity());
+                    updateWelcomeText(rootView);
                 }
                 handler.postDelayed(this, 1500); // Repeat every 1.5 seconds
             }
@@ -126,6 +150,116 @@ public class HomeFragment extends Fragment {
         };
 
         return rootView;
+    }
+    
+    /**
+     * Initialize tips for the carousel
+     */
+    private void initializeTips() {
+        helioCamTips = new String[] {
+            "Enable motion detection to receive alerts when movement is detected in your camera view.",
+            "Position your camera in a well-lit area for better image quality and clearer recordings.",
+            "Use a strong, unique passkey for each session to enhance security and control access.",
+            "Check your internet connection speed before starting a session for optimal streaming quality.",
+            "Angle your camera away from windows to avoid glare and backlight issues in your recordings."
+        };
+    }
+    
+    /**
+     * Setup the tips carousel with next tip button functionality
+     */
+    private void setupTipsCarousel(View rootView) {
+        tipTextView = rootView.findViewById(R.id.tip_text);
+        nextTipButton = rootView.findViewById(R.id.next_tip_button);
+        
+        if (tipTextView != null && nextTipButton != null) {
+            // Set initial tip
+            tipTextView.setText(helioCamTips[0]);
+            
+            // Setup next tip button
+            nextTipButton.setOnClickListener(v -> {
+                showNextTip();
+            });
+        }
+    }
+    
+    /**
+     * Show the next tip in the carousel with animation
+     */
+    private void showNextTip() {
+        // Animation for tip transition
+        tipTextView.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .withEndAction(() -> {
+                // Update to next tip
+                currentTipIndex = (currentTipIndex + 1) % helioCamTips.length;
+                
+                // Set the new tip text
+                tipTextView.setText(helioCamTips[currentTipIndex]);
+                
+                // Fade back in
+                tipTextView.animate()
+                    .alpha(1f)
+                    .setDuration(200)
+                    .start();
+            }).start();
+    }
+    
+    /**
+     * Setup quick action buttons
+     */
+    private void setupQuickActions(View rootView) {
+        // Setup Start New Session button
+        MaterialCardView createSessionCard = rootView.findViewById(R.id.btn_quick_create_session);
+        if (createSessionCard != null) {
+            createSessionCard.setOnClickListener(v -> {
+                Intent intent = new Intent(getActivity(), HostSession.class);
+                startActivity(intent);
+            });
+        }
+        
+        // Setup View Sessions button
+        MaterialCardView viewSessionsCard = rootView.findViewById(R.id.btn_quick_view_sessions);
+        if (viewSessionsCard != null) {
+            viewSessionsCard.setOnClickListener(v -> {
+                // Navigate to History fragment
+                if (getActivity() instanceof HomeActivity) {
+                    HomeActivity activity = (HomeActivity) getActivity();
+                    activity.getBottomNavigationView().setSelectedItemId(R.id.bottom_history);
+                }
+            });
+        }
+    }
+    
+    /**
+     * Setup getting started section
+     */
+    private void setupGettingStarted(View rootView) {
+        Button startMonitoringButton = rootView.findViewById(R.id.start_monitoring_button);
+        if (startMonitoringButton != null) {
+            startMonitoringButton.setOnClickListener(v -> {
+                Intent intent = new Intent(getActivity(), HostSession.class);
+                startActivity(intent);
+            });
+        }
+    }
+    
+    /**
+     * Update welcome text with user name if logged in
+     */
+    private void updateWelcomeText(View rootView) {
+        TextView welcomeHeaderText = rootView.findViewById(R.id.welcome_text);
+        TextView welcomeSubtitleText = rootView.findViewById(R.id.welcome_subtitle);
+        
+        if (welcomeHeaderText != null) {
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser != null && currentUser.getDisplayName() != null && !currentUser.getDisplayName().isEmpty()) {
+                welcomeHeaderText.setText("Welcome, " + currentUser.getDisplayName());
+            } else {
+                welcomeHeaderText.setText("Welcome to HelioCam");
+            }
+        }
     }
 
     /**

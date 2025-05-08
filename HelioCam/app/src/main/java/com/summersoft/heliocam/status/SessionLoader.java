@@ -43,6 +43,18 @@ public class SessionLoader {
         this.sessionCardContainer = sessionCardContainer;
     }
 
+    // Add an interface at the top of the class
+    public interface SessionChangeListener {
+        void onSessionsChanged();
+    }
+
+    private SessionChangeListener changeListener;
+
+    // Add a method to set the listener
+    public void setSessionChangeListener(SessionChangeListener listener) {
+        this.changeListener = listener;
+    }
+
     public void loadUserSessions() {
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
         String deviceIdentifier = Build.MANUFACTURER + " " + Build.DEVICE;
@@ -57,10 +69,14 @@ public class SessionLoader {
                     return;
                 }
                 
+                // Clear existing views
                 sessionCardContainer.removeAllViews();
-                Boolean sessionsFound = false;
+                
+                // Flag to track if any sessions were found
+                boolean sessionsFound = false;
                 int sessionCount = 1;
 
+                // Check for sessions in various locations
                 // First, check for sessions in login info (original approach)
                 for (DataSnapshot loginInfoSnapshot : dataSnapshot.getChildren()) {
                     if (loginInfoSnapshot.hasChild("deviceName") && 
@@ -93,12 +109,14 @@ public class SessionLoader {
                     }
                 }
 
-                if (!sessionsFound) {
-                    View noSessionsView = LayoutInflater.from(homeActivity).inflate(R.layout.no_sessions_placeholder, sessionCardContainer, false);
-                    sessionCardContainer.addView(noSessionsView);
-                }
+                // REMOVE this part - let the fragment handle showing the placeholder
+                // if (!sessionsFound) {
+                //     View noSessionsView = LayoutInflater.from(homeActivity)
+                //         .inflate(R.layout.no_sessions_placeholder, sessionCardContainer, false);
+                //     sessionCardContainer.addView(noSessionsView);
+                // }
             }
-
+            
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 // Handle the error
@@ -213,12 +231,15 @@ public class SessionLoader {
                         if (task.isSuccessful()) {
                             Toast.makeText(homeActivity, "Session deleted successfully", Toast.LENGTH_SHORT).show();
                             sessionCardContainer.removeView(sessionCard);
-
-                            // Check if there are no more sessions
-                            if (sessionCardContainer.getChildCount() == 0) {
-                                View noSessionsView = LayoutInflater.from(homeActivity).inflate(R.layout.no_sessions_placeholder, sessionCardContainer, false);
-                                sessionCardContainer.addView(noSessionsView);
+                            if (changeListener != null) {
+                                changeListener.onSessionsChanged();
                             }
+
+                            // REMOVE THIS CODE - let the fragment handle showing the placeholder
+                            // if (sessionCardContainer.getChildCount() == 0) {
+                            //     View noSessionsView = LayoutInflater.from(homeActivity).inflate(R.layout.no_sessions_placeholder, sessionCardContainer, false);
+                            //     sessionCardContainer.addView(noSessionsView);
+                            // }
                         } else {
                             Toast.makeText(homeActivity, "Failed to delete session", Toast.LENGTH_SHORT).show();
                         }

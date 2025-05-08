@@ -4,49 +4,60 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.view.View;
+import android.view.MenuItem;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.summersoft.heliocam.R;
 
-public class UserRoleSelectionActivity extends AppCompatActivity {
+public class RoleChangeActivity extends AppCompatActivity {
 
     private static final String PREFS_NAME = "UserRolePrefs";
     private static final String KEY_USER_ROLE = "user_role";
-    public static final String ROLE_HOST = "host";
-    public static final String ROLE_JOINER = "joiner";
+    private static final String ROLE_HOST = UserRoleSelectionActivity.ROLE_HOST;
+    private static final String ROLE_JOINER = UserRoleSelectionActivity.ROLE_JOINER;
 
     private MaterialCardView hostCard;
     private MaterialCardView joinerCard;
-    private MaterialButton continueButton;
-    private String selectedRole = ROLE_HOST; // Default selection
+    private MaterialButton saveButton;
+    private String selectedRole;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_user_role_selection);
+        setContentView(R.layout.activity_change_role);
+
+        // Set up toolbar with back button
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        }
 
         // Initialize UI components
         hostCard = findViewById(R.id.hostCard);
         joinerCard = findViewById(R.id.joinerCard);
-        continueButton = findViewById(R.id.continueButton);
+        saveButton = findViewById(R.id.saveButton);
+
+        // Get current role
+        selectedRole = UserRoleSelectionActivity.getUserRole(this);
 
         // Set up click listeners for the cards
         hostCard.setOnClickListener(v -> selectRole(ROLE_HOST));
         joinerCard.setOnClickListener(v -> selectRole(ROLE_JOINER));
 
-        // Continue button click listener
-        continueButton.setOnClickListener(v -> {
+        // Save button click listener
+        saveButton.setOnClickListener(v -> {
             saveUserRole();
-            navigateToNextScreen();
+            navigateToRoleScreen(); // New method to navigate based on role
         });
 
-        // Set initial selection
-        selectRole(ROLE_HOST);
+        // Set initial selection based on current role
+        selectRole(selectedRole);
     }
 
     private void selectRole(String role) {
@@ -68,40 +79,37 @@ public class UserRoleSelectionActivity extends AppCompatActivity {
         editor.putString(KEY_USER_ROLE, selectedRole);
         editor.apply();
         
-        Toast.makeText(this, "You selected: " + 
+        Toast.makeText(this, "Role changed to: " + 
                 (ROLE_HOST.equals(selectedRole) ? "HOST" : "JOINER"), 
                 Toast.LENGTH_SHORT).show();
     }
 
-    private void navigateToNextScreen() {
-        // Navigate to the appropriate activity based on selected role
+    /**
+     * Navigate to the appropriate screen based on selected role
+     */
+    private void navigateToRoleScreen() {
         Intent intent;
         
         if (ROLE_HOST.equals(selectedRole)) {
             // User selected HOST role, navigate to HomeActivity
             intent = new Intent(this, HomeActivity.class);
         } else {
-            // User selected JOINER role, navigate to JoinerHomeActivity
+            // User selected JOINER role, navigate to JoinerHomeActivity 
             intent = new Intent(this, JoinerHomeActivity.class);
         }
         
+        // Clear back stack so user can't navigate back to previous role's screens
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
     }
 
-    /**
-     * Utility method to get the user role from anywhere in the app
-     */
-    public static String getUserRole(Context context) {
-        SharedPreferences preferences = 
-                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return preferences.getString(KEY_USER_ROLE, ROLE_HOST);
-    }
-
-    /**
-     * Utility method to check if user is a host
-     */
-    public static boolean isUserHost(Context context) {
-        return ROLE_HOST.equals(getUserRole(context));
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            onBackPressed();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 }

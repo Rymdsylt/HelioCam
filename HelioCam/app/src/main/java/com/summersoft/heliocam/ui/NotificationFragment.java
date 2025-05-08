@@ -37,50 +37,20 @@ public class NotificationFragment extends Fragment {
 
         ViewGroup notificationContainer = view.findViewById(R.id.notifcation_card_container);
         
-        // Add null check before using notificationContainer
-        if (notificationContainer == null) {
-            Log.e(TAG, "Could not find notification container view!");
-            // Create the container if it doesn't exist
-            ScrollView scrollView = view.findViewById(R.id.mainContent);
-            if (scrollView != null) {
-                // Find the proper parent for our container by traversing the view hierarchy
-                ViewGroup parentLayout = (ViewGroup) scrollView.getChildAt(0);
-                if (parentLayout != null) {
-                    // Find the MaterialCardView
-                    for (int i = 0; i < parentLayout.getChildCount(); i++) {
-                        View child = parentLayout.getChildAt(i);
-                        if (child instanceof androidx.cardview.widget.CardView || 
-                            child instanceof com.google.android.material.card.MaterialCardView) {
-                            // Found card view, now get its content layout
-                            ViewGroup cardContent = (ViewGroup) ((ViewGroup) child).getChildAt(0);
-                            if (cardContent != null) {
-                                // Create a new container
-                                LinearLayout newContainer = new LinearLayout(requireContext());
-                                newContainer.setId(R.id.notifcation_card_container);
-                                newContainer.setOrientation(LinearLayout.VERTICAL);
-                                cardContent.addView(newContainer);
-                                
-                                // Update our reference
-                                notificationContainer = newContainer;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+        // Set up refresh button
+        com.google.android.material.button.MaterialButton refreshButton = view.findViewById(R.id.refreshButton);
+        if (refreshButton != null) {
+            refreshButton.setOnClickListener(v -> refreshNotifications());
         }
         
-        // Create a final reference to the container for use in lambda
-        final ViewGroup finalNotificationContainer = notificationContainer;
-        
-        // Add Clear All button functionality with proper null check
-        Button clearAllButton = view.findViewById(R.id.clear_all_button);
+        // Add Clear All button functionality
+        com.google.android.material.button.MaterialButton clearAllButton = view.findViewById(R.id.clear_all_button);
         if (clearAllButton != null) {
             // Set it visible by default
             clearAllButton.setVisibility(View.VISIBLE);
             
             clearAllButton.setOnClickListener(v -> {
-                if (getContext() != null && finalNotificationContainer != null) {
+                if (getContext() != null && notificationContainer != null) {
                     // Clear all notifications from preferences
                     SharedPreferences prefs = getContext().getSharedPreferences(
                             "NotificationPrefs", Context.MODE_PRIVATE);
@@ -107,11 +77,10 @@ public class NotificationFragment extends Fragment {
         }
 
         // Only attempt to populate notifications if container exists
-        if (finalNotificationContainer != null && getContext() != null) {
+        if (notificationContainer != null && getContext() != null) {
             Log.d(TAG, "Starting notification population");
             PopulateNotifs populator = PopulateNotifs.getInstance();
-            populator.debugFirebaseData(getContext());
-            populator.startPopulatingNotifs(getContext(), finalNotificationContainer);
+            populator.startPopulatingNotifs(getContext(), notificationContainer);
         } else {
             Log.e(TAG, "Cannot populate notifications: container or context is null");
         }
@@ -182,11 +151,6 @@ public class NotificationFragment extends Fragment {
     public void onResume() {
         super.onResume();
         activeInstance = this;
-
-        // Force refresh with a small delay to ensure Firebase data is available
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-            refreshNotifications();
-        }, 300);
     }
 
     @Override
@@ -198,16 +162,56 @@ public class NotificationFragment extends Fragment {
     }
 
     // Add this inside your displayNotifications method where you handle card creation
-    private void setUpViewDetailsButton(View innerLayout, ImageButton viewDetailsButton) {
-        viewDetailsButton.setOnClickListener(v -> {
-            // Toggle metadata container visibility
-            View metadataContainer = innerLayout.findViewById(R.id.metadata_container);
-            if (metadataContainer != null) {
-                boolean isVisible = metadataContainer.getVisibility() == View.VISIBLE;
-                metadataContainer.setVisibility(isVisible ? View.GONE : View.VISIBLE);
-                viewDetailsButton.setImageResource(isVisible ?
-                        R.drawable.ic_visibility : R.drawable.ic_visibility_off);
+    public void setUpViewDetailsButton(View innerLayout, View detailsButton) {
+        // Find metadata container
+        View metadataContainer = innerLayout.findViewById(R.id.metadata_container);
+        
+        // Set initial text and icon based on visibility state
+        boolean isVisible = metadataContainer.getVisibility() == View.VISIBLE;
+        
+        // Check which type of button we're dealing with and update accordingly
+        if (detailsButton instanceof com.google.android.material.button.MaterialButton) {
+            updateDetailsButton((com.google.android.material.button.MaterialButton) detailsButton, isVisible);
+        }
+        
+        detailsButton.setOnClickListener(v -> {
+            // Toggle metadata container visibility with animation
+            boolean currentlyVisible = metadataContainer.getVisibility() == View.VISIBLE;
+            
+            if (currentlyVisible) {
+                // Hide with animation
+                metadataContainer.animate()
+                    .alpha(0f)
+                    .setDuration(200)
+                    .withEndAction(() -> {
+                        metadataContainer.setVisibility(View.GONE);
+                        if (detailsButton instanceof com.google.android.material.button.MaterialButton) {
+                            updateDetailsButton((com.google.android.material.button.MaterialButton) detailsButton, false);
+                        }
+                    })
+                    .start();
+            } else {
+                // Show with animation
+                metadataContainer.setAlpha(0f);
+                metadataContainer.setVisibility(View.VISIBLE);
+                metadataContainer.animate()
+                    .alpha(1f)
+                    .setDuration(200)
+                    .start();
+                if (detailsButton instanceof com.google.android.material.button.MaterialButton) {
+                    updateDetailsButton((com.google.android.material.button.MaterialButton) detailsButton, true);
+                }
             }
         });
+    }
+
+    private void updateDetailsButton(com.google.android.material.button.MaterialButton button, boolean expanded) {
+        if (expanded) {
+            button.setText("Hide Details");
+            button.setIconResource(R.drawable.ic_visibility_off);
+        } else {
+            button.setText("Details");
+            button.setIconResource(R.drawable.ic_visibility);
+        }
     }
 }

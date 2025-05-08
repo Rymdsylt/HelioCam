@@ -39,6 +39,7 @@ public class SettingsFragment extends Fragment {
         Button btnNotification = rootView.findViewById(R.id.btnNotification);
         Button btDevicesLogin = rootView.findViewById(R.id.btDevicesLogin);
         Button btnAccountSettings = rootView.findViewById(R.id.btnAccountSetting);
+        Button btnRoleChange = rootView.findViewById(R.id.btnRoleChange); // New button
         Button btnAbout = rootView.findViewById(R.id.btnAbout);
         Button btnLogout = rootView.findViewById(R.id.btnLogout);
 
@@ -60,6 +61,12 @@ public class SettingsFragment extends Fragment {
         // Set OnClickListener for btnAccountSettings
         btnAccountSettings.setOnClickListener(v -> {
             navigateToFragment(new AccountSettingsFragment());
+        });
+        
+        // Set OnClickListener for btnRoleChange
+        btnRoleChange.setOnClickListener(v -> {
+            Intent intent = new Intent(getActivity(), RoleChangeActivity.class);
+            startActivity(intent);
         });
 
         // Set OnClickListener for btnAbout

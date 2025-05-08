@@ -194,6 +194,27 @@
                         android:layout_height="1dp"
                         android:layout_marginStart="56dp"
                         android:background="#E0E0E0" />
+                        
+                    <!-- Role Change Option -->
+                    <Button
+                        android:id="@+id/btnRoleChange"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
+                        android:drawableStart="@drawable/ic_person"
+                        android:drawablePadding="16dp"
+                        android:drawableTint="@color/orange"
+                        android:gravity="center_vertical|start"
+                        android:padding="16dp"
+                        android:text="Change Role"
+                        android:textColor="@color/black"
+                        android:textSize="16sp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="56dp"
+                        android:background="#E0E0E0" />
 
                     <!-- About -->
                     <Button

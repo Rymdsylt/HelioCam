@@ -30,6 +30,11 @@
           <theme>@style/Theme.HelioCam</theme>
         </config>
       </layout>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_change_role.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
       <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_forgot_password.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
@@ -46,6 +51,11 @@
         </config>
       </layout>
       <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_host_session.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_joiner_home.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
         </config>
@@ -170,6 +180,11 @@
           <theme>@style/Theme.HelioCam</theme>
         </config>
       </layout>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_joiner_home.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
       <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_notification.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
@@ -250,6 +265,11 @@
           <theme>@style/Theme.HelioCam</theme>
         </config>
       </layout>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/menu/joiner_bottom_menu.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
     </layouts>
   </component>
   <component name="AutoImportSettings">
@@ -257,19 +277,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/JoinerHomeActivity.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/JoinerHomeFragment.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_joiner_home.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_joiner_home.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/menu/joiner_bottom_menu.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/notifs/PopulateNotifs.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/notifs/PopulateNotifs.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/status/SessionLoader.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/status/SessionLoader.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/HistoryFragment.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/HistoryFragment.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/NotificationFragment.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/NotificationFragment.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/SessionSettingsFragment.java" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/SettingsFragment.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/SettingsFragment.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/empty_notifications.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/empty_notifications.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_history.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_history.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_notification.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_notification.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/UserRoleSelectionActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/UserRoleSelectionActivity.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_settings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/notifications_card.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/notifications_card.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/session_card.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/session_card.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -279,7 +297,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=PhysicalDevice, isTemplate=false, identifier=serial=R5CRB2GF6DZ)]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\david\.android\avd\Pixel_6_Pro.avd)]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$/HelioCam">
       <ProjectState />
@@ -326,10 +344,10 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Class" />
-        <option value="layoutResourceFile" />
         <option value="valueResourceFile" />
         <option value="resourceFile" />
+        <option value="layoutResourceFile" />
+        <option value="Class" />
       </list>
     </option>
   </component>
@@ -385,7 +403,7 @@
     "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
     "last_directory_selection": "E:/Computer Programming/HelioCam/HelioCam/HelioCam/app/src/main/java",
-    "last_opened_file_path": "C:/Users/nisga/OneDrive/Documents/GitHub/HelioCam/HelioCam/app/src/main/res/drawable",
+    "last_opened_file_path": "C:/Users/david/Desktop/ACADS/3rd Year/HelioCam/HelioCam/HelioCam/app/src/main/res/menu",
     "project.structure.last.edited": "Global Libraries",
     "project.structure.proportion": "0.0",
     "project.structure.side.proportion": "0.2",
@@ -399,6 +417,7 @@
       <recent name="com.summersoft.heliocam.ui" />
     </key>
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\david\Desktop\ACADS\3rd Year\HelioCam\HelioCam\HelioCam\app\src\main\res\menu" />
       <recent name="C:\Users\nisga\OneDrive\Documents\GitHub\HelioCam\HelioCam\app\src\main\res\drawable" />
       <recent name="C:\Users\david\Desktop\ACADS\3rd Year\HelioCam\HelioCam\HelioCam\app\src\main\res\drawable" />
       <recent name="D:\Windows 10\Documents\GitHub\HelioCam\HelioCam\HelioCam\app\src\main\res\drawable" />

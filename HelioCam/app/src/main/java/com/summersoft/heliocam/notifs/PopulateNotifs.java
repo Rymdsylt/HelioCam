@@ -1,5 +1,6 @@
 package com.summersoft.heliocam.notifs;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
@@ -22,10 +23,13 @@ import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.ui.NotificationFragment;
 import com.summersoft.heliocam.ui.NotificationSettings;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -44,6 +48,12 @@ public class PopulateNotifs {
     private static PopulateNotifs activeInstance;
 
     public void startPopulatingNotifs(Context context, ViewGroup notificationContainer) {
+        // Null check at the beginning
+        if (context == null || notificationContainer == null) {
+            Log.e(TAG, "Cannot populate notifications with null context or container");
+            return;
+        }
+        
         // Remove padding from container
         notificationContainer.setPadding(0, 0, 0, 0);
 
@@ -56,7 +66,7 @@ public class PopulateNotifs {
         // Clear previous notification data
         notificationMap.clear();
 
-        // Show loading indicator if needed
+        // Show loading indicator
         showLoadingState(context, notificationContainer, true);
 
         fetchSessionKeys(new Callback() {
@@ -70,8 +80,6 @@ public class PopulateNotifs {
                 }
             }
         });
-
-
     }
 
     // Add this static method to get the active instance or create a new one
@@ -91,37 +99,23 @@ public class PopulateNotifs {
     }
 
     private void showEmptyState(Context context, ViewGroup container) {
-        showLoadingState(context, container, false);
-
-        // Create an empty state view using the same approach
-        View emptyView = LayoutInflater.from(context).inflate(R.layout.notifications_card, container, false);
-
-        // Get the inner LinearLayout that has the proper styling
-        LinearLayout innerLayout = (LinearLayout) ((ViewGroup) emptyView).getChildAt(0);
-
-        // Remove it from the CardView parent
-        ((ViewGroup) emptyView).removeView(innerLayout);
-
-        // Set margins for the inner layout
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        params.setMargins(8, 8, 8, 8);
-        innerLayout.setLayoutParams(params);
-
-        TextView titleView = innerLayout.findViewById(R.id.notification_title);
-        TextView dateView = innerLayout.findViewById(R.id.notification_date);
-        TextView timeView = innerLayout.findViewById(R.id.notification_time);
-
-        titleView.setText("No Notifications");
-        dateView.setText("You don't have any notifications yet");
-        timeView.setText("");
-
-        // Hide delete button for empty state
-        innerLayout.findViewById(R.id.delete_button).setVisibility(View.GONE);
-
-        container.addView(innerLayout);
+        // First clear the container
+        container.removeAllViews();
+        
+        // Inflate the empty notifications layout
+        View emptyView = LayoutInflater.from(context).inflate(
+                R.layout.empty_notifications, container, false);
+        
+        // Add it to the container
+        container.addView(emptyView);
+        
+        // Hide the clear all button since there's nothing to clear
+        if (context instanceof Activity) {
+            View clearAllButton = ((Activity) context).findViewById(R.id.clear_all_button);
+            if (clearAllButton != null) {
+                clearAllButton.setVisibility(View.GONE);
+            }
+        }
     }
 
     private void fetchSessionKeys(Callback callback) {
@@ -212,7 +206,7 @@ public class PopulateNotifs {
         // Set pending requests counter: sessions + 1 for universal notifications
         final int[] pendingRequests = {sessionKeys.size() + 1};
 
-        // ALWAYS check universal notifications first (regardless of sessions)
+        // ALWAYS check universal notifications first
         DatabaseReference universalNotificationsRef = FirebaseDatabase.getInstance()
                 .getReference("users")
                 .child(formattedEmail)
@@ -264,10 +258,10 @@ public class PopulateNotifs {
             }
         });
 
-        // THEN also check session-specific notifications if any sessions exist
+        // THEN check session-specific notifications using new path
         if (!sessionKeys.isEmpty()) {
             for (String sessionKey : sessionKeys) {
-                // Your existing code for session notifications
+                // First get session name
                 DatabaseReference sessionRef = FirebaseDatabase.getInstance()
                         .getReference("users")
                         .child(formattedEmail)
@@ -277,37 +271,55 @@ public class PopulateNotifs {
                 sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot sessionSnapshot) {
-                        // Your existing session notification processing code
+                        // Get session name for context
                         String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
-                        if (sessionName != null) {
-                            DataSnapshot notificationsNode = sessionSnapshot.child("notifications");
-                            if (notificationsNode.exists()) {
-                                for (DataSnapshot notificationSnapshot : notificationsNode.getChildren()) {
-                                    // Process session notification (existing code)
-                                    String notificationId = notificationSnapshot.getKey();
-                                    if (notificationId != null && !deletedNotifs.contains(notificationId)) {
-                                        String reason = notificationSnapshot.child("reason").getValue(String.class);
-                                        String time = notificationSnapshot.child("time").getValue(String.class);
-                                        String date = notificationSnapshot.child("date").getValue(String.class);
+                        if (sessionName == null) sessionName = "Unknown Session";
 
-                                        if (reason != null && time != null && date != null) {
-                                            NotificationData notification = new NotificationData(
-                                                    notificationId,
-                                                    reason + " at " + sessionName,
-                                                    date,
-                                                    time
-                                            );
-                                            notificationMap.put(notificationId, notification);
+                        // New: Check both paths for notifications
+                        // 1. First check the old path for backward compatibility
+                        DataSnapshot oldNotifications = sessionSnapshot.child("notifications");
+                        if (oldNotifications.exists()) {
+                            processNotifications(oldNotifications, sessionName, deletedNotifs);
+                        }
+
+                        // 2. Then check the new path matching the web app
+                        DatabaseReference eventsRef = FirebaseDatabase.getInstance()
+                                .getReference("users")
+                                .child(formattedEmail)
+                                .child("sessions")
+                                .child(sessionKey)
+                                .child("detection_events");
+
+                        String finalSessionName = sessionName;
+                        eventsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(DataSnapshot eventsSnapshot) {
+                                if (eventsSnapshot.exists()) {
+                                    for (DataSnapshot eventSnapshot : eventsSnapshot.getChildren()) {
+                                        String eventId = eventSnapshot.getKey();
+                                        if (eventId != null && !deletedNotifs.contains(eventId)) {
+                                            // Replace this comment with the actual call to process the event
+                                            processDetectionEvent(eventId, eventSnapshot, finalSessionName);
                                         }
                                     }
                                 }
-                            }
-                        }
 
-                        pendingRequests[0]--;
-                        if (pendingRequests[0] == 0) {
-                            displayNotifications(context, notificationContainer);
-                        }
+                                // Final countdown for this session
+                                pendingRequests[0]--;
+                                if (pendingRequests[0] == 0) {
+                                    displayNotifications(context, notificationContainer);
+                                }
+                            }
+
+                            @Override
+                            public void onCancelled(DatabaseError databaseError) {
+                                Log.e(TAG, "Error fetching detection events: " + databaseError.getMessage());
+                                pendingRequests[0]--;
+                                if (pendingRequests[0] == 0) {
+                                    displayNotifications(context, notificationContainer);
+                                }
+                            }
+                        });
                     }
 
                     @Override
@@ -363,15 +375,75 @@ public class PopulateNotifs {
             TextView dateView = innerLayout.findViewById(R.id.notification_date);
             TextView timeView = innerLayout.findViewById(R.id.notification_time);
             ImageView deleteButton = innerLayout.findViewById(R.id.delete_button);
+            ImageView notificationIcon = innerLayout.findViewById(R.id.notification_icon);
+            
+            // Set icon based on notification type
+            if (notification.metadata != null && notification.metadata.containsKey("detectionType")) {
+                String type = (String) notification.metadata.get("detectionType");
+                if ("sound".equals(type)) {
+                    notificationIcon.setImageResource(R.drawable.ic_sound); // Use your sound icon
+                } else if ("person".equals(type)) {
+                    notificationIcon.setImageResource(R.drawable.ic_person); // Use your person icon
+                }
+            }
 
-            // Set the data
+            // Set the basic data
             titleView.setText(notification.title);
             dateView.setText("Date: " + notification.date);
             timeView.setText("Time: " + notification.time);
 
+            // Check if we have metadata to display
+            if (notification.metadata != null && !notification.metadata.isEmpty()) {
+                // Show the metadata container
+                View metadataContainer = innerLayout.findViewById(R.id.metadata_container);
+                metadataContainer.setVisibility(View.VISIBLE);
+                
+                // Set session name
+                TextView sessionNameView = innerLayout.findViewById(R.id.metadata_session_name);
+                if (notification.metadata.containsKey("sessionName")) {
+                    sessionNameView.setText(notification.metadata.get("sessionName").toString());
+                }
+                
+                // Set camera number
+                TextView cameraNumberView = innerLayout.findViewById(R.id.metadata_camera_number);
+                if (notification.metadata.containsKey("cameraNumber")) {
+                    cameraNumberView.setText(notification.metadata.get("cameraNumber").toString());
+                }
+                
+                // Set device info
+                TextView deviceInfoView = innerLayout.findViewById(R.id.metadata_device_info);
+                if (notification.metadata.containsKey("deviceInfo")) {
+                    deviceInfoView.setText(notification.metadata.get("deviceInfo").toString());
+                }
+                
+                // Set user email
+                TextView userEmailView = innerLayout.findViewById(R.id.metadata_user_email);
+                View emailContainer = innerLayout.findViewById(R.id.metadata_email_container);
+                if (notification.metadata.containsKey("userEmail")) {
+                    userEmailView.setText(notification.metadata.get("userEmail").toString());
+                    emailContainer.setVisibility(View.VISIBLE);
+                } else {
+                    emailContainer.setVisibility(View.GONE);
+                }
+                
+                // Set detection type
+                TextView detectionTypeView = innerLayout.findViewById(R.id.metadata_detection_type);
+                if (notification.metadata.containsKey("detectionType")) {
+                    String type = notification.metadata.get("detectionType").toString();
+                    detectionTypeView.setText(type.substring(0, 1).toUpperCase() + type.substring(1));
+                    
+                    // Set background color based on type
+                    if ("sound".equals(type)) {
+                        detectionTypeView.setBackgroundResource(R.drawable.rounded_red_background);
+                    } else {
+                        detectionTypeView.setBackgroundResource(R.drawable.rounded_green_background);
+                    }
+                }
+            }
+
             // Set delete button click listener
             deleteButton.setOnClickListener(v -> {
-                // Remove this notification from view
+                // Remove notification code (unchanged)
                 notificationContainer.removeView(innerLayout);
 
                 // Add to deleted notifications list
@@ -543,12 +615,18 @@ public class PopulateNotifs {
         String title;
         String date;
         String time;
+        Map<String, Object> metadata;  // Add metadata field
 
         NotificationData(String id, String title, String date, String time) {
+            this(id, title, date, time, null);
+        }
+        
+        NotificationData(String id, String title, String date, String time, Map<String, Object> metadata) {
             this.id = id;
             this.title = title;
             this.date = date;
             this.time = time;
+            this.metadata = metadata;
         }
     }
 
@@ -600,5 +678,79 @@ public class PopulateNotifs {
         Set<String> deletedNotifs = prefs.getStringSet(DELETED_NOTIFICATIONS_KEY, new HashSet<>());
         Log.d(TAG, "Deleted notifications count: " + deletedNotifs.size());
         Log.d(TAG, "Deleted notifications: " + deletedNotifs.toString());
+    }
+
+    // Add helper method to process old-style notifications
+    private void processNotifications(DataSnapshot notificationsNode, String sessionName, Set<String> deletedNotifs) {
+        for (DataSnapshot notificationSnapshot : notificationsNode.getChildren()) {
+            String notificationId = notificationSnapshot.getKey();
+            if (notificationId != null && !deletedNotifs.contains(notificationId)) {
+                String reason = notificationSnapshot.child("reason").getValue(String.class);
+                String time = notificationSnapshot.child("time").getValue(String.class);
+                String date = notificationSnapshot.child("date").getValue(String.class);
+
+                if (reason != null && time != null && date != null) {
+                    NotificationData notification = new NotificationData(
+                            notificationId,
+                            reason + " at " + sessionName,
+                            date,
+                            time
+                    );
+                    notificationMap.put(notificationId, notification);
+                }
+            }
+        }
+    }
+
+    // Add helper method to process detection events
+    private void processDetectionEvent(String eventId, DataSnapshot eventSnapshot, String sessionName) {
+        try {
+            String type = eventSnapshot.child("type").getValue(String.class);
+            Long timestamp = eventSnapshot.child("timestamp").getValue(Long.class);
+            Integer cameraNumber = eventSnapshot.child("cameraNumber").getValue(Integer.class);
+            String deviceName = eventSnapshot.child("deviceName").getValue(String.class);
+            String email = eventSnapshot.child("email").getValue(String.class);
+
+            if (type == null || timestamp == null) return;
+
+            // Create a formatted date and time string from timestamp
+            Date date = new Date(timestamp);
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+            String dateString = dateFormat.format(date);
+            String timeString = timeFormat.format(date);
+
+            // Create detection-type specific title
+            String title = type.equals("sound") ? "Sound detected" : "Person detected";
+            title += " at " + sessionName;
+
+            // Create metadata map for enhanced display
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("detectionType", type);
+            metadata.put("sessionName", sessionName);
+            if (cameraNumber != null) metadata.put("cameraNumber", cameraNumber);
+            if (deviceName != null) metadata.put("deviceInfo", deviceName);
+            if (email != null) metadata.put("userEmail", email);
+
+            // Create enhanced notification with metadata
+            NotificationData notification = new NotificationData(
+                    eventId,
+                    title,
+                    dateString,
+                    timeString,
+                    metadata
+            );
+            notificationMap.put(eventId, notification);
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing detection event", e);
+        }
+    }
+
+    /**
+     * Returns a set of all notification IDs currently in the notification map
+     * Used by the Clear All functionality in NotificationFragment
+     */
+    public Set<String> getNotificationIds() {
+        return new HashSet<>(notificationMap.keySet());
     }
 }

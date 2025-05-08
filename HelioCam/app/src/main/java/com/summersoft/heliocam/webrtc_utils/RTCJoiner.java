@@ -793,7 +793,7 @@ public class RTCJoiner {
         Map<String, Object> detectionEvent = new HashMap<>();
         detectionEvent.put("type", detectionType);
         detectionEvent.put("timestamp", timestamp);
-        detectionEvent.put("cameraNumber", assignedCameraNumber); // Use assigned number
+        detectionEvent.put("cameraNumber", assignedCameraNumber);
         detectionEvent.put("deviceName", Build.MANUFACTURER + " " + Build.MODEL);
         detectionEvent.put("email", userEmail);
         
@@ -801,6 +801,9 @@ public class RTCJoiner {
         if (detectionData != null) {
             detectionEvent.put("data", detectionData);
         }
+        
+        // Format email for Firebase path
+        String formattedHostEmail = hostEmail.replace(".", "_");
         
         // Use the detection_events path that matches the web app
         String detectionPath = "users/" + formattedHostEmail + "/sessions/" + sessionId + 
@@ -817,9 +820,9 @@ public class RTCJoiner {
     }
 
     // Helper methods for specific detection types (no motion detection)
-    public void reportSoundDetection(double audioLevel) {
+    public void reportSoundDetection(double amplitude) {
         Map<String, Object> data = new HashMap<>();
-        data.put("level", audioLevel);
+        data.put("amplitude", amplitude);
         reportDetectionEvent("sound", data);
     }
 

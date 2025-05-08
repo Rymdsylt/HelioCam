@@ -7,10 +7,13 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.fragment.app.Fragment;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -463,6 +466,27 @@ public class PopulateNotifs {
                     showEmptyState(context, notificationContainer);
                 }
             });
+
+            // Set up view details button
+            ImageButton viewDetailsButton = innerLayout.findViewById(R.id.view_details_button);
+            if (viewDetailsButton != null) {
+                NotificationFragment fragment = null;
+                
+                // Safer way to find the NotificationFragment
+                if (context instanceof Activity) {
+                    // Try to find fragment from activity's fragment manager
+                    androidx.fragment.app.FragmentManager fragmentManager = 
+                        ((androidx.fragment.app.FragmentActivity) context).getSupportFragmentManager();
+                    fragment = (NotificationFragment) fragmentManager.findFragmentByTag("notification_fragment");
+                } else if (NotificationFragment.activeInstance != null) {
+                    // Use the static reference if available
+                    fragment = NotificationFragment.activeInstance;
+                }
+                
+                if (fragment != null) {
+                    fragment.setUpViewDetailsButton(innerLayout, viewDetailsButton);
+                }
+            }
 
             // Add the inner layout to the container
             notificationContainer.addView(innerLayout);

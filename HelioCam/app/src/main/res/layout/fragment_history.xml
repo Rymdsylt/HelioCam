@@ -28,27 +28,17 @@
                 android:layout_height="match_parent"
                 android:paddingHorizontal="16dp">
 
-                <ImageView
-                    android:id="@+id/appLogo"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@drawable/heliocam_logo"
-                    android:contentDescription="App Logo"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
                 <TextView
+                    android:id="@+id/screenTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="HelioCam"
+                    android:text="Session History"
                     android:textColor="@android:color/white"
                     android:textSize="22sp"
                     android:fontFamily="sans-serif-medium"
                     app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toEndOf="@+id/appLogo"
-                    app:layout_constraintTop_toTopOf="parent"
-                    android:layout_marginStart="12dp" />
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/refreshButton"

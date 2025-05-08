@@ -41,14 +41,17 @@ public class HistoryFragment extends Fragment {
         // Inflate the layout for this fragment
         View rootView = inflater.inflate(R.layout.fragment_history, container, false);
         
-        mAuth = FirebaseAuth.getInstance();
-        
-        // Initialize UI components
+        // Initialize views
         sessionCardContainer = rootView.findViewById(R.id.sessionCardContainer);
         noSessionsPlaceholder = rootView.findViewById(R.id.noSessionsPlaceholder);
         refreshButton = rootView.findViewById(R.id.refreshButton);
         newSessionButton = rootView.findViewById(R.id.newSessionButton);
         createFirstSessionButton = rootView.findViewById(R.id.createFirstSessionButton);
+        
+        // Set initial visibility - make sure placeholder is visible by default
+        if (noSessionsPlaceholder != null) {
+            noSessionsPlaceholder.setVisibility(View.VISIBLE);
+        }
         
         // Set up click listeners
         refreshButton.setOnClickListener(v -> refreshSessions());
@@ -71,6 +74,7 @@ public class HistoryFragment extends Fragment {
             sessionLoader = new CustomSessionLoader(
                     (HomeActivity) getActivity(),
                     sessionCardContainer);
+            sessionLoader.setSessionChangeListener(() -> updateVisibility());
         } else {
             Log.e("HistoryFragment", "Session container view not found");
         }
@@ -97,7 +101,16 @@ public class HistoryFragment extends Fragment {
     private void updateVisibility() {
         if (sessionCardContainer != null && noSessionsPlaceholder != null) {
             boolean hasSessionItems = sessionCardContainer.getChildCount() > 0;
+            Log.d("HistoryFragment", "Session count: " + sessionCardContainer.getChildCount());
+            
+            // Show placeholder if there are no sessions
             noSessionsPlaceholder.setVisibility(hasSessionItems ? View.GONE : View.VISIBLE);
+            
+            // Log the visibility state for debugging
+            Log.d("HistoryFragment", "Placeholder visibility: " + 
+                  (noSessionsPlaceholder.getVisibility() == View.VISIBLE ? "VISIBLE" : "GONE"));
+        } else {
+            Log.e("HistoryFragment", "Container or placeholder is null");
         }
     }
     

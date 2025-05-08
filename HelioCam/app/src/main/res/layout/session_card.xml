@@ -66,7 +66,7 @@
                     android:layout_height="36dp"
                     android:layout_alignParentEnd="true"
                     android:layout_centerVertical="true"
-                    android:background="@drawable/circle_white_semi_transparent"
+                    android:background="@drawable/ic_baseline_videocam_24"
                     android:src="@drawable/ic_trash"
                     android:contentDescription="Delete session"
                     app:tint="#FFFFFF" />

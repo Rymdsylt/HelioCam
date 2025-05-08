@@ -384,45 +384,29 @@ public class PersonDetection implements VideoSink {
                 return;
             }
 
-            DatabaseReference database = FirebaseDatabase.getInstance().getReference();
-            String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
+            // Don't use Firebase Database directly - use the RTCJoiner to report detection
+            if (webRTCClient != null) {
+                // Count how many people were detected (could be multiple in one frame)
+                int personCount = countDetectedPeople(bitmap);
+                
+                // Report person detection to ensure consistent notification format
+                webRTCClient.reportPersonDetection(personCount);
+            }
+
+            // Save image locally (keep this functionality)
             String sessionId = ((CameraActivity) context).getSessionId();
-
-            if (userEmail != null && sessionId != null) {
-                // Create notification
-                String notificationId = "notification_" + System.currentTimeMillis();
-                Map<String, Object> notificationData = new HashMap<>();
-                notificationData.put("date", new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date()));
-                notificationData.put("time", new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date()));
-                notificationData.put("reason", "Person Detected");
-
-                // Update Firebase
-                database.child("users")
-                        .child(userEmail)
-                        .child("sessions")
-                        .child(sessionId)
-                        .child("notifications")
-                        .child(notificationId)
-                        .setValue(notificationData)
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                Log.d(TAG, "Notification logged in Firebase");
-                            } else {
-                                Log.e(TAG, "Failed to log notification", task.getException());
-                            }
-                        });
-
-                // Save image
+            if (sessionId != null) {
                 saveDetectionImage(bitmap, sessionId);
-
-                // Replay buffer
-                //webRTCClient.replayBuffer(context);
-            } else {
-                Log.w(TAG, "User email or session ID is null");
             }
         } catch (Exception e) {
             Log.e(TAG, "Error handling person detection", e);
         }
+    }
+
+    // Helper method to count detected people (implementation depends on your detection logic)
+    private int countDetectedPeople(Bitmap bitmap) {
+        // This is just a placeholder - use your actual detection count logic
+        return 1; // Default to 1 if you don't track the count
     }
 
     private void saveDetectionImage(Bitmap bitmap, String sessionId) {

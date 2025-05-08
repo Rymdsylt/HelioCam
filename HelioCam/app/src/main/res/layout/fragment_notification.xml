@@ -7,28 +7,23 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".ui.NotificationFragment"
-    android:background="@color/white">
+    android:background="#FFF8F0">
 
-    <!-- App Bar with gradient -->
-    <com.google.android.material.card.MaterialCardView
+    <!-- App Bar with gradient and improved styling -->
+    <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/TopBar"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
-        app:cardBackgroundColor="@color/orange"
-        app:cardCornerRadius="0dp"
-        app:cardElevation="4dp"
+        android:layout_height="wrap_content"
         app:layout_constraintTop_toTopOf="parent">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            android:layout_marginStart="16dp"
-            android:text="Notifications"
-            android:textColor="@android:color/white"
-            android:textSize="22sp"
-            android:fontFamily="sans-serif-medium" />
-    </com.google.android.material.card.MaterialCardView>
+        <androidx.appcompat.widget.Toolbar
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:background="@color/orange"
+            app:title="Notifications"
+            app:titleTextColor="@android:color/white"
+            app:titleTextAppearance="@style/TextAppearance.AppCompat.Medium" />
+    </com.google.android.material.appbar.AppBarLayout>
 
     <!-- Main Content Layout -->
     <ScrollView
@@ -46,6 +41,37 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <!-- Header with count and clear all button -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="12dp">
+                
+                <TextView
+                    android:id="@+id/notification_count"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Your Notifications"
+                    android:textColor="@android:color/black"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    tools:ignore="HardcodedText" />
+                    
+                <!-- Replace the existing button with this -->
+                <Button
+                    android:id="@+id/clear_all_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:backgroundTint="@color/orange"
+                    android:paddingHorizontal="12dp"
+                    android:text="Clear All"
+                    android:textColor="@android:color/white"
+                    tools:ignore="HardcodedText" />
+            </LinearLayout>
+
             <!-- Notifications container -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -60,22 +86,7 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Your Notifications"
-                        android:textColor="@android:color/black"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="12dp" />
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="#E0E0E0"
-                        android:layout_marginBottom="12dp" />
-
-                    <!-- This container ID must match the one in NotificationFragment.java -->
+                    <!-- Make sure the ID here is correct and consistently referenced -->
                     <LinearLayout
                         android:id="@+id/notifcation_card_container"
                         android:layout_width="match_parent"

@@ -1,6 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="@color/orange" /> <!-- Set your desired box color -->
-    <corners android:radius="28dp" /> <!-- Use a large radius for squircle effect -->
+    <solid android:color="#FFA500" /> <!-- Set your desired box color -->
+    <corners android:radius="12dp" /> <!-- Use a large radius for squircle effect -->
     <padding
         android:left="8dp"
         android:top="8dp"

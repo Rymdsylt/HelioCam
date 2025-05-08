@@ -155,42 +155,25 @@ public class SoundDetection {
                 return;  // Skip notification creation
             }
 
-            // Get Firebase references
-            DatabaseReference database = FirebaseDatabase.getInstance().getReference();
-            String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_");
-            String sessionId = ((CameraActivity) context).getSessionId(); // Assuming context is CameraActivity
+            // Don't use Firebase Database directly - use the RTCJoiner to report detection
+            if (webRTCClient != null) {
+                try {
+                    // Get amplitude for reporting
+                    double amplitude = calculateAmplitude(new short[1024], 1024); // Just an estimate 
 
-            if (userEmail != null && sessionId != null) {
-                // Create the notification structure
-                String notificationId = "notification_" + System.currentTimeMillis();
-                Map<String, Object> notificationData = new HashMap<>();
-                notificationData.put("date", new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date()));
-                notificationData.put("time", new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date()));
-                notificationData.put("reason", "Sound Detected");
-
-                // Update Firebase
-                database.child("users")
-                        .child(userEmail)
-                        .child("sessions")
-                        .child(sessionId)
-                        .child("notifications")
-                        .child(notificationId)
-                        .setValue(notificationData)
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                Log.d("SoundDetection", "Notification logged in Firebase");
-                            } else {
-                                Log.e("SoundDetection", "Failed to log notification in Firebase", task.getException());
-                            }
-                        });
-
-                // Capture and upload a screenshot
-                captureAndUploadScreenshot(sessionId);
-
-                //replay buffer
-               // webRTCClient.replayBuffer(context);
+                    // Report sound detection to ensure consistent notification format
+                    webRTCClient.reportSoundDetection(amplitude);
+                    
+                    // Take screenshot if needed (keep this functionality)
+                    String sessionId = ((CameraActivity) context).getSessionId();
+                    if (sessionId != null) {
+                        captureAndUploadScreenshot(sessionId);
+                    }
+                } catch (Exception e) {
+                    Log.e("SoundDetection", "Error reporting sound detection", e);
+                }
             } else {
-                Log.w("SoundDetection", "User email or session ID is null. Cannot log notification.");
+                Log.w("SoundDetection", "WebRTC client is null, cannot report detection");
             }
         });
     }

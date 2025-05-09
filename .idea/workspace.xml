@@ -140,6 +140,11 @@
           <theme>@style/Theme.HelioCam</theme>
         </config>
       </layout>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/dialog_session_info.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
       <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/dialog_session_options.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
@@ -225,6 +230,11 @@
           <theme>@style/Theme.HelioCam</theme>
         </config>
       </layout>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/item_connected_camera.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
       <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/layout/item_join_request.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
@@ -283,6 +293,8 @@
   <component name="ChangeListManager">
     <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/WatchSessionActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/WatchSessionActivity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_notification_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_notification_settings.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

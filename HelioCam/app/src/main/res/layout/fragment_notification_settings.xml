@@ -7,6 +7,8 @@
     android:layout_height="match_parent"
     android:background="#FFFFFF"
     android:fillViewport="true"
+    android:paddingBottom="95dp"
+    android:clipToPadding="false"
     tools:context=".ui.NotificationSettings">
 
     <androidx.constraintlayout.widget.ConstraintLayout

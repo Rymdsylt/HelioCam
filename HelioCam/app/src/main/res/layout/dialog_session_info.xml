@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardCornerRadius="16dp"
+    app:cardBackgroundColor="#1D1D1D"
+    app:cardElevation="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Tab Layout -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tab_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#252525"
+            app:tabIndicatorColor="#FF9800"
+            app:tabSelectedTextColor="#FF9800"
+            app:tabTextColor="#B3FFFFFF">
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Session Info" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Connected Cameras" />
+        </com.google.android.material.tabs.TabLayout>
+
+        <!-- Content Container -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="24dp">
+
+            <!-- Session Info Panel -->
+            <LinearLayout
+                android:id="@+id/session_info_panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="visible">
+
+                <!-- Header with icon -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center">
+
+                    <ImageView
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:src="@drawable/logo2"
+                        app:tint="#FF9800"
+                        android:contentDescription="HelioCam Logo"
+                        android:layout_marginBottom="16dp" />
+
+                    <TextView
+                        android:id="@+id/dialog_session_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Session Name"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF"
+                        android:textAlignment="center"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Session Active"
+                        android:textSize="14sp"
+                        android:textColor="#4CAF50"
+                        android:textAlignment="center"
+                        android:layout_marginBottom="16dp" />
+                </LinearLayout>
+
+                <!-- Session Passkey Section -->
+                <LinearLayout
+                    android:id="@+id/passkey_section"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#262626"
+                    android:padding="16dp"
+                    android:layout_marginBottom="16dp"
+                    android:gravity="center">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Share this code with camera users"
+                        android:textSize="12sp"
+                        android:textColor="#AAAAAA"
+                        android:textAlignment="center"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:id="@+id/dialog_session_passkey"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        android:background="#FF9800"
+                        android:letterSpacing="0.15"
+                        android:paddingStart="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingEnd="16dp"
+                        android:paddingBottom="8dp"
+                        android:text="ABCDEF"
+                        android:textAlignment="center"
+                        android:textColor="#795548"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/copy_passkey_button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Copy Session Code"
+                        app:icon="@android:drawable/ic_menu_share"
+                        app:cornerRadius="8dp"
+                        app:backgroundTint="#FF9800"
+                        android:textColor="#FFFFFF" />
+                </LinearLayout>
+
+                <!-- Session Stats Section -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <TextView
+                            android:id="@+id/session_camera_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textSize="24sp"
+                            android:textStyle="bold"
+                            android:textColor="#FF9800" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Cameras"
+                            android:textSize="12sp"
+                            android:textColor="#AAAAAA" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="match_parent"
+                        android:background="#444444" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <TextView
+                            android:id="@+id/session_duration"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="00:00"
+                            android:textSize="24sp"
+                            android:textStyle="bold"
+                            android:textColor="#FF9800" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Duration"
+                            android:textSize="12sp"
+                            android:textColor="#AAAAAA" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Cameras Panel -->
+            <LinearLayout
+                android:id="@+id/cameras_panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <!-- Connected Cameras Header -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp">
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@android:drawable/ic_menu_camera"
+                        app:tint="#FF9800"
+                        android:layout_marginEnd="12dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Connected Cameras"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:id="@+id/camera_count_badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:background="@drawable/rounded_background"
+                        android:backgroundTint="#FF9800"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="4dp" />
+                </LinearLayout>
+
+                <!-- Camera List -->
+                <androidx.core.widget.NestedScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:maxHeight="250dp">
+
+                    <LinearLayout
+                        android:id="@+id/connected_cameras_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </androidx.core.widget.NestedScrollView>
+
+                <!-- Empty State Message -->
+                <TextView
+                    android:id="@+id/no_cameras_message"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No cameras connected yet"
+                    android:textColor="#AAAAAA"
+                    android:textSize="16sp"
+                    android:gravity="center"
+                    android:padding="32dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Close Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/close_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Close"
+            app:cornerRadius="0dp"
+            android:textColor="#FFFFFF"
+            app:backgroundTint="#333333" />
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

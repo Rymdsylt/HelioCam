@@ -277,20 +277,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/drawable/ic_filter.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/drawable/ic_person_orange.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/assetWizardSettings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/assetWizardSettings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/HistoryFragment.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/HistoryFragment.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/JoinerHomeFragment.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/JoinerHomeFragment.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/SettingsFragment.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/SettingsFragment.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/HomeFragment.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/HomeFragment.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/UserRoleSelectionActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/UserRoleSelectionActivity.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_user_role_selection.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/activity_user_role_selection.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_history.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_history.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_home.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_home.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_joiner_home.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_joiner_home.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_notification.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_notification.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/fragment_settings.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

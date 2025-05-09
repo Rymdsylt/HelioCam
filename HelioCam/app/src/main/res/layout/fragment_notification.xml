@@ -8,7 +8,7 @@
     android:background="@color/white"
     tools:context=".ui.NotificationFragment">
 
-    <!-- Simplified App Bar with only title and refresh button -->
+    <!-- App Bar with Elevation and Shadow -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
@@ -17,29 +17,49 @@
         android:background="@android:color/transparent">
 
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/TopBar"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
+            android:layout_height="64dp"
             app:cardBackgroundColor="@color/orange"
             app:cardCornerRadius="0dp"
-            app:cardElevation="4dp">
+            app:cardElevation="0dp">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:paddingHorizontal="16dp">
 
-                <TextView
-                    android:id="@+id/screenTitle"
+                <!-- Updated Logo with proper branding -->
+                <LinearLayout
+                    android:id="@+id/brandLayout"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Notifications"
-                    android:textColor="@android:color/white"
-                    android:textSize="22sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    app:layout_constraintTop_toTopOf="parent">
+                    
+                    <ImageView
+                        android:id="@+id/appLogo"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/logo2"
+                        app:tint="@android:color/white"
+                        android:contentDescription="HelioCam Logo" />
 
+                    <TextView
+                        android:id="@+id/titleText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Notifications"
+                        android:textColor="@android:color/white"
+                        android:textSize="22sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginStart="12dp" />
+                </LinearLayout>
+
+                <!-- Refresh button -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/refreshButton"
                     style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
@@ -55,7 +75,7 @@
                     android:insetRight="0dp"
                     android:insetBottom="0dp"
                     android:padding="12dp"
-                    android:contentDescription="Refresh"
+                    android:contentDescription="Refresh notifications"
                     app:cornerRadius="24dp"
                     android:backgroundTint="@android:color/transparent"
                     app:rippleColor="@android:color/white"
@@ -79,131 +99,182 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingTop="16dp"
-            android:paddingHorizontal="16dp">
+            android:orientation="vertical">
 
-            <!-- Single Unified Card with Header and Content -->
+            <!-- Notifications Header Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/headerCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="4dp"
+                app:cardPreventCornerOverlap="true"
+                app:cardUseCompatPadding="true"
+                android:outlineSpotShadowColor="#40FF9B44"
+                android:outlineAmbientShadowColor="#30FF9B44">
+    
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <!-- Circular notification icon -->
+                    <FrameLayout
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:layout_marginEnd="16dp"
+                        android:background="@drawable/circle_amber_background">
+
+                        <ImageView
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/baseline_notifications_24"
+                            app:tint="@color/white" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Notification Center"
+                            android:textColor="@color/black"
+                            android:textSize="20sp"
+                            android:fontFamily="sans-serif-medium" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Monitoring alerts and important updates"
+                            android:textColor="#666666"
+                            android:textSize="14sp"
+                            android:layout_marginTop="4dp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Notifications Actions Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/notificationsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="8dp"
                 app:cardBackgroundColor="@color/white"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="4dp">
-
-                <!-- Header section within the card -->
+                app:cardCornerRadius="24dp"
+                app:cardElevation="4dp"
+                app:cardPreventCornerOverlap="true"
+                app:cardUseCompatPadding="true"
+                android:outlineSpotShadowColor="#40FF9B44"
+                android:outlineAmbientShadowColor="#30FF9B44">
+    
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-                    <!-- Header with icon -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:padding="16dp"
-                        android:background="@drawable/card_header_gradient">
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
 
-                        <!-- Circular notification icon -->
-                        <FrameLayout
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:layout_marginEnd="16dp"
-                            android:background="@drawable/circle_amber_background">
-
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:layout_gravity="center"
-                                android:src="@drawable/baseline_notifications_24"
-                                app:tint="@color/white" />
-                        </FrameLayout>
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
+                        <TextView
+                            android:id="@+id/notification_header"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:layout_gravity="center_vertical">
+                            android:layout_weight="1"
+                            android:text="Recent Alerts"
+                            android:textColor="@color/black"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Alert Center"
-                                android:textColor="@color/black"
-                                android:textSize="18sp"
-                                android:fontFamily="sans-serif-medium" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Monitoring alerts and important updates"
-                                android:textColor="#666666"
-                                android:textSize="14sp" />
-                        </LinearLayout>
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/clear_all_button"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:backgroundTint="@color/orange"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:paddingHorizontal="12dp"
+                            android:text="Clear All"
+                            android:textColor="@color/white"
+                            android:textSize="12sp"
+                            app:cornerRadius="20dp"
+                            app:icon="@drawable/ic_delete"
+                            app:iconGravity="textStart"
+                            app:iconPadding="8dp"
+                            app:iconSize="16dp"
+                            app:iconTint="@color/white"
+                            tools:ignore="TouchTargetSizeCheck" />
                     </LinearLayout>
 
+                    <!-- Divider -->
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="#E0E0E0"/>
+                        android:background="#EEEEEE"
+                        android:layout_marginBottom="12dp" />
 
-                    <!-- Content section -->
+                    <!-- Notifications container -->
                     <LinearLayout
+                        android:id="@+id/notification_card_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+
+                    <!-- Empty state placeholder (will be shown/hidden programmatically) -->
+                    <LinearLayout
+                        android:id="@+id/empty_notification_container"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="16dp">
+                        android:gravity="center"
+                        android:padding="24dp">
 
-                        <!-- Actions toolbar -->
-                        <LinearLayout
+                        <FrameLayout
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            android:background="@drawable/circle_background"
+                            android:layout_marginBottom="16dp">
+
+                            <ImageView
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/baseline_notifications_off_24"
+                                app:tint="@color/white" />
+                        </FrameLayout>
+
+                        <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical"
-                            android:layout_marginBottom="12dp">
+                            android:text="No Notifications"
+                            android:textAlignment="center"
+                            android:textSize="18sp"                       
+                            android:textStyle="bold"
+                            android:textColor="#212121"
+                            android:layout_marginTop="8dp" />
 
-                            <TextView
-                                android:id="@+id/notification_header"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="Recent Alerts"
-                                android:textColor="@color/black"
-                                android:textSize="16sp"
-                                android:textStyle="bold" />
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/clear_all_button"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:backgroundTint="@color/orange"
-                                android:minHeight="40dp"
-                                android:paddingHorizontal="12dp"
-                                android:text="Clear All"
-                                android:textColor="@color/white"
-                                android:textSize="12sp"
-                                app:cornerRadius="12dp"
-                                app:icon="@drawable/ic_delete"
-                                app:iconSize="16dp"
-                                app:iconTint="@color/white"
-                                tools:ignore="TouchTargetSizeCheck" />
-                        </LinearLayout>
-
-                        <!-- Divider -->
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="1dp"
-                            android:background="#E0E0E0"
-                            android:layout_marginBottom="12dp" />
-
-                        <!-- Notifications container -->
-                        <LinearLayout
-                            android:id="@+id/notifcation_card_container"
+                        <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical" />
+                            android:text="You don't have any notifications yet"
+                            android:textAlignment="center"
+                            android:textSize="14sp"                         
+                            android:textColor="#757575"
+                            android:layout_marginTop="8dp" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

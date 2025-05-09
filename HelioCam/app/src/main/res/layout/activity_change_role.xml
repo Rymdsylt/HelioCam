@@ -5,7 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="#f8f8f8"
     tools:context=".ui.RoleChangeActivity">
 
     <!-- App Bar with back button -->
@@ -29,13 +29,13 @@
     <!-- Title with accent color -->
     <TextView
         android:id="@+id/welcomeText"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="28dp"
         android:layout_marginHorizontal="24dp"
         android:text="Choose Your Role"
         android:textAlignment="center"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Headline4"
+        android:textSize="28sp"
         android:textColor="#FF9B44"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
@@ -45,159 +45,163 @@
     <!-- Subtitle with accent color -->
     <TextView
         android:id="@+id/subText"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:layout_marginHorizontal="32dp"
         android:text="How would you like to use HelioCam now?"
         android:textAlignment="center"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+        android:textSize="16sp"
         android:textColor="#D17D2F"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/welcomeText" />
 
-    <!-- Host Option Card -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/hostCard"
+    <!-- Role Options Container -->
+    <LinearLayout
+        android:id="@+id/roleSelectionContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="36dp"
         android:layout_marginHorizontal="24dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="4dp"
-        app:strokeWidth="2dp"
-        app:strokeColor="#FF9B44"
-        app:cardPreventCornerOverlap="true"
-        app:cardUseCompatPadding="true"
+        android:orientation="vertical"
+        android:gravity="center"
         app:layout_constraintTop_toBottomOf="@id/subText"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <LinearLayout
+        <!-- Host Option Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/hostCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="16dp">
+            android:layout_marginBottom="20dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:checkable="true"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="1dp"
+            app:strokeWidth="2dp"
+            app:cardBackgroundColor="#FFFFFF"
+            app:strokeColor="#FF9B44"
+            app:rippleColor="#FFB472">
 
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                app:cardCornerRadius="30dp"
-                app:cardBackgroundColor="#FF9B44"
-                app:cardElevation="0dp">
-                
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="20dp">
+
                 <ImageView
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_gravity="center"
+                    android:id="@+id/hostIcon"
+                    android:layout_width="54dp"
+                    android:layout_height="54dp"
                     android:src="@drawable/ic_person"
+                    android:contentDescription="Host Icon"
+                    android:background="@drawable/circle_background_orange"
+                    android:padding="12dp"
                     app:tint="#FFFFFF" />
-            </com.google.android.material.card.MaterialCardView>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="HOST"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="#FF9B44" />
+                    android:orientation="vertical"
+                    android:layout_marginStart="20dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Create a new session and manage cameras. You'll be the one viewing multiple camera feeds."
-                    android:textSize="14sp"
-                    android:textColor="#757575" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="HOST"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#FF9B44" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Create a new session and manage cameras. You'll be the one viewing multiple camera feeds."
+                        android:textSize="15sp"
+                        android:textColor="#757575" />
+                </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+        </com.google.android.material.card.MaterialCardView>
 
-    <!-- Joiner Option Card -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/joinerCard"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:layout_marginHorizontal="24dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="4dp"
-        app:strokeWidth="2dp"
-        app:strokeColor="#DDDDDD"
-        app:cardPreventCornerOverlap="true"
-        app:cardUseCompatPadding="true"
-        app:layout_constraintTop_toBottomOf="@id/hostCard"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <LinearLayout
+        <!-- Joiner Option Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/joinerCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="16dp">
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                app:cardCornerRadius="30dp"
-                app:cardBackgroundColor="#DDDDDD"
-                app:cardElevation="0dp">
-                
-                <ImageView
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_camera"
-                    app:tint="#FFFFFF" />
-            </com.google.android.material.card.MaterialCardView>
+            android:clickable="true"
+            android:focusable="true"
+            android:checkable="true"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="1dp"
+            app:strokeWidth="2dp"
+            app:cardBackgroundColor="#FFFFFF"
+            app:strokeColor="#DDDDDD"
+            app:rippleColor="#FFB472">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:orientation="vertical">
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="20dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="JOINER"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="#757575" />
+                <ImageView
+                    android:id="@+id/joinerIcon"
+                    android:layout_width="54dp"
+                    android:layout_height="54dp"
+                    android:src="@drawable/ic_camera"
+                    android:contentDescription="Joiner Icon"
+                    android:background="@drawable/circle_background_gray"
+                    android:padding="12dp"
+                    app:tint="#FFFFFF" />
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Join an existing session as a camera. Your device will serve as a camera feed for a host."
-                    android:textSize="14sp"
-                    android:textColor="#757575" />
+                    android:orientation="vertical"
+                    android:layout_marginStart="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="JOINER"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#757575" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Join an existing session as a camera. Your device will serve as a camera feed for a host."
+                        android:textSize="15sp"
+                        android:textColor="#757575" />
+                </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
 
     <!-- Save Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/saveButton"
         style="@style/Widget.MaterialComponents.Button"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
         android:layout_marginHorizontal="24dp"
-        android:layout_marginTop="32dp"
+        android:layout_marginBottom="32dp"
         android:backgroundTint="#FF9B44"
         android:text="Save Changes"
         android:textSize="16sp"
+        android:textAllCaps="false"
         android:textColor="#FFFFFF"
-        app:cornerRadius="18dp"
+        app:cornerRadius="14dp"
         app:rippleColor="#FFB472"
-        app:layout_constraintTop_toBottomOf="@id/joinerCard"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 

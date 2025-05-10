@@ -4,10 +4,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -54,11 +54,27 @@ public class UserRoleSelectionActivity extends AppCompatActivity {
         
         // Update UI to reflect selection
         if (ROLE_HOST.equals(role)) {
-            hostCard.setStrokeColor(getResources().getColor(android.R.color.holo_orange_light));
-            joinerCard.setStrokeColor(getResources().getColor(android.R.color.darker_gray));
+            // Visual updates for Host selection
+            hostCard.setCardElevation(4f);
+            hostCard.setStrokeColor(ContextCompat.getColor(this, R.color.orange));
+            hostCard.setStrokeWidth(2);
+            joinerCard.setCardElevation(1f);
+            joinerCard.setStrokeColor(ContextCompat.getColor(this, android.R.color.transparent));
+            joinerCard.setStrokeWidth(0);
+            
+            // Update button text
+            continueButton.setText("Continue as Host");
         } else {
-            hostCard.setStrokeColor(getResources().getColor(android.R.color.darker_gray));
-            joinerCard.setStrokeColor(getResources().getColor(android.R.color.holo_orange_light));
+            // Visual updates for Joiner selection
+            joinerCard.setCardElevation(4f);
+            joinerCard.setStrokeColor(ContextCompat.getColor(this, R.color.orange));
+            joinerCard.setStrokeWidth(2);
+            hostCard.setCardElevation(1f);
+            hostCard.setStrokeColor(ContextCompat.getColor(this, android.R.color.transparent));
+            hostCard.setStrokeWidth(0);
+            
+            // Update button text
+            continueButton.setText("Continue as Joiner");
         }
     }
 
@@ -67,10 +83,6 @@ public class UserRoleSelectionActivity extends AppCompatActivity {
         SharedPreferences.Editor editor = preferences.edit();
         editor.putString(KEY_USER_ROLE, selectedRole);
         editor.apply();
-        
-        Toast.makeText(this, "You selected: " + 
-                (ROLE_HOST.equals(selectedRole) ? "HOST" : "JOINER"), 
-                Toast.LENGTH_SHORT).show();
     }
 
     private void navigateToNextScreen() {

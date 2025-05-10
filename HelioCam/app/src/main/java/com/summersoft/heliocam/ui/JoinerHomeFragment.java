@@ -74,13 +74,7 @@ public class JoinerHomeFragment extends Fragment {
         }
 
         // Set up joinSession button in top bar
-        MaterialButton joinSessionTopBar = rootView.findViewById(R.id.joinSession);
-        if (joinSessionTopBar != null) {
-            joinSessionTopBar.setOnClickListener(v -> {
-                Intent intent = new Intent(getActivity(), AddSessionActivity.class);
-                startActivity(intent);
-            });
-        }
+
 
         return rootView;
     }

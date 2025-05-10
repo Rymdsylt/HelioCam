@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="12dp"
+    android:background="#262626"
+    android:layout_marginBottom="8dp">
+
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@android:drawable/ic_menu_camera"
+        android:layout_marginEnd="12dp"
+        android:layout_gravity="center_vertical"
+        app:tint="#4CAF50" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/camera_email"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="user@example.com"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/camera_device"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Samsung Galaxy S21"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp"
+            android:visibility="visible" />
+    </LinearLayout>
+</LinearLayout>

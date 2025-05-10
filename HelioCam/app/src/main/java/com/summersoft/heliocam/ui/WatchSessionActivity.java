@@ -1,12 +1,18 @@
 package com.summersoft.heliocam.ui;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.content.Context;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.FrameLayout;
 import android.widget.GridLayout;
@@ -24,6 +30,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.tabs.TabLayout;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -47,11 +54,11 @@ public class WatchSessionActivity extends AppCompatActivity {
     // Firebase components
     private FirebaseAuth mAuth;
     private DatabaseReference mDatabase;
-    
+
     // Session information
     private String sessionId;
     private String sessionName;
-    
+
     // UI components
     private TextView sessionTitle; // Changed from sessionNameText 
     private TextView participantsCount; // Changed from connectionStatus
@@ -60,15 +67,15 @@ public class WatchSessionActivity extends AppCompatActivity {
     private SurfaceViewRenderer feedView3;
     private SurfaceViewRenderer feedView4;
     private View gridLayout; // Changed to match XML
-    
+
     // WebRTC components
     private RTCHost rtcHost;
-    
+
     // UI state
     private boolean isAudioEnabled = true;
     private boolean ignoreJoinRequests = false;
     private ValueEventListener joinRequestsListener;
-    
+
     // Camera status views
     private Map<String, TextView> cameraDisabledMessages = new HashMap<>();
     private Map<String, TextView> micStatusMessages = new HashMap<>();
@@ -98,34 +105,34 @@ public class WatchSessionActivity extends AppCompatActivity {
         // Initialize Firebase components
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
-        
+
         // Get session info from intent
         sessionId = getIntent().getStringExtra("session_id");
         sessionName = getIntent().getStringExtra("session_name");
-        
+
         if (sessionId == null || sessionName == null) {
             Toast.makeText(this, "Invalid session information", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
-        
+
         Log.d(TAG, "Session ID: " + sessionId);
         Log.d(TAG, "Session name: " + sessionName);
-        
+
         // Initialize UI components
         sessionTitle = findViewById(R.id.session_title);
         participantsCount = findViewById(R.id.participants_count);
-        
+
         // Set session name as title
         sessionTitle.setText(sessionName);
-        
+
         // Initialize video renderers
         feedView1 = findViewById(R.id.feed_view_1);
         feedView2 = findViewById(R.id.feed_view_2);
         feedView3 = findViewById(R.id.feed_view_3);
         feedView4 = findViewById(R.id.feed_view_4);
         gridLayout = findViewById(R.id.grid_layout);
-        
+
         // Important: Safety check for renderer initialization
         try {
             // Release all renderers before starting
@@ -136,11 +143,11 @@ public class WatchSessionActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e(TAG, "Error releasing views", e);
         }
-        
+
         // Now initialize WebRTC components
         try {
             rtcHost = new RTCHost(this, feedView1, mDatabase);
-            
+
             // Setup UI components, listeners, etc.
             setupUI();
             setupSessionListeners();
@@ -148,10 +155,10 @@ public class WatchSessionActivity extends AppCompatActivity {
             Log.e(TAG, "Error initializing WebRTC", e);
             Toast.makeText(this, "Failed to initialize video. Please restart the app.", Toast.LENGTH_LONG).show();
         }
-        
+
         // Initialize participant counter
         participantsCount = findViewById(R.id.participants_count);
-        
+
         // Set initial value
         updateParticipantCount(0);
     }
@@ -176,12 +183,12 @@ public class WatchSessionActivity extends AppCompatActivity {
             timestampUpdateHandler.removeCallbacks(timestampUpdateRunnable);
         }
         super.onDestroy();
-        
+
         // Clean up resources
         if (rtcHost != null) {
             rtcHost.dispose();
         }
-        
+
         // Release all renderers
         safeReleaseRenderer(feedView1);
         safeReleaseRenderer(feedView2);
@@ -192,16 +199,24 @@ public class WatchSessionActivity extends AppCompatActivity {
     /**
      * Set up the UI components and their click listeners
      */
+    @SuppressLint("ClickableViewAccessibility")
     private void setupUI() {
         // Initialize UI components
         MaterialButton endSessionButton = findViewById(R.id.end_session_button);
         MaterialButton micButton = findViewById(R.id.microphone_button);
         joinRequestNotification = findViewById(R.id.join_request_notification);
-        
+        FloatingActionButton settingsButton = findViewById(R.id.settings_button);
+
         // Initially hide the join request notification
         if (joinRequestNotification != null) {
             joinRequestNotification.setVisibility(View.GONE);
         }
+
+        // Find all container views ONCE at the beginning
+        View feedContainer1 = findViewById(R.id.feed_container_1);
+        View feedContainer2 = findViewById(R.id.feed_container_2);
+        View feedContainer3 = findViewById(R.id.feed_container_3);
+        View feedContainer4 = findViewById(R.id.feed_container_4);
 
         // End session button
         if (endSessionButton != null) {
@@ -209,66 +224,82 @@ public class WatchSessionActivity extends AppCompatActivity {
                 showEndSessionConfirmation();
             });
         }
-        
+
         // Mic button to toggle audio
         if (micButton != null) {
+            // Set initial state
+            micButton.setIconResource(isAudioEnabled ? 
+                    R.drawable.ic_baseline_mic_24 : R.drawable.ic_baseline_mic_off_24);
+            
+            // Set click listener to toggle mic state
             micButton.setOnClickListener(v -> {
                 toggleAudio();
+                
+                // Update button icon based on new state
+                micButton.setIconResource(isAudioEnabled ? 
+                        R.drawable.ic_baseline_mic_24 : R.drawable.ic_baseline_mic_off_24);
+                
+                // Show feedback to the user
+                Toast.makeText(WatchSessionActivity.this, 
+                        isAudioEnabled ? "Microphone unmuted" : "Microphone muted", 
+                        Toast.LENGTH_SHORT).show();
             });
         }
-        
+
+        // Settings button to show session info
+        if (settingsButton != null) {
+            settingsButton.setOnClickListener(v -> {
+                showSessionInfoDialog();
+            });
+        }
+
         // Set up notification for join requests
         if (joinRequestNotification != null) {
             joinRequestNotification.setOnClickListener(v -> {
                 showJoinRequestDialog();
             });
         }
-        
+
         // Initialize camera disabled message views
         cameraDisabledMessages.clear();
         micStatusMessages.clear();
-        
-        // Add camera off message views for each feed
-        View feedContainer1 = findViewById(R.id.feed_container_1);
+
+        // Add camera off message views for each feed - using the EXISTING container variables
         if (feedContainer1 != null) {
             TextView offMsg1 = feedContainer1.findViewById(R.id.camera_off_message_1);
             TextView micStatus1 = feedContainer1.findViewById(R.id.mic_status_1);
             if (offMsg1 != null) cameraDisabledMessages.put("feed1", offMsg1);
             if (micStatus1 != null) micStatusMessages.put("feed1", micStatus1);
         }
-        
-        // Repeat for other feed containers
-        View feedContainer2 = findViewById(R.id.feed_container_2);
+
         if (feedContainer2 != null) {
             TextView offMsg2 = feedContainer2.findViewById(R.id.camera_off_message_2);
             TextView micStatus2 = feedContainer2.findViewById(R.id.mic_status_2);
             if (offMsg2 != null) cameraDisabledMessages.put("feed2", offMsg2);
             if (micStatus2 != null) micStatusMessages.put("feed2", micStatus2);
         }
-        
-        View feedContainer3 = findViewById(R.id.feed_container_3);
+
         if (feedContainer3 != null) {
             TextView offMsg3 = feedContainer3.findViewById(R.id.camera_off_message_3);
             TextView micStatus3 = feedContainer3.findViewById(R.id.mic_status_3);
             if (offMsg3 != null) cameraDisabledMessages.put("feed3", offMsg3);
             if (micStatus3 != null) micStatusMessages.put("feed3", micStatus3);
         }
-        
-        View feedContainer4 = findViewById(R.id.feed_container_4);
+
         if (feedContainer4 != null) {
             TextView offMsg4 = feedContainer4.findViewById(R.id.camera_off_message_4);
             TextView micStatus4 = feedContainer4.findViewById(R.id.mic_status_4);
             if (offMsg4 != null) cameraDisabledMessages.put("feed4", offMsg4);
             if (micStatus4 != null) micStatusMessages.put("feed4", micStatus4);
         }
-        
+
         // Hide all camera disabled messages initially
         for (TextView msgView : cameraDisabledMessages.values()) {
             if (msgView != null) {
                 msgView.setVisibility(View.GONE);
             }
         }
-        
+
         // Hide all mic status messages initially
         for (TextView micView : micStatusMessages.values()) {
             if (micView != null) {
@@ -279,36 +310,36 @@ public class WatchSessionActivity extends AppCompatActivity {
         // Initialize camera number labels and timestamps
         cameraNumberLabels.clear();
         cameraTimestamps.clear();
-        
-        // Add camera number and timestamp views for each feed
+
+        // Add camera number and timestamp views for each feed - again using the EXISTING variables
         if (feedContainer1 != null) {
             TextView cameraNumber1 = feedContainer1.findViewById(R.id.camera_number_1);
             TextView timestamp1 = feedContainer1.findViewById(R.id.camera_timestamp_1);
             if (cameraNumber1 != null) cameraNumberLabels.put("feed1", cameraNumber1);
             if (timestamp1 != null) cameraTimestamps.put("feed1", timestamp1);
         }
-        
+
         if (feedContainer2 != null) {
             TextView cameraNumber2 = feedContainer2.findViewById(R.id.camera_number_2);
             TextView timestamp2 = feedContainer2.findViewById(R.id.camera_timestamp_2);
             if (cameraNumber2 != null) cameraNumberLabels.put("feed2", cameraNumber2);
             if (timestamp2 != null) cameraTimestamps.put("feed2", timestamp2);
         }
-        
+
         if (feedContainer3 != null) {
             TextView cameraNumber3 = feedContainer3.findViewById(R.id.camera_number_3);
             TextView timestamp3 = feedContainer3.findViewById(R.id.camera_timestamp_3);
             if (cameraNumber3 != null) cameraNumberLabels.put("feed3", cameraNumber3);
             if (timestamp3 != null) cameraTimestamps.put("feed3", timestamp3);
         }
-        
+
         if (feedContainer4 != null) {
             TextView cameraNumber4 = feedContainer4.findViewById(R.id.camera_number_4);
             TextView timestamp4 = feedContainer4.findViewById(R.id.camera_timestamp_4);
             if (cameraNumber4 != null) cameraNumberLabels.put("feed4", cameraNumber4);
             if (timestamp4 != null) cameraTimestamps.put("feed4", timestamp4);
         }
-        
+
         // Start the timestamp update scheduler
         startTimestampUpdates();
 
@@ -316,7 +347,104 @@ public class WatchSessionActivity extends AppCompatActivity {
             // Show detailed participant list when count is clicked
             showParticipantListDialog();
         });
+
+        // Initialize click-to-focus behavior for camera feeds
+        // REMOVE THESE LINES:
+        // View feedContainer1 = findViewById(R.id.feed_container_1);
+        // View feedContainer2 = findViewById(R.id.feed_container_2);
+        // View feedContainer3 = findViewById(R.id.feed_container_3);
+        // View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        // Gesture detector for tracking single vs double clicks
+        GestureDetector gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                // Single tap enters focus mode
+                return false;
+            }
+
+            @Override
+            public boolean onDoubleTap(MotionEvent e) {
+                // Double tap exits focus mode
+                if (focusedCamera != -1) {
+                    focusedCamera = -1;
+                    updateGridLayout(totalConnectedCameras);
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        // Set click listeners for each feed container - using the EXISTING containers 
+        if (feedContainer1 != null) {
+            feedContainer1.setOnTouchListener((v, event) -> {
+                if (gestureDetector.onTouchEvent(event)) {
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    if (focusedCamera == -1 && feedContainer1.getVisibility() == View.VISIBLE) {
+                        focusedCamera = 0;
+                        updateGridLayout(totalConnectedCameras);
+                        showFocusHint(feedContainer1);
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+
+        if (feedContainer2 != null) {
+            feedContainer2.setOnTouchListener((v, event) -> {
+                if (gestureDetector.onTouchEvent(event)) {
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    if (focusedCamera == -1 && feedContainer2.getVisibility() == View.VISIBLE) {
+                        focusedCamera = 1;
+                        updateGridLayout(totalConnectedCameras);
+                        showFocusHint(feedContainer2);
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+
+        if (feedContainer3 != null) {
+            feedContainer3.setOnTouchListener((v, event) -> {
+                if (gestureDetector.onTouchEvent(event)) {
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    if (focusedCamera == -1 && feedContainer3.getVisibility() == View.VISIBLE) {
+                        focusedCamera = 2;
+                        updateGridLayout(totalConnectedCameras);
+                        showFocusHint(feedContainer3);
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+
+        if (feedContainer4 != null) {
+            feedContainer4.setOnTouchListener((v, event) -> {
+                if (gestureDetector.onTouchEvent(event)) {
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    if (focusedCamera == -1 && feedContainer4.getVisibility() == View.VISIBLE) {
+                        focusedCamera = 3;
+                        updateGridLayout(totalConnectedCameras);
+                        showFocusHint(feedContainer4);
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
     }
+
     /**
      * Show dialog with participant details
      */
@@ -346,7 +474,8 @@ public class WatchSessionActivity extends AppCompatActivity {
                                     Boolean isActive = participant.child("active").getValue(Boolean.class);
 
                                     // Set values
-                                    if (nameView != null) nameView.setText(email != null ? email : "Unknown");
+                                    if (nameView != null)
+                                        nameView.setText(email != null ? email : "Unknown");
                                     if (statusView != null) {
                                         statusView.setText(isActive != null && isActive ? "Active" : "Connected");
                                         statusView.setTextColor(ContextCompat.getColor(this,
@@ -380,16 +509,16 @@ public class WatchSessionActivity extends AppCompatActivity {
     private void setupSessionListeners() {
         // Set up join request listener
         setupJoinRequestListener();
-        
+
         // Set up session status listener
         setupSessionStatusListener();
-        
+
         // Track connected cameras (total count)
         setupConnectedCamerasListener();
-        
+
         // Track active cameras (those currently streaming)
         setupActiveCamerasListener();
-        
+
         // Tell RTCHost to initialize the session with this session ID
         if (rtcHost != null) {
             rtcHost.initializeSession(sessionId);
@@ -409,65 +538,49 @@ public class WatchSessionActivity extends AppCompatActivity {
             mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
                     .child("join_requests").removeEventListener(joinRequestsListener);
         }
-        
+
         // Create a new listener
         joinRequestsListener = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                // Show notification if there are pending requests (not accepted yet)
-                boolean hasPendingRequests = false;
+                boolean hasJoinRequests = false;
+                long pendingRequestCount = 0;
                 
-                // Keep track of processed request IDs to avoid duplicates
-                Set<String> processedRequestIds = new HashSet<>();
-                
-                if (dataSnapshot.exists()) {
-                    for (DataSnapshot requestSnapshot : dataSnapshot.getChildren()) {
-                        String requestId = requestSnapshot.getKey();
-                        
-                        // Skip if we've already processed this request
-                        if (processedRequestIds.contains(requestId)) {
-                            continue;
-                        }
-                        
-                        processedRequestIds.add(requestId);
-                        
-                        String status = requestSnapshot.child("status").getValue(String.class);
-                        if (status == null || !status.equals("accepted")) {
-                            hasPendingRequests = true;
-                            break;
-                        }
+                for (DataSnapshot requestSnapshot : dataSnapshot.getChildren()) {
+                    String status = requestSnapshot.child("status").getValue(String.class);
+                    // Only count pending requests (not accepted or rejected)
+                    if (status == null || !status.equals("accepted")) {
+                        hasJoinRequests = true;
+                        pendingRequestCount++;
                     }
                 }
                 
-                // Always show the notification if there are pending requests, regardless of ignore setting
+                // Update UI based on whether we have pending join requests
                 if (joinRequestNotification != null) {
-                    joinRequestNotification.setVisibility(hasPendingRequests ? View.VISIBLE : View.GONE);
-                    
-                    // Update the notification badge counter
-                    View notificationBadge = findViewById(R.id.notification_count);
-                    TextView notificationCount = findViewById(R.id.notification_count_text);
-                    if (notificationBadge != null && notificationCount != null) {
-                        // Count pending requests
-                        int pendingCount = 0;
-                        for (DataSnapshot requestSnapshot : dataSnapshot.getChildren()) {
-                            String status = requestSnapshot.child("status").getValue(String.class);
-                            if (status == null || !status.equals("accepted")) {
-                                pendingCount++;
-                            }
-                        }
-                        
-                        notificationBadge.setVisibility(pendingCount > 0 ? View.VISIBLE : View.GONE);
-                        notificationCount.setText(String.valueOf(pendingCount));
+                    joinRequestNotification.setVisibility(hasJoinRequests && !ignoreJoinRequests ? 
+                            View.VISIBLE : View.GONE);
+                }
+                
+                // Update notification count badge
+                View notificationCount = findViewById(R.id.notification_count);
+                TextView notificationCountText = findViewById(R.id.notification_count_text);
+                
+                if (notificationCount != null && notificationCountText != null) {
+                    if (pendingRequestCount > 0) {
+                        notificationCount.setVisibility(View.VISIBLE);
+                        notificationCountText.setText(String.valueOf(pendingRequestCount));
+                    } else {
+                        notificationCount.setVisibility(View.GONE);
                     }
                 }
             }
-            
+
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 Log.e(TAG, "Join requests listener cancelled", databaseError.toException());
             }
         };
-        
+
         // Add the listener to Firebase
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
@@ -479,22 +592,22 @@ public class WatchSessionActivity extends AppCompatActivity {
      */
     private void setupSessionStatusListener() {
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-        
+
         // Listen for connected cameras
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
                 .child("connected_cameras").addValueEventListener(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
                         long count = dataSnapshot.getChildrenCount();
-                        updateParticipantCount((int)count);
+                        updateParticipantCount((int) count);
                     }
-                    
+
                     @Override
                     public void onCancelled(DatabaseError databaseError) {
                         Log.e(TAG, "Session status listener cancelled", databaseError.toException());
                     }
                 });
-                
+
         // Listen for camera status changes (camera on/off)
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
                 .child("camera_status").addValueEventListener(new ValueEventListener() {
@@ -503,12 +616,12 @@ public class WatchSessionActivity extends AppCompatActivity {
                         for (DataSnapshot cameraSnapshot : dataSnapshot.getChildren()) {
                             String cameraId = cameraSnapshot.getKey();
                             Boolean isCameraOff = cameraSnapshot.child("camera_off").getValue(Boolean.class);
-                            
+
                             // Update UI based on camera status
                             updateCameraOffStatus(cameraId, isCameraOff != null && isCameraOff);
                         }
                     }
-                    
+
                     @Override
                     public void onCancelled(DatabaseError databaseError) {
                         Log.e(TAG, "Camera status listener cancelled", databaseError.toException());
@@ -521,16 +634,16 @@ public class WatchSessionActivity extends AppCompatActivity {
      */
     private void setupConnectedCamerasListener() {
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-        
+
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
                 .child("connected_cameras").addValueEventListener(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
                         long count = dataSnapshot.getChildrenCount();
-                        totalConnectedCameras = (int)count;
+                        totalConnectedCameras = (int) count;
                         updateParticipantCount(totalConnectedCameras);
                     }
-                    
+
                     @Override
                     public void onCancelled(DatabaseError databaseError) {
                         Log.e(TAG, "Connected cameras listener cancelled", databaseError.toException());
@@ -543,18 +656,18 @@ public class WatchSessionActivity extends AppCompatActivity {
      */
     private void setupActiveCamerasListener() {
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-        
+
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
                 .child("active_cameras").addValueEventListener(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
                         long count = dataSnapshot.getChildrenCount();
-                        activeCamerasCount = (int)count;
-                        
+                        activeCamerasCount = (int) count;
+
                         // Update status message to show active vs. total
                         updateDetailedParticipantCount(activeCamerasCount, totalConnectedCameras);
                     }
-                    
+
                     @Override
                     public void onCancelled(DatabaseError databaseError) {
                         Log.e(TAG, "Active cameras listener cancelled", databaseError.toException());
@@ -567,14 +680,14 @@ public class WatchSessionActivity extends AppCompatActivity {
      */
     private void setupAcceptedCamerasListener() {
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-        
+
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
                 .child("join_requests").addValueEventListener(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
                         int acceptedCount = 0;
                         Map<String, String> acceptedJoiners = new HashMap<>();
-                        
+
                         // Count accepted cameras and track their IDs
                         for (DataSnapshot requestSnapshot : dataSnapshot.getChildren()) {
                             String status = requestSnapshot.child("status").getValue(String.class);
@@ -582,25 +695,25 @@ public class WatchSessionActivity extends AppCompatActivity {
                                 String joinerId = requestSnapshot.getKey();
                                 String joinerEmail = requestSnapshot.child("email").getValue(String.class);
                                 acceptedCount++;
-                                
+
                                 if (joinerId != null && joinerEmail != null) {
                                     acceptedJoiners.put(joinerId, joinerEmail);
                                 }
                             }
                         }
-                        
+
                         // Update the active camera count
                         activeCamerasCount = acceptedCount;
                         updateDetailedParticipantCount(activeCamerasCount, totalConnectedCameras);
-                        
+
                         // Update the grid layout
                         updateGridLayout(acceptedCount);
-                        
+
                         // Ensure all accepted cameras have renderers assigned
                         for (Map.Entry<String, String> entry : acceptedJoiners.entrySet()) {
                             String joinerId = entry.getKey();
                             String joinerEmail = entry.getValue();
-                            
+
                             // Check if this camera needs a renderer assignment
                             if (rtcHost != null && rtcHost.needsRendererAssignment(joinerId)) {
                                 Log.d(TAG, "Assigning renderer to camera: " + joinerId);
@@ -608,7 +721,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                             }
                         }
                     }
-                    
+
                     @Override
                     public void onCancelled(DatabaseError databaseError) {
                         Log.e(TAG, "Accepted cameras listener cancelled", databaseError.toException());
@@ -622,24 +735,24 @@ public class WatchSessionActivity extends AppCompatActivity {
     private void updateParticipantCount(int count) {
         if (participantsCount != null) {
             StringBuilder countText = new StringBuilder();
-            
+
             // Format the count display
             countText.append(count)
                     .append(" camera")
                     .append(count != 1 ? "s" : "")
                     .append(" connected");
-            
+
             // Add maximum participant limit info
             countText.append(" (max 4)");
-            
+
             // Update the UI
             participantsCount.setText(countText.toString());
-            
+
             // Optionally change text color based on count
             int color = count >= 4 ? ContextCompat.getColor(this, R.color.red) :
-                                   ContextCompat.getColor(this, R.color.green);
+                    ContextCompat.getColor(this, R.color.green);
             participantsCount.setTextColor(color);
-            
+
             // Log the count for debugging
             Log.d(TAG, "Updated participant count: " + count);
         }
@@ -661,7 +774,7 @@ public class WatchSessionActivity extends AppCompatActivity {
     private void updateCameraOffStatus(String cameraId, boolean isOff) {
         // Map the camera ID to the appropriate message view (you'll need to define this mapping)
         String viewKey = mapCameraIdToViewKey(cameraId);
-        
+
         TextView msgView = cameraDisabledMessages.get(viewKey);
         if (msgView != null) {
             msgView.setVisibility(isOff ? View.VISIBLE : View.GONE);
@@ -682,15 +795,8 @@ public class WatchSessionActivity extends AppCompatActivity {
      */
     private void toggleAudio() {
         isAudioEnabled = !isAudioEnabled;
-        
-        // Update button appearance
-        MaterialButton micButton = findViewById(R.id.microphone_button);
-        if (micButton != null) {
-            micButton.setIconResource(isAudioEnabled ?
-                    R.drawable.ic_baseline_mic_24 : R.drawable.ic_baseline_mic_off_24);
-        }
-        
-        // Update RTCHost
+
+        // Update RTCHost audio state
         if (rtcHost != null) {
             if (isAudioEnabled) {
                 rtcHost.unmuteMic();
@@ -698,6 +804,9 @@ public class WatchSessionActivity extends AppCompatActivity {
                 rtcHost.muteMic();
             }
         }
+        
+        // Log the state change
+        Log.d(TAG, "Audio toggled to: " + (isAudioEnabled ? "enabled" : "disabled"));
     }
 
     /**
@@ -726,7 +835,7 @@ public class WatchSessionActivity extends AppCompatActivity {
         if (rtcHost != null) {
             rtcHost.dispose();
         }
-        
+
         // Delete the session from Firebase
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
@@ -748,56 +857,56 @@ public class WatchSessionActivity extends AppCompatActivity {
     private void showJoinRequestDialog() {
         // Get the current user's email
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-        
+
         // Add debugging to see what's happening
         Log.d(TAG, "showJoinRequestDialog called, checking join requests");
-        
+
         // Query join requests
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
                 .child("join_requests").get().addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         // More detailed debug info
-                        Log.d(TAG, "Join requests query successful, found: " + 
-                              (task.getResult().exists() ? task.getResult().getChildrenCount() + " requests" : "no requests"));
-                        
+                        Log.d(TAG, "Join requests query successful, found: " +
+                                (task.getResult().exists() ? task.getResult().getChildrenCount() + " requests" : "no requests"));
+
                         if (task.getResult().exists() && task.getResult().getChildrenCount() > 0) {
                             // Create dialog
                             AlertDialog.Builder builder = new AlertDialog.Builder(this);
                             builder.setTitle("Join Requests");
-                            
+
                             // Create custom view
                             View customView = LayoutInflater.from(this).inflate(R.layout.dialog_join_requests, null);
                             GridLayout requestsGrid = customView.findViewById(R.id.requests_grid);
                             CheckBox ignoreCheckbox = customView.findViewById(R.id.ignore_checkbox);
-                            
+
                             if (ignoreCheckbox != null) {
                                 ignoreCheckbox.setChecked(ignoreJoinRequests);
                             }
-                            
+
                             // Add join requests to the grid
                             if (requestsGrid != null) {
                                 boolean hasValidRequests = false;
-                                
+
                                 // Track unique emails to prevent duplicates
                                 Set<String> uniqueEmails = new HashSet<>();
-                                
+
                                 for (DataSnapshot requestSnapshot : task.getResult().getChildren()) {
                                     String requestId = requestSnapshot.getKey();
                                     String requestEmail = requestSnapshot.child("email").getValue(String.class);
-                                    
+
                                     // Skip requests that already have status "accepted"
                                     String status = requestSnapshot.child("status").getValue(String.class);
                                     if ("accepted".equals(status)) continue;
-                                    
+
                                     // Skip duplicate emails
                                     if (uniqueEmails.contains(requestEmail)) continue;
                                     uniqueEmails.add(requestEmail);
-                                    
+
                                     // Add request entry to the grid
                                     addRequestToGrid(requestsGrid, requestId, requestEmail != null ? requestEmail : "Unknown");
                                     hasValidRequests = true;
                                 }
-                                
+
                                 if (!hasValidRequests) {
                                     TextView noRequestsText = new TextView(this);
                                     noRequestsText.setText("No pending join requests");
@@ -805,21 +914,21 @@ public class WatchSessionActivity extends AppCompatActivity {
                                     requestsGrid.addView(noRequestsText);
                                 }
                             }
-                            
+
                             // Set the view to the dialog
                             builder.setView(customView);
-                            
+
                             // Add close button
                             builder.setPositiveButton("Close", (dialog, which) -> {
                                 // Update ignore preference
                                 if (ignoreCheckbox != null) {
                                     ignoreJoinRequests = ignoreCheckbox.isChecked();
                                 }
-                                
+
                                 dialog.dismiss();
                                 joinRequestDialog = null;
                             });
-                            
+
                             // Show dialog
                             joinRequestDialog = builder.create();
                             joinRequestDialog.show();
@@ -840,21 +949,21 @@ public class WatchSessionActivity extends AppCompatActivity {
         // Create request entry view
         View requestView = LayoutInflater.from(this).inflate(R.layout.item_join_request, null);
         TextView emailText = requestView.findViewById(R.id.request_email);
-        
+
         // Add debug to confirm the layout is properly loaded
         if (requestView == null) {
             Log.e(TAG, "Failed to inflate join request layout");
             return;
         }
-        
+
         // Get buttons with null checks
         View acceptBtn = requestView.findViewById(R.id.accept_button);
         View rejectBtn = requestView.findViewById(R.id.reject_button);
-        
+
         if (emailText != null) {
             emailText.setText(email);
         }
-        
+
         if (acceptBtn != null) {
             acceptBtn.setOnClickListener(v -> {
                 Log.d(TAG, "Accept button clicked for joiner: " + email + " with ID: " + requestId);
@@ -863,20 +972,20 @@ public class WatchSessionActivity extends AppCompatActivity {
         } else {
             Log.e(TAG, "Accept button not found in join request layout");
         }
-        
+
         if (rejectBtn != null) {
             rejectBtn.setOnClickListener(v -> {
                 Log.d(TAG, "Reject button clicked for joiner: " + email);
                 rejectJoinRequest(requestId);
             });
         }
-        
+
         // Add to grid with proper layout params
         GridLayout.LayoutParams params = new GridLayout.LayoutParams();
         params.width = GridLayout.LayoutParams.MATCH_PARENT;
         params.height = GridLayout.LayoutParams.WRAP_CONTENT;
         params.setMargins(8, 8, 8, 8);
-        
+
         requestView.setLayoutParams(params);
         grid.addView(requestView);
     }
@@ -886,7 +995,7 @@ public class WatchSessionActivity extends AppCompatActivity {
      */
     private void acceptJoinRequest(String requestId) {
         Log.d(TAG, "Accepting join request: " + requestId);
-        
+
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
         DatabaseReference requestRef = mDatabase.child("users")
                 .child(userEmail)
@@ -894,56 +1003,59 @@ public class WatchSessionActivity extends AppCompatActivity {
                 .child(sessionId)
                 .child("join_requests")
                 .child(requestId);
-                
-        // First get the joiner's email
-        requestRef.child("email").get().addOnCompleteListener(task -> {
+
+        // First get the joiner's email and device information
+        requestRef.get().addOnCompleteListener(task -> {
             if (task.isSuccessful() && task.getResult() != null) {
-                String joinerEmail = task.getResult().getValue(String.class);
+                String joinerEmail = task.getResult().child("email").getValue(String.class);
+                String deviceId = task.getResult().child("deviceId").getValue(String.class);
+                String deviceName = task.getResult().child("deviceName").getValue(String.class);
                 
                 if (joinerEmail != null) {
-                    Log.d(TAG, "Found joiner email: " + joinerEmail + " for request: " + requestId);
+                    // Use a combination of email and device ID to create a unique identifier
+                    String uniqueJoinerId = deviceId != null ? joinerEmail + "_" + deviceId : joinerEmail;
                     
-                    // Create a map for the update with all needed fields
-                    Map<String, Object> updates = new HashMap<>();
-                    updates.put("status", "accepted");
-                    updates.put("accepted_at", System.currentTimeMillis());
+                    Log.d(TAG, "Accepting join request from email: " + joinerEmail + 
+                          ", device: " + (deviceName != null ? deviceName : "Unknown") + 
+                          ", with unique ID: " + uniqueJoinerId);
                     
-                    // Update the request status
-                    requestRef.updateChildren(updates)
-                        .addOnCompleteListener(updateTask -> {
-                            if (updateTask.isSuccessful()) {
-                                Log.d(TAG, "Join request successfully accepted");
-                                Toast.makeText(WatchSessionActivity.this, 
-                                    "Request accepted. Camera joining...", Toast.LENGTH_SHORT).show();
-                                
-                                // Create peer connection AND assign to a renderer based on active count
-                                if (rtcHost != null) {
-                                    rtcHost.createPeerConnection(requestId);
-                                    Log.d(TAG, "Created peer connection for joiner: " + requestId);
-                                    
-                                    // Get active joiners and assign renderer based on count
-                                    assignCameraToRenderer(requestId, joinerEmail);
-                                }
-                                
-                                // Close the dialog if open
-                                dismissJoinRequestDialog();
-                            } else {
-                                Log.e(TAG, "Failed to accept join request", updateTask.getException());
-                                Toast.makeText(WatchSessionActivity.this, 
-                                    "Failed to accept request", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                } else {
-                    Log.e(TAG, "Join request email is null");
+                    // Set the request as accepted in Firebase
+                    requestRef.child("status").setValue("accepted");
+                    
+                    // Store device info with request for better identification
+                    if (deviceId != null) requestRef.child("deviceId").setValue(deviceId);
+                    if (deviceName != null) requestRef.child("deviceName").setValue(deviceName);
+                    
+                    // Create connection for this joiner, passing device info
+                    if (rtcHost != null) {
+                        rtcHost.acceptJoinRequest(requestId, joinerEmail, deviceName, deviceId);
+                    }
+                    
+                    // Assign camera to a renderer
+                    assignCameraToRenderer(requestId, joinerEmail, deviceId, deviceName);
+                    
+                    // Hide the join request dialog
+                    dismissJoinRequestDialog();
+                    
                     Toast.makeText(WatchSessionActivity.this, 
-                        "Failed to get joiner information", Toast.LENGTH_SHORT).show();
+                            "Join request accepted: " + joinerEmail + 
+                            (deviceName != null ? " (" + deviceName + ")" : ""), 
+                            Toast.LENGTH_SHORT).show();
                 }
             } else {
-                Log.e(TAG, "Failed to get joiner email", task.getException());
-                Toast.makeText(WatchSessionActivity.this, 
-                    "Failed to get joiner information", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Failed to get join request data", 
+                      task.getException() != null ? task.getException() : new Exception("Unknown error"));
             }
         });
+    }
+
+    // Update assignCameraToRenderer method signature to include device information
+    private void assignCameraToRenderer(String joinerId, String joinerEmail, String deviceId, String deviceName) {
+        Log.d(TAG, "Starting to assign joiner " + joinerId + " (email: " + joinerEmail + 
+              ", device: " + (deviceName != null ? deviceName : "Unknown") + ") to a renderer");
+        
+        // Rest of your method remains mostly the same, but use the deviceId to ensure uniqueness
+        // ...
     }
 
     /**
@@ -963,17 +1075,17 @@ public class WatchSessionActivity extends AppCompatActivity {
      */
     private void assignCameraToRenderer(String joinerId, String joinerEmail) {
         Log.d(TAG, "Starting to assign joiner " + joinerId + " to a renderer");
-        
+
         if (rtcHost == null) {
             Log.e(TAG, "rtcHost is null, cannot assign renderer");
             return;
         }
-        
+
         // Get all active joiners
         String[] activeJoiners = rtcHost.getActiveJoiners();
         int activeCount = activeJoiners != null ? activeJoiners.length : 0;
         Log.d(TAG, "Active joiners count: " + activeCount);
-        
+
         // First, check if this joiner already has a renderer assigned
         SurfaceViewRenderer existingRenderer = null;
         if (rtcHost.isRendererAssignedToJoiner(joinerId, feedView1)) {
@@ -985,18 +1097,18 @@ public class WatchSessionActivity extends AppCompatActivity {
         } else if (rtcHost.isRendererAssignedToJoiner(joinerId, feedView4)) {
             existingRenderer = feedView4;
         }
-        
+
         if (existingRenderer != null) {
             Log.d(TAG, "Joiner " + joinerId + " already has a renderer assigned, skipping reassignment");
             return;
         }
-        
+
         // Now find which position this joiner should get
         final int position;  // Make this final or effectively final for lambda
-        
+
         // Check which renderers are already assigned
         boolean[] rendererAssigned = new boolean[4];
-        
+
         // Check if each renderer is already assigned to any joiner
         for (String activeJoiner : activeJoiners) {
             if (rtcHost.isRendererAssignedToJoiner(activeJoiner, feedView1)) {
@@ -1009,7 +1121,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                 rendererAssigned[3] = true;
             }
         }
-        
+
         // Find the first unassigned position
         int posTemp = -1;
         for (int i = 0; i < 4; i++) {
@@ -1018,16 +1130,16 @@ public class WatchSessionActivity extends AppCompatActivity {
                 break;
             }
         }
-        
+
         // If all renderers are assigned (shouldn't happen), use position based on count
         if (posTemp == -1) {
             posTemp = Math.min(activeCount, 3); // Max 4 renderers (0-3)
         }
-        
+
         position = posTemp;  // Assign to final position
-        
+
         Log.d(TAG, "Assigning joiner " + joinerId + " to position " + position);
-        
+
         // Now set the assigned_camera value in Firebase
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
         DatabaseReference requestRef = mDatabase.child("users")
@@ -1036,17 +1148,17 @@ public class WatchSessionActivity extends AppCompatActivity {
                 .child(sessionId)
                 .child("join_requests")
                 .child(joinerId);
-                
+
         // Send the camera position+1 to the joiner
         requestRef.child("assigned_camera").setValue(position + 1); // Position 0-3 to camera 1-4
-        
+
         // Update grid layout based on the number of active cameras
         updateGridLayout(Math.max(activeCount, position + 1));
-        
+
         // Assign renderer based on position
         SurfaceViewRenderer rendererToUse = null;
         View container = null;
-        
+
         switch (position) {
             case 0:
                 rendererToUse = feedView1;
@@ -1065,11 +1177,11 @@ public class WatchSessionActivity extends AppCompatActivity {
                 container = findViewById(R.id.feed_container_4);
                 break;
         }
-        
+
         if (rendererToUse != null && container != null) {
             // Ensure container is visible
             container.setVisibility(View.VISIBLE);
-            
+
             // Initialize and assign renderer
             try {
                 // First make sure renderer is released and reinitialized
@@ -1078,20 +1190,20 @@ public class WatchSessionActivity extends AppCompatActivity {
                 } catch (Exception e) {
                     // Ignore errors when releasing
                 }
-                
+
                 // Initialize with EGL context from RTCHost
                 if (rtcHost.getEglBaseContext() != null) {
                     rendererToUse.init(rtcHost.getEglBaseContext(), null);
                     rendererToUse.setEnableHardwareScaler(true);
                     rendererToUse.setMirror(false);
                     Log.d(TAG, "Renderer initialized successfully for position " + position);
-                    
+
                     // Assign renderer to joiner
                     rtcHost.assignRendererToJoiner(joinerId, rendererToUse);
                     initializedRenderers.put(rendererToUse, true);
-                    
-                    Log.d(TAG, "Successfully assigned renderer at position " + position + 
-                          " to joiner " + joinerId);
+
+                    Log.d(TAG, "Successfully assigned renderer at position " + position +
+                            " to joiner " + joinerId);
                 } else {
                     Log.e(TAG, "Failed to get EGL context from RTCHost");
                 }
@@ -1157,12 +1269,12 @@ public class WatchSessionActivity extends AppCompatActivity {
 
         // In assignCameraToRenderer method in WatchSessionActivity
         String deviceName = rtcHost.getJoinerDeviceName(joinerId);
-        String displayText = "Camera " + (position+1) + ": " + joinerEmail;
+        String displayText = "Camera " + (position + 1) + ": " + joinerEmail;
         if (deviceName != null && !deviceName.isEmpty()) {
             displayText += " (" + deviceName + ")";
         }
 
-        TextView cameraNumber = cameraNumberLabels.get("feed" + (position+1));
+        TextView cameraNumber = cameraNumberLabels.get("feed" + (position + 1));
         if (cameraNumber != null) {
             cameraNumber.setText(displayText);
             cameraNumber.setVisibility(View.VISIBLE);
@@ -1198,7 +1310,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                 container = findViewById(R.id.feed_container_4);
                 break;
         }
-        
+
         if (container != null && container.getVisibility() != View.VISIBLE) {
             container.setVisibility(View.VISIBLE);
         }
@@ -1209,42 +1321,42 @@ public class WatchSessionActivity extends AppCompatActivity {
      */
     private void updateGridLayout(int cameraCount) {
         Log.d(TAG, "Updating grid layout for " + cameraCount + " cameras");
-        
+
         // Get all feed containers
         View feedContainer1 = findViewById(R.id.feed_container_1);
         View feedContainer2 = findViewById(R.id.feed_container_2);
         View feedContainer3 = findViewById(R.id.feed_container_3);
         View feedContainer4 = findViewById(R.id.feed_container_4);
-        
+
         if (feedContainer1 == null || feedContainer2 == null ||
-            feedContainer3 == null || feedContainer4 == null) {
+                feedContainer3 == null || feedContainer4 == null) {
             Log.e(TAG, "One or more feed containers are null - layout problem");
             return;
         }
-        
+
         // Get the constraint layout
         ConstraintLayout gridLayout = findViewById(R.id.grid_layout);
         if (gridLayout == null) {
             Log.e(TAG, "Grid layout not found");
             return;
         }
-        
+
         // Create a new constraint set to establish layout rules
         ConstraintSet constraintSet = new ConstraintSet();
         constraintSet.clone(gridLayout);
-        
+
         // First clear all existing constraints for the containers
         constraintSet.clear(R.id.feed_container_1);
         constraintSet.clear(R.id.feed_container_2);
         constraintSet.clear(R.id.feed_container_3);
         constraintSet.clear(R.id.feed_container_4);
-        
+
         // Clear all click listeners before setting new ones
         feedContainer1.setOnClickListener(null);
         feedContainer2.setOnClickListener(null);
         feedContainer3.setOnClickListener(null);
         feedContainer4.setOnClickListener(null);
-        
+
         // Check if we're in focused mode
         if (focusedCamera != -1 && focusedCamera < cameraCount) {
             // Show only the focused camera, hide others
@@ -1252,42 +1364,44 @@ public class WatchSessionActivity extends AppCompatActivity {
             feedContainer2.setVisibility(focusedCamera == 1 ? View.VISIBLE : View.GONE);
             feedContainer3.setVisibility(focusedCamera == 2 ? View.VISIBLE : View.GONE);
             feedContainer4.setVisibility(focusedCamera == 3 ? View.VISIBLE : View.GONE);
-            
+
             // Get the focused container
-            View focusedContainer;
+            View focusedContainer = null;
             switch (focusedCamera) {
-                case 0: focusedContainer = feedContainer1; break;
-                case 1: focusedContainer = feedContainer2; break;
-                case 2: focusedContainer = feedContainer3; break;
-                case 3: focusedContainer = feedContainer4; break;
-                default: focusedContainer = feedContainer1; break;
+                case 0:
+                    focusedContainer = feedContainer1;
+                    break;
+                case 1:
+                    focusedContainer = feedContainer2;
+                    break;
+                case 2:
+                    focusedContainer = feedContainer3;
+                    break;
+                case 3:
+                    focusedContainer = feedContainer4;
+                    break;
             }
-            
-            // Full screen constraints for focused camera
-            constraintSet.connect(focusedContainer.getId(), ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
-            constraintSet.connect(focusedContainer.getId(), ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-            constraintSet.connect(focusedContainer.getId(), ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
-            constraintSet.connect(focusedContainer.getId(), ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-            
-            // Make the container clickable to exit focus mode
-            focusedContainer.setOnClickListener(v -> {
-                showFocusHint(focusedContainer);
-                focusedCamera = -1;
-                updateGridLayout(cameraCount);
-            });
+
+            if (focusedContainer != null) {
+                // Full screen constraints for focused camera
+                constraintSet.connect(focusedContainer.getId(), ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                constraintSet.connect(focusedContainer.getId(), ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                constraintSet.connect(focusedContainer.getId(), ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                constraintSet.connect(focusedContainer.getId(), ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+            }
         } else {
             // Set visibility for normal grid display
             feedContainer1.setVisibility(cameraCount >= 1 ? View.VISIBLE : View.GONE);
             feedContainer2.setVisibility(cameraCount >= 2 ? View.VISIBLE : View.GONE);
             feedContainer3.setVisibility(cameraCount >= 3 ? View.VISIBLE : View.GONE);
             feedContainer4.setVisibility(cameraCount >= 4 ? View.VISIBLE : View.GONE);
-            
+
             Log.d(TAG, "Container visibility set: " +
-                  "1=" + (feedContainer1.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
-                  "2=" + (feedContainer2.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
-                  "3=" + (feedContainer3.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
-                  "4=" + (feedContainer4.getVisibility() == View.VISIBLE ? "visible" : "gone"));
-            
+                    "1=" + (feedContainer1.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
+                    "2=" + (feedContainer2.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
+                    "3=" + (feedContainer3.getVisibility() == View.VISIBLE ? "visible" : "gone") + ", " +
+                    "4=" + (feedContainer4.getVisibility() == View.VISIBLE ? "visible" : "gone"));
+
             // Create constraints based on camera count
             switch (cameraCount) {
                 case 1:
@@ -1296,7 +1410,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                    
+
                     // Add click listener for focus mode
                     feedContainer1.setOnClickListener(v -> {
                         showFocusHint(feedContainer1);
@@ -1304,161 +1418,161 @@ public class WatchSessionActivity extends AppCompatActivity {
                         updateGridLayout(cameraCount);
                     });
                     break;
-                    
+
                 case 2:
                     // Two cameras - top and bottom grid (vertical layout)
-                    
+
                     // Set up container 1 (top)
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, R.id.feed_container_2, ConstraintSet.TOP);
-                    
+
                     // Set up container 2 (bottom)
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, R.id.feed_container_1, ConstraintSet.BOTTOM);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                    
+
                     // Make them equal height
                     constraintSet.setVerticalWeight(R.id.feed_container_1, 1);
                     constraintSet.setVerticalWeight(R.id.feed_container_2, 1);
-                    
+
                     // Add click listeners for focus mode
                     feedContainer1.setOnClickListener(v -> {
                         showFocusHint(feedContainer1);
                         focusedCamera = 0;
                         updateGridLayout(cameraCount);
                     });
-                    
+
                     feedContainer2.setOnClickListener(v -> {
                         showFocusHint(feedContainer2);
                         focusedCamera = 1;
                         updateGridLayout(cameraCount);
                     });
                     break;
-                    
+
                 case 3:
                     // Three cameras - 2x2 grid with one larger cell
-                    
+
                     // Top left
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
-                    
+
                     // Top right
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
-                    
+
                     // Bottom (full width)
                     constraintSet.connect(R.id.feed_container_3, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
                     constraintSet.connect(R.id.feed_container_3, ConstraintSet.TOP, R.id.feed_container_1, ConstraintSet.BOTTOM);
                     constraintSet.connect(R.id.feed_container_3, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_3, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                    
+
                     // Make the top two equal width
                     constraintSet.createHorizontalChain(
-                        ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                        ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                        new int[]{R.id.feed_container_1, R.id.feed_container_2},
-                        new float[]{1, 1},
-                        ConstraintSet.CHAIN_PACKED
+                            ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                            ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                            new int[]{R.id.feed_container_1, R.id.feed_container_2},
+                            new float[]{1, 1},
+                            ConstraintSet.CHAIN_PACKED
                     );
-                    
+
                     // Equal height distribution (50% top row, 50% bottom row)
                     constraintSet.setVerticalWeight(R.id.feed_container_1, 1);
                     constraintSet.setVerticalWeight(R.id.feed_container_3, 1);
-                    
+
                     // Add click listeners for focus mode
                     feedContainer1.setOnClickListener(v -> {
                         showFocusHint(feedContainer1);
                         focusedCamera = 0;
                         updateGridLayout(cameraCount);
                     });
-                    
+
                     feedContainer2.setOnClickListener(v -> {
                         showFocusHint(feedContainer2);
                         focusedCamera = 1;
                         updateGridLayout(cameraCount);
                     });
-                    
+
                     feedContainer3.setOnClickListener(v -> {
                         showFocusHint(feedContainer3);
                         focusedCamera = 2;
                         updateGridLayout(cameraCount);
                     });
                     break;
-                    
+
                 case 4:
                     // Four cameras - 2x2 grid
-                    
+
                     // Top left
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.END, R.id.feed_container_2, ConstraintSet.START);
                     constraintSet.connect(R.id.feed_container_1, ConstraintSet.BOTTOM, R.id.feed_container_3, ConstraintSet.TOP);
-                    
+
                     // Top right
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.START, R.id.feed_container_1, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_2, ConstraintSet.BOTTOM, R.id.feed_container_4, ConstraintSet.TOP);
-                    
+
                     // Bottom left
                     constraintSet.connect(R.id.feed_container_3, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
                     constraintSet.connect(R.id.feed_container_3, ConstraintSet.TOP, R.id.feed_container_1, ConstraintSet.BOTTOM);
                     constraintSet.connect(R.id.feed_container_3, ConstraintSet.END, R.id.feed_container_4, ConstraintSet.START);
                     constraintSet.connect(R.id.feed_container_3, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                    
+
                     // Bottom right
                     constraintSet.connect(R.id.feed_container_4, ConstraintSet.START, R.id.feed_container_3, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_4, ConstraintSet.TOP, R.id.feed_container_2, ConstraintSet.BOTTOM);
                     constraintSet.connect(R.id.feed_container_4, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
                     constraintSet.connect(R.id.feed_container_4, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-                    
+
                     // Equal width for both columns
                     constraintSet.createHorizontalChain(
-                        ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                        ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                        new int[]{R.id.feed_container_1, R.id.feed_container_2},
-                        new float[]{1, 1},
-                        ConstraintSet.CHAIN_PACKED
+                            ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                            ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                            new int[]{R.id.feed_container_1, R.id.feed_container_2},
+                            new float[]{1, 1},
+                            ConstraintSet.CHAIN_PACKED
                     );
-                    
+
                     constraintSet.createHorizontalChain(
-                        ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                        ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                        new int[]{R.id.feed_container_3, R.id.feed_container_4},
-                        new float[]{1, 1},
-                        ConstraintSet.CHAIN_PACKED
+                            ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                            ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                            new int[]{R.id.feed_container_3, R.id.feed_container_4},
+                            new float[]{1, 1},
+                            ConstraintSet.CHAIN_PACKED
                     );
-                    
+
                     // Equal height for both rows
                     constraintSet.setVerticalWeight(R.id.feed_container_1, 1);
                     constraintSet.setVerticalWeight(R.id.feed_container_3, 1);
-                    
+
                     // Add click listeners for focus mode
                     feedContainer1.setOnClickListener(v -> {
                         showFocusHint(feedContainer1);
                         focusedCamera = 0;
                         updateGridLayout(cameraCount);
                     });
-                    
+
                     feedContainer2.setOnClickListener(v -> {
                         showFocusHint(feedContainer2);
                         focusedCamera = 1;
                         updateGridLayout(cameraCount);
                     });
-                    
+
                     feedContainer3.setOnClickListener(v -> {
                         showFocusHint(feedContainer3);
                         focusedCamera = 2;
                         updateGridLayout(cameraCount);
                     });
-                    
+
                     feedContainer4.setOnClickListener(v -> {
                         showFocusHint(feedContainer4);
                         focusedCamera = 3;
@@ -1466,6 +1580,12 @@ public class WatchSessionActivity extends AppCompatActivity {
                     });
                     break;
             }
+        }
+
+        // Show "No cameras connected" message if needed
+        View noCamerasMessage = findViewById(R.id.no_cameras_message);
+        if (noCamerasMessage != null) {
+            noCamerasMessage.setVisibility(cameraCount == 0 ? View.VISIBLE : View.GONE);
         }
 
         // Add margins between containers (8dp)
@@ -1489,10 +1609,10 @@ public class WatchSessionActivity extends AppCompatActivity {
         constraintSet.setMargin(R.id.feed_container_4, ConstraintSet.TOP, margin);
         constraintSet.setMargin(R.id.feed_container_4, ConstraintSet.END, margin);
         constraintSet.setMargin(R.id.feed_container_4, ConstraintSet.BOTTOM, margin);
-        
+
         // Apply the constraints
         constraintSet.applyTo(gridLayout);
-        
+
         // Make sure to initialize renderers that should be visible
         if ((focusedCamera == 0 || focusedCamera == -1) && cameraCount >= 1) {
             initializeRenderer(feedView1);
@@ -1506,19 +1626,20 @@ public class WatchSessionActivity extends AppCompatActivity {
         if ((focusedCamera == 3 || focusedCamera == -1) && cameraCount >= 4) {
             initializeRenderer(feedView4);
         }
-        
+
         // Show/hide back button based on focus state
         FloatingActionButton backButton = findViewById(R.id.back_to_grid_button);
         if (backButton != null) {
             backButton.setVisibility(focusedCamera != -1 ? View.VISIBLE : View.GONE);
             backButton.setOnClickListener(v -> {
+                // Exit focus mode
                 focusedCamera = -1;
-                updateGridLayout(cameraCount);
+                updateGridLayout(totalConnectedCameras);
             });
         }
-        
-        Log.d(TAG, "Grid layout updated for " + cameraCount + " cameras with focus mode: " + 
-              (focusedCamera == -1 ? "none" : focusedCamera));
+
+        Log.d(TAG, "Grid layout updated for " + cameraCount + " cameras with focus mode: " +
+                (focusedCamera == -1 ? "none" : focusedCamera));
     }
 
     // Then modify the initializeRenderer method
@@ -1531,7 +1652,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                     Log.e(TAG, "EglBase context is null, cannot initialize renderer");
                     return;
                 }
-                
+
                 // First check if already initialized to avoid re-initialization
                 try {
                     // Use release and re-init pattern to ensure clean state
@@ -1541,12 +1662,12 @@ public class WatchSessionActivity extends AppCompatActivity {
                     // Ignore release errors - might not be initialized yet
                     Log.d(TAG, "Renderer was not previously initialized or error releasing: " + e.getMessage());
                 }
-                
+
                 // Initialize with EglBase context
                 renderer.init(eglContext, null);
                 renderer.setEnableHardwareScaler(true);
                 renderer.setMirror(false);
-                
+
                 // Mark as initialized
                 initializedRenderers.put(renderer, true);
                 Log.d(TAG, "Renderer initialized successfully with context: " + eglContext);
@@ -1583,7 +1704,7 @@ public class WatchSessionActivity extends AppCompatActivity {
         View focusOverlay = new View(this);
         focusOverlay.setBackgroundColor(ContextCompat.getColor(this, R.color.white));
         focusOverlay.setAlpha(0.3f);
-        
+
         if (container instanceof FrameLayout) {
             // Add the overlay to the container
             FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
@@ -1591,7 +1712,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                     FrameLayout.LayoutParams.MATCH_PARENT
             );
             ((FrameLayout) container).addView(focusOverlay, params);
-            
+
             // Animate the overlay
             focusOverlay.animate()
                     .alpha(0f)
@@ -1610,7 +1731,7 @@ public class WatchSessionActivity extends AppCompatActivity {
         if (timestampUpdateRunnable != null) {
             timestampUpdateHandler.removeCallbacks(timestampUpdateRunnable);
         }
-        
+
         // Create a new update runnable
         timestampUpdateRunnable = new Runnable() {
             @Override
@@ -1620,11 +1741,11 @@ public class WatchSessionActivity extends AppCompatActivity {
                 timestampUpdateHandler.postDelayed(this, 1000);
             }
         };
-        
+
         // Start updates
         timestampUpdateHandler.post(timestampUpdateRunnable);
     }
-    
+
     // Method to update all timestamps
     private void updateAllTimestamps() {
         String timeString = getFormattedTime();
@@ -1634,10 +1755,177 @@ public class WatchSessionActivity extends AppCompatActivity {
             }
         }
     }
-    
+
     // Helper method to get formatted time
     private String getFormattedTime() {
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault());
         return sdf.format(new java.util.Date());
+    }
+
+    /**
+     * Show session information dialog
+     */
+    private void showSessionInfoDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_session_info, null);
+        builder.setView(dialogView);
+        
+        // Find views in the dialog
+        TextView sessionTitleView = dialogView.findViewById(R.id.dialog_session_title);
+        TextView sessionPasskeyView = dialogView.findViewById(R.id.dialog_session_passkey);
+        LinearLayout connectedCamerasContainer = dialogView.findViewById(R.id.connected_cameras_container);
+        Button copyPasskeyButton = dialogView.findViewById(R.id.copy_passkey_button);
+        Button closeButton = dialogView.findViewById(R.id.close_button);
+        
+        // Get the tab layout and panels
+        TabLayout tabLayout = dialogView.findViewById(R.id.tab_layout);
+        View sessionInfoPanel = dialogView.findViewById(R.id.session_info_panel);
+        View camerasPanel = dialogView.findViewById(R.id.cameras_panel);
+        TextView cameraCountBadge = dialogView.findViewById(R.id.camera_count_badge);
+        TextView sessionCameraCount = dialogView.findViewById(R.id.session_camera_count);
+        TextView noCamerasMessage = dialogView.findViewById(R.id.no_cameras_message);
+        TextView sessionDuration = dialogView.findViewById(R.id.session_duration);
+        
+        // Set session name as title
+        sessionTitleView.setText(sessionName);
+        
+        // Calculate session duration
+        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                .child("created_at").get().addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                        Long createdAt = task.getResult().getValue(Long.class);
+                        if (createdAt != null) {
+                            long duration = (System.currentTimeMillis() - createdAt) / 1000; // in seconds
+                            long minutes = duration / 60;
+                            long seconds = duration % 60;
+                            sessionDuration.setText(String.format("%02d:%02d", minutes, seconds));
+                        }
+                    }
+                });
+        
+        // Set up tab selection listener
+        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                if (tab.getPosition() == 0) {
+                    // Show session info panel
+                    sessionInfoPanel.setVisibility(View.VISIBLE);
+                    camerasPanel.setVisibility(View.GONE);
+                } else {
+                    // Show cameras panel
+                    sessionInfoPanel.setVisibility(View.GONE);
+                    camerasPanel.setVisibility(View.VISIBLE);
+                }
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+                // Not needed
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+                // Not needed
+            }
+        });
+        
+        // Find the passkey section container
+        LinearLayout passkeySection = dialogView.findViewById(R.id.passkey_section);
+        
+        // Fetch session passkey and connected cameras from Firebase
+        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+                .get().addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        // Get session passkey
+                        String passkey = task.getResult().child("session_code").getValue(String.class);
+                        
+                        // Debug the passkey value
+                        Log.d(TAG, "Retrieved session passkey: " + (passkey != null ? passkey : "null"));
+                        
+                        if (passkey != null && !passkey.isEmpty()) {
+                            sessionPasskeyView.setText(passkey);
+                            passkeySection.setVisibility(View.VISIBLE);
+                            
+                            // Set up copy button
+                            copyPasskeyButton.setOnClickListener(v -> {
+                                // Copy to clipboard
+                                android.content.ClipboardManager clipboard = 
+                                    (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                                android.content.ClipData clip = 
+                                    android.content.ClipData.newPlainText("Session Passkey", passkey);
+                                clipboard.setPrimaryClip(clip);
+                                Toast.makeText(WatchSessionActivity.this, 
+                                    "Session code copied to clipboard", Toast.LENGTH_SHORT).show();
+                            });
+                        } else {
+                            // Hide the entire passkey section if no passkey is available
+                            passkeySection.setVisibility(View.GONE);
+                        }
+                        
+                        // Get connected cameras
+                        DataSnapshot connectedCamerasSnapshot = task.getResult().child("join_requests");
+                        int cameraCount = 0;
+                        
+                        if (connectedCamerasSnapshot.exists()) {
+                            connectedCamerasContainer.removeAllViews(); // Clear existing views
+                            
+                            for (DataSnapshot cameraSnapshot : connectedCamerasSnapshot.getChildren()) {
+                                String status = cameraSnapshot.child("status").getValue(String.class);
+                                if ("accepted".equals(status)) {
+                                    cameraCount++;
+                                    String email = cameraSnapshot.child("email").getValue(String.class);
+                                    String deviceName = cameraSnapshot.child("deviceName").getValue(String.class);
+                                    
+                                    if (email != null) {
+                                        // Create a view for this camera
+                                        View cameraItemView = LayoutInflater.from(WatchSessionActivity.this)
+                                            .inflate(R.layout.item_connected_camera, null);
+                                        
+                                        TextView cameraEmailView = cameraItemView.findViewById(R.id.camera_email);
+                                        TextView cameraDeviceView = cameraItemView.findViewById(R.id.camera_device);
+                                        
+                                        cameraEmailView.setText(email);
+                                        if (deviceName != null && !deviceName.isEmpty()) {
+                                            cameraDeviceView.setText(deviceName);
+                                            cameraDeviceView.setVisibility(View.VISIBLE);
+                                        } else {
+                                            cameraDeviceView.setVisibility(View.GONE);
+                                        }
+                                        
+                                        connectedCamerasContainer.addView(cameraItemView);
+                                    }
+                                }
+                            }
+                            
+                            // Update camera count
+                            sessionCameraCount.setText(String.valueOf(cameraCount));
+                            cameraCountBadge.setText(String.valueOf(cameraCount));
+                            
+                            // Show empty state if needed
+                            if (cameraCount == 0) {
+                                noCamerasMessage.setVisibility(View.VISIBLE);
+                                connectedCamerasContainer.setVisibility(View.GONE);
+                            } else {
+                                noCamerasMessage.setVisibility(View.GONE);
+                                connectedCamerasContainer.setVisibility(View.VISIBLE);
+                            }
+                        } else {
+                            // No cameras connected
+                            sessionCameraCount.setText("0");
+                            cameraCountBadge.setText("0");
+                            noCamerasMessage.setVisibility(View.VISIBLE);
+                            connectedCamerasContainer.setVisibility(View.GONE);
+                        }
+                    }
+                });
+    
+        AlertDialog dialog = builder.create();
+    
+        // Set up close button
+        closeButton.setOnClickListener(v -> dialog.dismiss());
+    
+        // Show the dialog
+        dialog.show();
     }
 }

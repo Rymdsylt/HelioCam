@@ -85,6 +85,11 @@ public class CameraActivity extends AppCompatActivity {
 
     private boolean isMicOn = true;
 
+    // Add these fields to CameraActivity
+    private boolean isRecording = false;
+    private boolean isReplayBufferRunning = false;
+    private TextView recordingStatus;
+
     // Method to open directory picker
     public void openDirectoryPicker() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
@@ -221,6 +226,29 @@ public class CameraActivity extends AppCompatActivity {
         // Only initialize camera if we already have permissions
         initializeCamera();
         initializeWebRTC(sessionId, userEmail);
+
+        // Get reference to the recording status text
+        recordingStatus = findViewById(R.id.recording_status);
+        
+        // Set up button click listeners
+        ImageButton micButton = findViewById(R.id.mic_button);
+        micButton.setOnClickListener(v -> toggleMic());
+        
+        ImageButton recordButton = findViewById(R.id.record_button);
+        recordButton.setOnClickListener(v -> showRecordDialog());
+        
+        ImageButton endButton = findViewById(R.id.end_surveillance_button);
+        endButton.setOnClickListener(v -> onBackPressed());
+        
+        ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
+        switchCameraButton.setOnClickListener(v -> {
+            if (rtcJoiner != null) {
+                rtcJoiner.switchCamera();
+            }
+        });
+        
+        ImageButton settingsButton = findViewById(R.id.settings_button);
+        registerForContextMenu(settingsButton);
     }
 
     // Add constant for request code
@@ -338,17 +366,101 @@ public class CameraActivity extends AppCompatActivity {
 
 
     private void showRecordDialog() {
-        // Create a simple dialog informing users that recording functionality is disabled
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("Recording Functionality")
-                .setMessage("Recording functionality is currently disabled in this version.")
-                .setPositiveButton("OK", (dialogInterface, i) -> dialogInterface.dismiss())
-                .setCancelable(true)
-                .create();
-
+        // Create a dialog with recording options
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_record_options, null);
+        
+        // Get references to views
+        TextView tvPathValue = view.findViewById(R.id.tv_path_value);
+        TextView tvSpaceLeft = view.findViewById(R.id.tv_space_left);
+        Button btnSelectPath = view.findViewById(R.id.btn_select_path);
+        Button btnRecordNow = view.findViewById(R.id.btn_record_now);
+        Button btnRecordStop = view.findViewById(R.id.btn_record_stop);
+        Button btnRecordBuffer = view.findViewById(R.id.btn_record_buffer);
+        Button btnRecordBufferStop = view.findViewById(R.id.btn_record_bufferStop);
+        
+        // Set initial button states
+        btnRecordStop.setEnabled(isRecording);
+        btnRecordNow.setEnabled(!isRecording);
+        btnRecordBufferStop.setEnabled(isReplayBufferRunning);
+        btnRecordBuffer.setEnabled(!isReplayBufferRunning);
+        
+        // Update storage path display
+        String storagePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES) + "/HelioCam";
+        tvPathValue.setText(storagePath);
+        
+        // Calculate and display available space
+        updateSpaceLeft(tvSpaceLeft, storagePath);
+        
+        // Set click listeners
+        btnSelectPath.setOnClickListener(v -> {
+            // Open directory picker
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_DIRECTORY_PICKER);
+        });
+        
+        btnRecordNow.setOnClickListener(v -> {
+            // Start recording
+            if (rtcJoiner.canStartRecording()) {
+                rtcJoiner.startRecording();
+                isRecording = true;
+                btnRecordNow.setEnabled(false);
+                btnRecordStop.setEnabled(true);
+                btnRecordBuffer.setEnabled(false);
+                recordingStatus.setText("● RECORDING");
+                recordingStatus.setVisibility(View.VISIBLE);
+                Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Cannot start recording", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        btnRecordStop.setOnClickListener(v -> {
+            // Stop recording
+            rtcJoiner.stopRecording();
+            isRecording = false;
+            btnRecordNow.setEnabled(true);
+            btnRecordStop.setEnabled(false);
+            btnRecordBuffer.setEnabled(true);
+            recordingStatus.setVisibility(View.GONE);
+            Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show();
+        });
+        
+        btnRecordBuffer.setOnClickListener(v -> {
+            // Start replay buffer
+            if (rtcJoiner.canStartReplayBuffer()) {
+                rtcJoiner.startReplayBuffer();
+                isReplayBufferRunning = true;
+                btnRecordBuffer.setEnabled(false);
+                btnRecordBufferStop.setEnabled(true);
+                btnRecordNow.setEnabled(false);
+                recordingStatus.setText("⟳ BUFFERING");
+                recordingStatus.setVisibility(View.VISIBLE);
+                Toast.makeText(this, "Replay buffer started", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Cannot start replay buffer", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        btnRecordBufferStop.setOnClickListener(v -> {
+            // Stop and save replay buffer
+            rtcJoiner.stopReplayBuffer();
+            isReplayBufferRunning = false;
+            btnRecordBuffer.setEnabled(true);
+            btnRecordBufferStop.setEnabled(false);
+            btnRecordNow.setEnabled(true);
+            recordingStatus.setVisibility(View.GONE);
+            Toast.makeText(this, "Replay buffer saved", Toast.LENGTH_SHORT).show();
+        });
+        
+        builder.setView(view);
+        builder.setCancelable(true);
+        
+        AlertDialog dialog = builder.create();
         dialog.show();
     }
-
 
     private void updateSpaceLeft(TextView tvSpaceLeft, String path) {
         try {

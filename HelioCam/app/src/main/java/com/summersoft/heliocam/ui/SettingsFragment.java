@@ -81,9 +81,19 @@ public class SettingsFragment extends Fragment {
                 .setTitle("Logout")
                 .setMessage("Are you sure you want to logout?")
                 .setPositiveButton("Yes", (dialog, which) -> {
-                    FirebaseAuth.getInstance().signOut();
-                    // Redirect to login or main activity as needed
+                    // Use the LogoutUser utility class to handle logout
+                    com.summersoft.heliocam.status.LogoutUser.logoutUser();
+                    
+                    // Show toast message
                     Toast.makeText(requireContext(), "Logged out successfully", Toast.LENGTH_SHORT).show();
+                    
+                    // Check login status to redirect to login screen
+                    com.summersoft.heliocam.status.LoginStatus.checkLoginStatus(requireContext());
+                    
+                    // If using the HomeActivity, can also finish it
+                    if (getActivity() instanceof HomeActivity) {
+                        getActivity().finish();
+                    }
                 })
                 .setNegativeButton("No", null)
                 .show();

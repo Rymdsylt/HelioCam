@@ -57,8 +57,7 @@ public class HomeFragment extends Fragment {
 
         mAuth = FirebaseAuth.getInstance();
 
-        // Initialize UI components
-        sessionCardContainer = rootView.findViewById(R.id.sessionCardContainer);
+
         
         // Initialize tips array and UI components
         initializeTips();

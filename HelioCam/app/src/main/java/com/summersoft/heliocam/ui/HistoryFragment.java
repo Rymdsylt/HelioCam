@@ -1,5 +1,6 @@
 package com.summersoft.heliocam.ui;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -11,9 +12,12 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
+import androidx.appcompat.app.AlertDialog;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.status.LoginStatus;
 import com.summersoft.heliocam.status.SessionLoader;
@@ -27,7 +31,7 @@ public class HistoryFragment extends Fragment {
     private LinearLayout sessionCardContainer;
     private View noSessionsPlaceholder;
     private MaterialButton refreshButton;
-    private MaterialButton newSessionButton;
+    private MaterialButton clearAllButton; // New button
     private MaterialButton createFirstSessionButton;
     private SessionLoader sessionLoader;
 
@@ -35,18 +39,22 @@ public class HistoryFragment extends Fragment {
         // Required empty public constructor
     }
 
+    @SuppressLint("WrongViewCast")
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                             Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View rootView = inflater.inflate(R.layout.fragment_history, container, false);
         
+        // Initialize Firebase
+        mAuth = FirebaseAuth.getInstance();
+        
         // Initialize views
-        sessionCardContainer = rootView.findViewById(R.id.sessionCardContainer);
-        noSessionsPlaceholder = rootView.findViewById(R.id.noSessionsPlaceholder);
-        refreshButton = rootView.findViewById(R.id.refreshButton);
-        newSessionButton = rootView.findViewById(R.id.newSessionButton);
-        createFirstSessionButton = rootView.findViewById(R.id.createFirstSessionButton);
+        sessionCardContainer = rootView.findViewById(R.id.sessions_container); // Updated ID
+        noSessionsPlaceholder = rootView.findViewById(R.id.empty_sessions_container); // Updated ID
+        refreshButton = rootView.findViewById(R.id.filterButton); // Using filter button instead
+        clearAllButton = rootView.findViewById(R.id.clear_all_button); // New button
+        createFirstSessionButton = rootView.findViewById(R.id.create_session_button); // Updated ID
         
         // Set initial visibility - make sure placeholder is visible by default
         if (noSessionsPlaceholder != null) {
@@ -54,17 +62,20 @@ public class HistoryFragment extends Fragment {
         }
         
         // Set up click listeners
-        refreshButton.setOnClickListener(v -> refreshSessions());
+        if (refreshButton != null) {
+            refreshButton.setOnClickListener(v -> refreshSessions());
+        }
         
-        newSessionButton.setOnClickListener(v -> {
-            Intent intent = new Intent(getActivity(), HostSession.class);
-            startActivity(intent);
-        });
+        if (clearAllButton != null) {
+            clearAllButton.setOnClickListener(v -> confirmClearAllSessions());
+        }
         
-        createFirstSessionButton.setOnClickListener(v -> {
-            Intent intent = new Intent(getActivity(), HostSession.class);
-            startActivity(intent);
-        });
+        if (createFirstSessionButton != null) {
+            createFirstSessionButton.setOnClickListener(v -> {
+                Intent intent = new Intent(getActivity(), HostSession.class);
+                startActivity(intent);
+            });
+        }
         
         // Initialize LoginStatus
         LoginStatus.checkLoginStatus(requireContext());
@@ -99,18 +110,64 @@ public class HistoryFragment extends Fragment {
      * Update visibility of UI elements based on session count
      */
     private void updateVisibility() {
-        if (sessionCardContainer != null && noSessionsPlaceholder != null) {
+        if (sessionCardContainer != null && noSessionsPlaceholder != null && clearAllButton != null) {
             boolean hasSessionItems = sessionCardContainer.getChildCount() > 0;
             Log.d("HistoryFragment", "Session count: " + sessionCardContainer.getChildCount());
             
             // Show placeholder if there are no sessions
             noSessionsPlaceholder.setVisibility(hasSessionItems ? View.GONE : View.VISIBLE);
             
+            // Show/hide clear all button based on session count
+            clearAllButton.setVisibility(hasSessionItems ? View.VISIBLE : View.GONE);
+            
             // Log the visibility state for debugging
             Log.d("HistoryFragment", "Placeholder visibility: " + 
                   (noSessionsPlaceholder.getVisibility() == View.VISIBLE ? "VISIBLE" : "GONE"));
         } else {
-            Log.e("HistoryFragment", "Container or placeholder is null");
+            Log.e("HistoryFragment", "Container, placeholder, or clear button is null");
+        }
+    }
+    
+    /**
+     * Confirm before clearing all sessions
+     */
+    private void confirmClearAllSessions() {
+        if (getActivity() != null) {
+            new AlertDialog.Builder(getActivity())
+                .setTitle("Clear All Sessions")
+                .setMessage("Are you sure you want to delete all sessions? This action cannot be undone.")
+                .setPositiveButton("Clear All", (dialog, which) -> {
+                    clearAllSessions();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+        }
+    }
+    
+    /**
+     * Clear all sessions from the database
+     */
+    private void clearAllSessions() {
+        if (mAuth.getCurrentUser() != null) {
+            String userId = mAuth.getCurrentUser().getUid();
+            DatabaseReference userSessionsRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(userId)
+                .child("sessions");
+                
+            // Remove all sessions
+            userSessionsRef.removeValue()
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getActivity(), "All sessions cleared", Toast.LENGTH_SHORT).show();
+                    // Clear the UI
+                    sessionCardContainer.removeAllViews();
+                    updateVisibility();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getActivity(), "Failed to clear sessions: " + e.getMessage(), 
+                        Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Failed to clear sessions", e);
+                });
         }
     }
     

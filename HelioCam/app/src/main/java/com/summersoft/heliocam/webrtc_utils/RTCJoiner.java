@@ -1,13 +1,20 @@
 package com.summersoft.heliocam.webrtc_utils;
 
+import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.media.MediaRecorder;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.ChildEventListener;
@@ -36,6 +43,8 @@ import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -93,6 +102,9 @@ public class RTCJoiner {
     
     private final String meteredApiKey = "4611ab82d5ec3882669178686393394a7ca4";
     
+    // Add these constants
+    private static final int REPLAY_BUFFER_DURATION_MS = 30000; // 30 seconds
+
     // Add these fields to the top of the class with other field declarations
     private com.summersoft.heliocam.detection.PersonDetection personDetection;
     private org.webrtc.VideoSink detectionVideoSink;
@@ -129,55 +141,235 @@ public class RTCJoiner {
      * Check if recording can be started
      */
     public boolean canStartRecording() {
-        // Recording functionality disabled
-        return false;
+        // Check if we already have a recording running
+        if (isRecording || isReplayBufferRunning) {
+            return false;
+        }
+        
+        // Check if we have necessary permissions
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions((Activity) context,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+            return false;
+        }
+        
+        // Check if camera is running
+        return videoCapturer != null && localVideoTrack != null;
     }
     
     /**
      * Start recording the camera feed
      */
     public void startRecording() {
-        // Recording functionality disabled
-        Log.w(TAG, "Recording functionality is currently disabled");
+        if (isRecording) {
+            Log.w(TAG, "Recording is already in progress");
+            return;
+        }
+        
+        try {
+            // Create directory for recordings if it doesn't exist
+            File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
+            File recordingDir = new File(moviesDir, "HelioCam");
+            if (!recordingDir.exists()) {
+                if (!recordingDir.mkdirs()) {
+                    Log.e(TAG, "Failed to create recording directory");
+                    return;
+                }
+            }
+            
+            // Create file for recording with timestamp
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault());
+            String fileName = "HelioCam_" + sdf.format(new Date()) + ".mp4";
+            recordingPath = new File(recordingDir, fileName).getAbsolutePath();
+            
+            // Initialize MediaRecorder
+            mediaRecorder = new MediaRecorder();
+            mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            mediaRecorder.setVideoEncodingBitRate(2000000);
+            mediaRecorder.setVideoFrameRate(30);
+            mediaRecorder.setOutputFile(recordingPath);
+            mediaRecorder.prepare();
+            
+            // Start recording
+            mediaRecorder.start();
+            isRecording = true;
+            
+            Log.d(TAG, "Recording started: " + recordingPath);
+            Toast.makeText(context, "Recording started", Toast.LENGTH_SHORT).show();
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start recording", e);
+            Toast.makeText(context, "Failed to start recording: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            releaseMediaRecorder();
+        }
     }
     
     /**
      * Stop recording
      */
     public void stopRecording() {
-        // Recording functionality disabled
-        Log.w(TAG, "Recording functionality is currently disabled");
+        if (!isRecording) {
+            Log.w(TAG, "No recording in progress to stop");
+            return;
+        }
+        
+        try {
+            if (mediaRecorder != null) {
+                mediaRecorder.stop();
+                releaseMediaRecorder();
+                
+                // Make the video visible in gallery
+                if (recordingPath != null) {
+                    MediaScannerConnection.scanFile(context,
+                            new String[]{recordingPath}, null,
+                            (path, uri) -> Log.d(TAG, "Recording saved: " + uri));
+                    
+                    Toast.makeText(context, "Recording saved to " + recordingPath, Toast.LENGTH_LONG).show();
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping recording", e);
+        } finally {
+            isRecording = false;
+            recordingPath = null;
+        }
     }
     
     /**
      * Release MediaRecorder resources
      */
     private void releaseMediaRecorder() {
-        // Recording functionality disabled
+        if (mediaRecorder != null) {
+            try {
+                mediaRecorder.reset();
+                mediaRecorder.release();
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing MediaRecorder", e);
+            } finally {
+                mediaRecorder = null;
+            }
+        }
     }
     
     /**
      * Check if replay buffer can be started
      */
     public boolean canStartReplayBuffer() {
-        // Replay buffer functionality disabled
-        return false;
+        // Similar checks as for regular recording
+        if (isRecording || isReplayBufferRunning) {
+            return false;
+        }
+        
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions((Activity) context,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+            return false;
+        }
+        
+        return videoCapturer != null && localVideoTrack != null;
     }
     
     /**
      * Start replay buffer (circular recording buffer)
      */
     public void startReplayBuffer() {
-        // Replay buffer functionality disabled
-        Log.w(TAG, "Replay buffer functionality is currently disabled");
+        if (isReplayBufferRunning) {
+            Log.w(TAG, "Replay buffer is already running");
+            return;
+        }
+        
+        try {
+            // Create temporary file for buffer
+            File outputDir = context.getCacheDir();
+            File tempFile = File.createTempFile("buffer", ".mp4", outputDir);
+            recordingPath = tempFile.getAbsolutePath();
+            
+            // Initialize MediaRecorder similar to regular recording
+            mediaRecorder = new MediaRecorder();
+            mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            mediaRecorder.setVideoEncodingBitRate(2000000);
+            mediaRecorder.setVideoFrameRate(30);
+            mediaRecorder.setMaxDuration(REPLAY_BUFFER_DURATION_MS); // 30 seconds max
+            mediaRecorder.setOutputFile(recordingPath);
+            mediaRecorder.prepare();
+            
+            // Start recording
+            mediaRecorder.start();
+            isReplayBufferRunning = true;
+            
+            Log.d(TAG, "Replay buffer started");
+            Toast.makeText(context, "Replay buffer started", Toast.LENGTH_SHORT).show();
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start replay buffer", e);
+            Toast.makeText(context, "Failed to start replay buffer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            releaseMediaRecorder();
+        }
     }
     
     /**
      * Stop replay buffer and save the recording
      */
     public void stopReplayBuffer() {
-        // Replay buffer functionality disabled
-        Log.w(TAG, "Replay buffer functionality is currently disabled");
+        if (!isReplayBufferRunning) {
+            Log.w(TAG, "No replay buffer running to stop");
+            return;
+        }
+        
+        try {
+            if (mediaRecorder != null) {
+                mediaRecorder.stop();
+                releaseMediaRecorder();
+                
+                // Copy from temp file to permanent location
+                File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
+                File recordingDir = new File(moviesDir, "HelioCam");
+                if (!recordingDir.exists()) {
+                    recordingDir.mkdirs();
+                }
+                
+                // Create file with timestamp
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault());
+                String fileName = "HelioCam_Buffer_" + sdf.format(new Date()) + ".mp4";
+                File destFile = new File(recordingDir, fileName);
+                
+                // Copy buffer to permanent file
+                FileInputStream fis = new FileInputStream(recordingPath);
+                FileOutputStream fos = new FileOutputStream(destFile);
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = fis.read(buffer)) > 0) {
+                    fos.write(buffer, 0, length);
+                }
+                fis.close();
+                fos.close();
+                
+                // Make the video visible in gallery
+                MediaScannerConnection.scanFile(context,
+                        new String[]{destFile.getAbsolutePath()}, null,
+                        (path, uri) -> Log.d(TAG, "Buffer saved: " + uri));
+                
+                Toast.makeText(context, "Replay buffer saved to " + destFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                
+                // Delete temp file
+                new File(recordingPath).delete();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping replay buffer", e);
+        } finally {
+            isReplayBufferRunning = false;
+            recordingPath = null;
+        }
     }
     
     /**

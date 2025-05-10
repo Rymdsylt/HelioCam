@@ -103,6 +103,9 @@ public class RTCHost {
             formattedEmail = userEmail.replace(".", "_");
         }
         
+        // Initialize the videoRenderers array for position management
+        this.videoRenderers = new SurfaceViewRenderer[4]; // Assuming max 4 renderers
+        
         try {
             initializeWebRTC();
         } catch (IllegalStateException e) {
@@ -901,13 +904,15 @@ public class RTCHost {
         void onJoinRequest(String joinerId, String joinerEmail, String deviceName);
     }
 
-    public void acceptJoinRequest(String joinerId, String joinerEmail, int position) {
-        // Get device info for this joiner
-        String deviceName = joinerDeviceNames.getOrDefault(joinerId, "Unknown Device");
-        String deviceId = joinerDeviceIds.getOrDefault(joinerId, "unknown");
+    // Update the acceptJoinRequest method to include device identifiers
+    public void acceptJoinRequest(String joinerId, String joinerEmail, String deviceName, String deviceId) {
+        // Store device info for this joiner
+        if (deviceId != null) joinerDeviceIds.put(joinerId, deviceId);
+        if (deviceName != null) joinerDeviceNames.put(joinerId, deviceName);
         
         Log.d(TAG, "Accepting join request from: " + joinerEmail + 
-              " (Device: " + deviceName + ") at position " + position);
+              " (Device: " + (deviceName != null ? deviceName : "Unknown") + 
+              ", DeviceID: " + (deviceId != null ? deviceId : "unknown") + ")");
         
         // Update firebase status for this joiner
         String formattedJoinerEmail = joinerEmail.replace(".", "_");
@@ -918,11 +923,13 @@ public class RTCHost {
                 .child("join_requests")
                 .child(joinerId);
                 
-        // Set status to accepted and include camera position assignment
+        // Set status to accepted and include device information
         joinRequestRef.child("status").setValue("accepted");
-        joinRequestRef.child("assigned_camera").setValue(position + 1);
+        if (deviceId != null) joinRequestRef.child("deviceId").setValue(deviceId);
+        if (deviceName != null) joinRequestRef.child("deviceName").setValue(deviceName);
         
-        // Create a connection for this joiner
+        // Create a connection for this joiner with device info
+        int position = findNextAvailablePosition();
         createPeerConnectionForJoiner(joinerId, joinerEmail, deviceId, deviceName, position);
     }
 
@@ -976,6 +983,53 @@ public class RTCHost {
         
         // Show notification with device-specific information
         // ...
+    }
+
+    /**
+     * Find the next available position for a new joiner/camera
+     * @return Position index (0-3) for the next available position, or -1 if all positions are taken
+     */
+    private int findNextAvailablePosition() {
+        // Check if we have initialized video renderers array
+        if (videoRenderers == null) {
+            Log.e(TAG, "Video renderers array is null");
+            return 0; // Default to first position
+        }
+        
+        // Track which positions are already in use
+        boolean[] positionTaken = new boolean[4]; // Assuming max 4 positions
+        
+        // Mark positions that are already assigned to joiners
+        for (Map.Entry<String, SurfaceViewRenderer> entry : joinerRenderers.entrySet()) {
+            for (int i = 0; i < videoRenderers.length; i++) {
+                if (entry.getValue() == videoRenderers[i]) {
+                    positionTaken[i] = true;
+                    break;
+                }
+            }
+        }
+        
+        // Find first available position
+        for (int i = 0; i < positionTaken.length; i++) {
+            if (!positionTaken[i]) {
+                Log.d(TAG, "Found available position: " + i);
+                return i;
+            }
+        }
+        
+        // If we get here, all positions are taken
+        Log.w(TAG, "No available positions found, all are taken");
+        return -1;
+    }
+
+    // Add this method to properly register renderers in the array:
+    public void registerRendererAtPosition(int position, SurfaceViewRenderer renderer) {
+        if (videoRenderers != null && position >= 0 && position < videoRenderers.length) {
+            videoRenderers[position] = renderer;
+            Log.d(TAG, "Registered renderer at position " + position);
+        } else {
+            Log.e(TAG, "Invalid position or videoRenderers array not initialized");
+        }
     }
 }
 

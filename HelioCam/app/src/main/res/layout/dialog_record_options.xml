@@ -1,67 +1,155 @@
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="24dp">
 
     <TextView
-        android:id="@+id/tv_selected_path"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Selected Path: /default/path"
-        android:textSize="16sp"
-        android:paddingBottom="8dp" />
+        android:text="Recording Options"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:layout_marginBottom="16dp"/>
 
-    <Button
-        android:id="@+id/btn_select_path"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Select Path" />
-
-    <TextView
-        android:id="@+id/tv_space_left"
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingTop="8dp"
-        android:paddingBottom="16dp"
-        android:text="Space Left: Calculating..."
-        android:textSize="14sp" />
-
-    <Button
-        android:id="@+id/btn_record_now"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
+        android:layout_marginBottom="16dp">
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+            
+            <TextView
+                android:id="@+id/tv_selected_path"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Storage Location"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+                
+            <TextView
+                android:id="@+id/tv_path_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="/storage/emulated/0/HelioCam"
+                android:textSize="14sp"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="8dp" />
+                
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_select_path"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Change Location"
+                app:icon="@drawable/baseline_folder_open_24"
+                app:iconGravity="textStart" />
+                
+            <TextView
+                android:id="@+id/tv_space_left"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Available Space: Calculating..."
+                android:textSize="14sp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Record Now"
-        android:backgroundTint="?attr/colorPrimary"
-        android:textColor="@android:color/white"
-        android:textSize="16sp" />
-
-    <Button
-        android:id="@+id/btn_record_stop"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp">
+        
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_record_now"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Start Recording"
+            app:icon="@drawable/baseline_fiber_manual_record_24"
+            app:iconGravity="textStart"
+            app:backgroundTint="#FF5252"
+            android:layout_marginEnd="8dp"/>
+            
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_record_stop"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Stop"
+            app:icon="@drawable/baseline_stop_white_24"
+            app:iconGravity="textStart"
+            app:backgroundTint="#9E9E9E"
+            android:enabled="false"/>
+    </LinearLayout>
+    
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:backgroundTint="?attr/colorPrimary"
-        android:text="Stop Record"
-        android:textColor="@android:color/white"
-        android:textSize="16sp" />
-
-    <Button
-        android:id="@+id/btn_record_buffer"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:backgroundTint="?attr/colorPrimary"
-        android:text="Start Replay Buffer"
-        android:textColor="@android:color/white"
-        android:textSize="16sp" />
-
-    <Button
-        android:id="@+id/btn_record_bufferStop"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:backgroundTint="?attr/colorPrimary"
-        android:text="Stop Replay Buffer"
-        android:textColor="@android:color/white"
-        android:textSize="16sp" />
-
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
+        android:layout_marginBottom="16dp">
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+            
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Replay Buffer"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
+                
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Continuously record and save only the last 30 seconds when triggered."
+                android:textSize="14sp"
+                android:layout_marginBottom="16dp" />
+                
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_record_buffer"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Start Buffer"
+                    app:icon="@drawable/baseline_replay_24"
+                    app:iconGravity="textStart"
+                    android:layout_marginEnd="8dp"/>
+                    
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_record_bufferStop"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Save Buffer"
+                    app:icon="@drawable/baseline_save_24"
+                    app:iconGravity="textStart"
+                    android:enabled="false"/>
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 </LinearLayout>

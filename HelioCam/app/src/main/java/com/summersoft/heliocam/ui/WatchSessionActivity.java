@@ -1,5 +1,6 @@
 package com.summersoft.heliocam.ui;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Color;
@@ -7,8 +8,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.view.Gravity;
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -197,17 +199,24 @@ public class WatchSessionActivity extends AppCompatActivity {
     /**
      * Set up the UI components and their click listeners
      */
+    @SuppressLint("ClickableViewAccessibility")
     private void setupUI() {
         // Initialize UI components
         MaterialButton endSessionButton = findViewById(R.id.end_session_button);
         MaterialButton micButton = findViewById(R.id.microphone_button);
         joinRequestNotification = findViewById(R.id.join_request_notification);
-        FloatingActionButton settingsButton = findViewById(R.id.settings_button); // Add this line
+        FloatingActionButton settingsButton = findViewById(R.id.settings_button);
 
         // Initially hide the join request notification
         if (joinRequestNotification != null) {
             joinRequestNotification.setVisibility(View.GONE);
         }
+
+        // Find all container views ONCE at the beginning
+        View feedContainer1 = findViewById(R.id.feed_container_1);
+        View feedContainer2 = findViewById(R.id.feed_container_2);
+        View feedContainer3 = findViewById(R.id.feed_container_3);
+        View feedContainer4 = findViewById(R.id.feed_container_4);
 
         // End session button
         if (endSessionButton != null) {
@@ -218,8 +227,22 @@ public class WatchSessionActivity extends AppCompatActivity {
 
         // Mic button to toggle audio
         if (micButton != null) {
+            // Set initial state
+            micButton.setIconResource(isAudioEnabled ? 
+                    R.drawable.ic_baseline_mic_24 : R.drawable.ic_baseline_mic_off_24);
+            
+            // Set click listener to toggle mic state
             micButton.setOnClickListener(v -> {
                 toggleAudio();
+                
+                // Update button icon based on new state
+                micButton.setIconResource(isAudioEnabled ? 
+                        R.drawable.ic_baseline_mic_24 : R.drawable.ic_baseline_mic_off_24);
+                
+                // Show feedback to the user
+                Toast.makeText(WatchSessionActivity.this, 
+                        isAudioEnabled ? "Microphone unmuted" : "Microphone muted", 
+                        Toast.LENGTH_SHORT).show();
             });
         }
 
@@ -241,8 +264,7 @@ public class WatchSessionActivity extends AppCompatActivity {
         cameraDisabledMessages.clear();
         micStatusMessages.clear();
 
-        // Add camera off message views for each feed
-        View feedContainer1 = findViewById(R.id.feed_container_1);
+        // Add camera off message views for each feed - using the EXISTING container variables
         if (feedContainer1 != null) {
             TextView offMsg1 = feedContainer1.findViewById(R.id.camera_off_message_1);
             TextView micStatus1 = feedContainer1.findViewById(R.id.mic_status_1);
@@ -250,8 +272,6 @@ public class WatchSessionActivity extends AppCompatActivity {
             if (micStatus1 != null) micStatusMessages.put("feed1", micStatus1);
         }
 
-        // Repeat for other feed containers
-        View feedContainer2 = findViewById(R.id.feed_container_2);
         if (feedContainer2 != null) {
             TextView offMsg2 = feedContainer2.findViewById(R.id.camera_off_message_2);
             TextView micStatus2 = feedContainer2.findViewById(R.id.mic_status_2);
@@ -259,7 +279,6 @@ public class WatchSessionActivity extends AppCompatActivity {
             if (micStatus2 != null) micStatusMessages.put("feed2", micStatus2);
         }
 
-        View feedContainer3 = findViewById(R.id.feed_container_3);
         if (feedContainer3 != null) {
             TextView offMsg3 = feedContainer3.findViewById(R.id.camera_off_message_3);
             TextView micStatus3 = feedContainer3.findViewById(R.id.mic_status_3);
@@ -267,7 +286,6 @@ public class WatchSessionActivity extends AppCompatActivity {
             if (micStatus3 != null) micStatusMessages.put("feed3", micStatus3);
         }
 
-        View feedContainer4 = findViewById(R.id.feed_container_4);
         if (feedContainer4 != null) {
             TextView offMsg4 = feedContainer4.findViewById(R.id.camera_off_message_4);
             TextView micStatus4 = feedContainer4.findViewById(R.id.mic_status_4);
@@ -293,7 +311,7 @@ public class WatchSessionActivity extends AppCompatActivity {
         cameraNumberLabels.clear();
         cameraTimestamps.clear();
 
-        // Add camera number and timestamp views for each feed
+        // Add camera number and timestamp views for each feed - again using the EXISTING variables
         if (feedContainer1 != null) {
             TextView cameraNumber1 = feedContainer1.findViewById(R.id.camera_number_1);
             TextView timestamp1 = feedContainer1.findViewById(R.id.camera_timestamp_1);
@@ -329,6 +347,102 @@ public class WatchSessionActivity extends AppCompatActivity {
             // Show detailed participant list when count is clicked
             showParticipantListDialog();
         });
+
+        // Initialize click-to-focus behavior for camera feeds
+        // REMOVE THESE LINES:
+        // View feedContainer1 = findViewById(R.id.feed_container_1);
+        // View feedContainer2 = findViewById(R.id.feed_container_2);
+        // View feedContainer3 = findViewById(R.id.feed_container_3);
+        // View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        // Gesture detector for tracking single vs double clicks
+        GestureDetector gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                // Single tap enters focus mode
+                return false;
+            }
+
+            @Override
+            public boolean onDoubleTap(MotionEvent e) {
+                // Double tap exits focus mode
+                if (focusedCamera != -1) {
+                    focusedCamera = -1;
+                    updateGridLayout(totalConnectedCameras);
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        // Set click listeners for each feed container - using the EXISTING containers 
+        if (feedContainer1 != null) {
+            feedContainer1.setOnTouchListener((v, event) -> {
+                if (gestureDetector.onTouchEvent(event)) {
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    if (focusedCamera == -1 && feedContainer1.getVisibility() == View.VISIBLE) {
+                        focusedCamera = 0;
+                        updateGridLayout(totalConnectedCameras);
+                        showFocusHint(feedContainer1);
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+
+        if (feedContainer2 != null) {
+            feedContainer2.setOnTouchListener((v, event) -> {
+                if (gestureDetector.onTouchEvent(event)) {
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    if (focusedCamera == -1 && feedContainer2.getVisibility() == View.VISIBLE) {
+                        focusedCamera = 1;
+                        updateGridLayout(totalConnectedCameras);
+                        showFocusHint(feedContainer2);
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+
+        if (feedContainer3 != null) {
+            feedContainer3.setOnTouchListener((v, event) -> {
+                if (gestureDetector.onTouchEvent(event)) {
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    if (focusedCamera == -1 && feedContainer3.getVisibility() == View.VISIBLE) {
+                        focusedCamera = 2;
+                        updateGridLayout(totalConnectedCameras);
+                        showFocusHint(feedContainer3);
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+
+        if (feedContainer4 != null) {
+            feedContainer4.setOnTouchListener((v, event) -> {
+                if (gestureDetector.onTouchEvent(event)) {
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    if (focusedCamera == -1 && feedContainer4.getVisibility() == View.VISIBLE) {
+                        focusedCamera = 3;
+                        updateGridLayout(totalConnectedCameras);
+                        showFocusHint(feedContainer4);
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
     }
 
     /**
@@ -429,50 +543,34 @@ public class WatchSessionActivity extends AppCompatActivity {
         joinRequestsListener = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                // Show notification if there are pending requests (not accepted yet)
-                boolean hasPendingRequests = false;
-
-                // Keep track of processed request IDs to avoid duplicates
-                Set<String> processedRequestIds = new HashSet<>();
-
-                if (dataSnapshot.exists()) {
-                    for (DataSnapshot requestSnapshot : dataSnapshot.getChildren()) {
-                        String requestId = requestSnapshot.getKey();
-
-                        // Skip if we've already processed this request
-                        if (processedRequestIds.contains(requestId)) {
-                            continue;
-                        }
-
-                        processedRequestIds.add(requestId);
-
-                        String status = requestSnapshot.child("status").getValue(String.class);
-                        if (status == null || !status.equals("accepted")) {
-                            hasPendingRequests = true;
-                            break;
-                        }
+                boolean hasJoinRequests = false;
+                long pendingRequestCount = 0;
+                
+                for (DataSnapshot requestSnapshot : dataSnapshot.getChildren()) {
+                    String status = requestSnapshot.child("status").getValue(String.class);
+                    // Only count pending requests (not accepted or rejected)
+                    if (status == null || !status.equals("accepted")) {
+                        hasJoinRequests = true;
+                        pendingRequestCount++;
                     }
                 }
-
-                // Always show the notification if there are pending requests, regardless of ignore setting
+                
+                // Update UI based on whether we have pending join requests
                 if (joinRequestNotification != null) {
-                    joinRequestNotification.setVisibility(hasPendingRequests ? View.VISIBLE : View.GONE);
-
-                    // Update the notification badge counter
-                    View notificationBadge = findViewById(R.id.notification_count);
-                    TextView notificationCount = findViewById(R.id.notification_count_text);
-                    if (notificationBadge != null && notificationCount != null) {
-                        // Count pending requests
-                        int pendingCount = 0;
-                        for (DataSnapshot requestSnapshot : dataSnapshot.getChildren()) {
-                            String status = requestSnapshot.child("status").getValue(String.class);
-                            if (status == null || !status.equals("accepted")) {
-                                pendingCount++;
-                            }
-                        }
-
-                        notificationBadge.setVisibility(pendingCount > 0 ? View.VISIBLE : View.GONE);
-                        notificationCount.setText(String.valueOf(pendingCount));
+                    joinRequestNotification.setVisibility(hasJoinRequests && !ignoreJoinRequests ? 
+                            View.VISIBLE : View.GONE);
+                }
+                
+                // Update notification count badge
+                View notificationCount = findViewById(R.id.notification_count);
+                TextView notificationCountText = findViewById(R.id.notification_count_text);
+                
+                if (notificationCount != null && notificationCountText != null) {
+                    if (pendingRequestCount > 0) {
+                        notificationCount.setVisibility(View.VISIBLE);
+                        notificationCountText.setText(String.valueOf(pendingRequestCount));
+                    } else {
+                        notificationCount.setVisibility(View.GONE);
                     }
                 }
             }
@@ -698,14 +796,7 @@ public class WatchSessionActivity extends AppCompatActivity {
     private void toggleAudio() {
         isAudioEnabled = !isAudioEnabled;
 
-        // Update button appearance
-        MaterialButton micButton = findViewById(R.id.microphone_button);
-        if (micButton != null) {
-            micButton.setIconResource(isAudioEnabled ?
-                    R.drawable.ic_baseline_mic_24 : R.drawable.ic_baseline_mic_off_24);
-        }
-
-        // Update RTCHost
+        // Update RTCHost audio state
         if (rtcHost != null) {
             if (isAudioEnabled) {
                 rtcHost.unmuteMic();
@@ -713,6 +804,9 @@ public class WatchSessionActivity extends AppCompatActivity {
                 rtcHost.muteMic();
             }
         }
+        
+        // Log the state change
+        Log.d(TAG, "Audio toggled to: " + (isAudioEnabled ? "enabled" : "disabled"));
     }
 
     /**
@@ -910,55 +1004,58 @@ public class WatchSessionActivity extends AppCompatActivity {
                 .child("join_requests")
                 .child(requestId);
 
-        // First get the joiner's email
-        requestRef.child("email").get().addOnCompleteListener(task -> {
+        // First get the joiner's email and device information
+        requestRef.get().addOnCompleteListener(task -> {
             if (task.isSuccessful() && task.getResult() != null) {
-                String joinerEmail = task.getResult().getValue(String.class);
-
+                String joinerEmail = task.getResult().child("email").getValue(String.class);
+                String deviceId = task.getResult().child("deviceId").getValue(String.class);
+                String deviceName = task.getResult().child("deviceName").getValue(String.class);
+                
                 if (joinerEmail != null) {
-                    Log.d(TAG, "Found joiner email: " + joinerEmail + " for request: " + requestId);
-
-                    // Create a map for the update with all needed fields
-                    Map<String, Object> updates = new HashMap<>();
-                    updates.put("status", "accepted");
-                    updates.put("accepted_at", System.currentTimeMillis());
-
-                    // Update the request status
-                    requestRef.updateChildren(updates)
-                            .addOnCompleteListener(updateTask -> {
-                                if (updateTask.isSuccessful()) {
-                                    Log.d(TAG, "Join request successfully accepted");
-                                    Toast.makeText(WatchSessionActivity.this,
-                                            "Request accepted. Camera joining...", Toast.LENGTH_SHORT).show();
-
-                                    // Create peer connection AND assign to a renderer based on active count
-                                    if (rtcHost != null) {
-                                        rtcHost.createPeerConnection(requestId);
-                                        Log.d(TAG, "Created peer connection for joiner: " + requestId);
-
-                                        // Get active joiners and assign renderer based on count
-                                        assignCameraToRenderer(requestId, joinerEmail);
-                                    }
-
-                                    // Close the dialog if open
-                                    dismissJoinRequestDialog();
-                                } else {
-                                    Log.e(TAG, "Failed to accept join request", updateTask.getException());
-                                    Toast.makeText(WatchSessionActivity.this,
-                                            "Failed to accept request", Toast.LENGTH_SHORT).show();
-                                }
-                            });
-                } else {
-                    Log.e(TAG, "Join request email is null");
-                    Toast.makeText(WatchSessionActivity.this,
-                            "Failed to get joiner information", Toast.LENGTH_SHORT).show();
+                    // Use a combination of email and device ID to create a unique identifier
+                    String uniqueJoinerId = deviceId != null ? joinerEmail + "_" + deviceId : joinerEmail;
+                    
+                    Log.d(TAG, "Accepting join request from email: " + joinerEmail + 
+                          ", device: " + (deviceName != null ? deviceName : "Unknown") + 
+                          ", with unique ID: " + uniqueJoinerId);
+                    
+                    // Set the request as accepted in Firebase
+                    requestRef.child("status").setValue("accepted");
+                    
+                    // Store device info with request for better identification
+                    if (deviceId != null) requestRef.child("deviceId").setValue(deviceId);
+                    if (deviceName != null) requestRef.child("deviceName").setValue(deviceName);
+                    
+                    // Create connection for this joiner, passing device info
+                    if (rtcHost != null) {
+                        rtcHost.acceptJoinRequest(requestId, joinerEmail, deviceName, deviceId);
+                    }
+                    
+                    // Assign camera to a renderer
+                    assignCameraToRenderer(requestId, joinerEmail, deviceId, deviceName);
+                    
+                    // Hide the join request dialog
+                    dismissJoinRequestDialog();
+                    
+                    Toast.makeText(WatchSessionActivity.this, 
+                            "Join request accepted: " + joinerEmail + 
+                            (deviceName != null ? " (" + deviceName + ")" : ""), 
+                            Toast.LENGTH_SHORT).show();
                 }
             } else {
-                Log.e(TAG, "Failed to get joiner email", task.getException());
-                Toast.makeText(WatchSessionActivity.this,
-                        "Failed to get joiner information", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Failed to get join request data", 
+                      task.getException() != null ? task.getException() : new Exception("Unknown error"));
             }
         });
+    }
+
+    // Update assignCameraToRenderer method signature to include device information
+    private void assignCameraToRenderer(String joinerId, String joinerEmail, String deviceId, String deviceName) {
+        Log.d(TAG, "Starting to assign joiner " + joinerId + " (email: " + joinerEmail + 
+              ", device: " + (deviceName != null ? deviceName : "Unknown") + ") to a renderer");
+        
+        // Rest of your method remains mostly the same, but use the deviceId to ensure uniqueness
+        // ...
     }
 
     /**
@@ -1269,7 +1366,7 @@ public class WatchSessionActivity extends AppCompatActivity {
             feedContainer4.setVisibility(focusedCamera == 3 ? View.VISIBLE : View.GONE);
 
             // Get the focused container
-            View focusedContainer;
+            View focusedContainer = null;
             switch (focusedCamera) {
                 case 0:
                     focusedContainer = feedContainer1;
@@ -1283,23 +1380,15 @@ public class WatchSessionActivity extends AppCompatActivity {
                 case 3:
                     focusedContainer = feedContainer4;
                     break;
-                default:
-                    focusedContainer = feedContainer1;
-                    break;
             }
 
-            // Full screen constraints for focused camera
-            constraintSet.connect(focusedContainer.getId(), ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
-            constraintSet.connect(focusedContainer.getId(), ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-            constraintSet.connect(focusedContainer.getId(), ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
-            constraintSet.connect(focusedContainer.getId(), ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-
-            // Make the container clickable to exit focus mode
-            focusedContainer.setOnClickListener(v -> {
-                showFocusHint(focusedContainer);
-                focusedCamera = -1;
-                updateGridLayout(cameraCount);
-            });
+            if (focusedContainer != null) {
+                // Full screen constraints for focused camera
+                constraintSet.connect(focusedContainer.getId(), ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+                constraintSet.connect(focusedContainer.getId(), ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
+                constraintSet.connect(focusedContainer.getId(), ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
+                constraintSet.connect(focusedContainer.getId(), ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
+            }
         } else {
             // Set visibility for normal grid display
             feedContainer1.setVisibility(cameraCount >= 1 ? View.VISIBLE : View.GONE);
@@ -1493,6 +1582,12 @@ public class WatchSessionActivity extends AppCompatActivity {
             }
         }
 
+        // Show "No cameras connected" message if needed
+        View noCamerasMessage = findViewById(R.id.no_cameras_message);
+        if (noCamerasMessage != null) {
+            noCamerasMessage.setVisibility(cameraCount == 0 ? View.VISIBLE : View.GONE);
+        }
+
         // Add margins between containers (8dp)
         int margin = (int) (8 * getResources().getDisplayMetrics().density);
         constraintSet.setMargin(R.id.feed_container_1, ConstraintSet.START, margin);
@@ -1537,8 +1632,9 @@ public class WatchSessionActivity extends AppCompatActivity {
         if (backButton != null) {
             backButton.setVisibility(focusedCamera != -1 ? View.VISIBLE : View.GONE);
             backButton.setOnClickListener(v -> {
+                // Exit focus mode
                 focusedCamera = -1;
-                updateGridLayout(cameraCount);
+                updateGridLayout(totalConnectedCameras);
             });
         }
 

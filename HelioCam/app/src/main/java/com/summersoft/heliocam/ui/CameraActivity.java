@@ -230,24 +230,24 @@ public class CameraActivity extends AppCompatActivity {
         // Get reference to the recording status text
         recordingStatus = findViewById(R.id.recording_status);
         
-        // Set up button click listeners
-        ImageButton micButton = findViewById(R.id.mic_button);
+        // Set up button click listeners - USING VIEW INSTEAD OF IMAGEBUTTON TO AVOID CAST EXCEPTIONS
+        View micButton = findViewById(R.id.mic_button);
         micButton.setOnClickListener(v -> toggleMic());
         
-        ImageButton recordButton = findViewById(R.id.record_button);
+        View recordButton = findViewById(R.id.record_button);
         recordButton.setOnClickListener(v -> showRecordDialog());
         
-        ImageButton endButton = findViewById(R.id.end_surveillance_button);
+        View endButton = findViewById(R.id.end_surveillance_button);
         endButton.setOnClickListener(v -> onBackPressed());
         
-        ImageButton switchCameraButton = findViewById(R.id.switch_camera_button);
+        View switchCameraButton = findViewById(R.id.switch_camera_button);
         switchCameraButton.setOnClickListener(v -> {
             if (rtcJoiner != null) {
                 rtcJoiner.switchCamera();
             }
         });
         
-        ImageButton settingsButton = findViewById(R.id.settings_button);
+        View settingsButton = findViewById(R.id.settings_button);
         registerForContextMenu(settingsButton);
     }
 
@@ -601,14 +601,24 @@ public class CameraActivity extends AppCompatActivity {
         }
 
         // Update the mic button icon based on the state
-        ImageButton micButton = findViewById(R.id.mic_button);
+        View micButton = findViewById(R.id.mic_button);
         if (isMicOn) {
-            micButton.setImageResource(R.drawable.ic_baseline_mic_24);  // Mic on icon
+            if (micButton instanceof ImageButton) {
+                ((ImageButton) micButton).setImageResource(R.drawable.ic_baseline_mic_24);
+            } else if (micButton instanceof Button) {
+                // For MaterialButton, use setIcon or other appropriate method
+                ((Button) micButton).setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_baseline_mic_24, 0, 0, 0);
+            }
             if (rtcJoiner != null) {
                 rtcJoiner.unmuteMic(); // Unmute the audio
             }
         } else {
-            micButton.setImageResource(R.drawable.ic_baseline_mic_off_24);  // Mic off icon
+            if (micButton instanceof ImageButton) {
+                ((ImageButton) micButton).setImageResource(R.drawable.ic_baseline_mic_off_24);
+            } else if (micButton instanceof Button) {
+                // For MaterialButton, use setIcon or other appropriate method
+                ((Button) micButton).setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_baseline_mic_off_24, 0, 0, 0);
+            }
             if (rtcJoiner != null) {
                 rtcJoiner.muteMic(); // Mute the audio
             }

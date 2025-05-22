@@ -204,11 +204,12 @@ public class SoundDetection {
                 }
             } else {
                 Log.w("SoundDetection", "Failed to capture camera view.");
-            }
-        });
+            }        });
     }
-
-    private boolean saveSoundDetectionImage(Bitmap bitmap, String sessionId) {
+    
+    // Track if we've shown the directory prompt during this session
+    private boolean hasPromptedForDirectory = false;
+      private boolean saveSoundDetectionImage(Bitmap bitmap, String sessionId) {
         try {
             // Generate filename
             String fileName = directoryManager.generateTimestampedFilename("Sound_Detected", ".jpg");
@@ -232,6 +233,18 @@ public class SoundDetection {
                         Log.d("SoundDetection", "Detection image saved to: " + newFile.getUri());
                         return true;
                     }
+                }
+            } else {
+                // Only prompt once for directory selection during app session
+                if (!hasPromptedForDirectory && directoryManager.shouldPromptForDirectory()) {
+                    hasPromptedForDirectory = true;
+                    directoryManager.setPromptedForDirectory(true);
+                    handler.post(() -> {
+                        Toast.makeText(context, "Please select a folder to save detection data", Toast.LENGTH_SHORT).show();
+                        if (context instanceof CameraActivity) {
+                            ((CameraActivity) context).openDirectoryPicker();
+                        }
+                    });
                 }
             }
 

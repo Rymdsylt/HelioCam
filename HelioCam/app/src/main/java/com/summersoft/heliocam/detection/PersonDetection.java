@@ -439,11 +439,11 @@ public class PersonDetection implements VideoSink {
                             scaledBitmap.recycle();
                             return;
                         }
-                    }
-                } else {
-                    // Only prompt once for directory selection
-                    if (!hasPromptedForDirectory) {
+                    }                } else {
+                    // Only prompt once for directory selection during app session
+                    if (!hasPromptedForDirectory && directoryManager.shouldPromptForDirectory()) {
                         hasPromptedForDirectory = true;
+                        directoryManager.setPromptedForDirectory(true);
                         uiHandler.post(() -> {
                             Toast.makeText(context, "Please select a folder to save detection data", Toast.LENGTH_SHORT).show();
                             if (context instanceof CameraActivity) {

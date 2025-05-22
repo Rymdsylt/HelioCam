@@ -20,18 +20,19 @@ public class DetectionDirectoryManager {
     private static final String TAG = "DetectionDirectoryManager";
     private static final String PREFS_NAME = "HelioCamPrefs";
     private static final String KEY_BASE_DIRECTORY_URI = "base_directory_uri";
+    private static final String KEY_PROMPTED_FOR_DIRECTORY = "prompted_for_directory";
 
     private final Context context;
     private Uri baseDirectoryUri;
+    private boolean promptedForDirectory;
 
     public DetectionDirectoryManager(Context context) {
         this.context = context;
         loadSavedDirectory();
-    }
-
-    private void loadSavedDirectory() {
+    }    private void loadSavedDirectory() {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String savedDirString = prefs.getString(KEY_BASE_DIRECTORY_URI, null);
+        promptedForDirectory = prefs.getBoolean(KEY_PROMPTED_FOR_DIRECTORY, false);
 
         if (savedDirString != null) {
             baseDirectoryUri = Uri.parse(savedDirString);
@@ -50,13 +51,15 @@ public class DetectionDirectoryManager {
             try {
                 // Take persistent permission
                 int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
-                context.getContentResolver().takePersistableUriPermission(uri, takeFlags);
-
-                // Save the URI
+                context.getContentResolver().takePersistableUriPermission(uri, takeFlags);                // Save the URI
                 baseDirectoryUri = uri;
                 SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                prefs.edit().putString(KEY_BASE_DIRECTORY_URI, uri.toString()).apply();
-
+                prefs.edit()
+                    .putString(KEY_BASE_DIRECTORY_URI, uri.toString())
+                    .putBoolean(KEY_PROMPTED_FOR_DIRECTORY, true)
+                    .apply();
+                
+                this.promptedForDirectory = true;
                 Toast.makeText(context, "Base directory set successfully", Toast.LENGTH_SHORT).show();
 
                 // Ensure detection directories exist
@@ -149,10 +152,34 @@ public class DetectionDirectoryManager {
             Log.e(TAG, "Error validating directory", e);
             return false;
         }
-    }
-
-    public String generateTimestampedFilename(String prefix, String extension) {
+    }    public String generateTimestampedFilename(String prefix, String extension) {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
         return prefix + "_" + timestamp + extension;
+    }
+    
+    /**
+     * Check if the app should prompt the user to select a directory
+     * This prevents repetitive prompting while allowing a single prompt per app launch
+     * @return true if the app should prompt for directory selection, false otherwise
+     */
+    public boolean shouldPromptForDirectory() {
+        return !promptedForDirectory;
+    }
+    
+    /**
+     * Set whether the app has prompted for directory selection
+     * @param prompted true if prompted, false otherwise
+     */
+    public void setPromptedForDirectory(boolean prompted) {
+        this.promptedForDirectory = prompted;
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putBoolean(KEY_PROMPTED_FOR_DIRECTORY, prompted).apply();
+    }
+    
+    /**
+     * Reset the prompted flag (useful when user wants to change directory)
+     */
+    public void resetPromptedFlag() {
+        setPromptedForDirectory(false);
     }
 }

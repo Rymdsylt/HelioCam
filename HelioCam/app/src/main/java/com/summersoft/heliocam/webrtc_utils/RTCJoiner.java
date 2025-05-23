@@ -8,13 +8,20 @@ import android.content.pm.PackageManager;
 import android.media.MediaRecorder;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
+import android.opengl.GLES20;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
+import android.view.Surface;
 import android.widget.Toast;
+import android.app.AlertDialog;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.documentfile.provider.DocumentFile;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.ChildEventListener;
@@ -23,6 +30,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.summersoft.heliocam.utils.DetectionDirectoryManager;
 
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
@@ -31,28 +39,40 @@ import org.webrtc.CameraVideoCapturer;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
+import org.webrtc.GlRectDrawer;
+import org.webrtc.GlUtil;
 import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
+import org.webrtc.RendererCommon;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoFrame;
+
+import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Set;
+
+
 
 public class RTCJoiner {
     private static final String TAG = "RTCJoiner";
@@ -112,6 +132,15 @@ public class RTCJoiner {
     // Add to RTCJoiner class fields
     private int assignedCameraNumber = 1; // Default to 1, but will be set by host
     
+    // Recording sinks
+    private final Set<VideoSink> recordingSinks = new HashSet<>();
+
+    // Add this private field
+    private DetectionDirectoryManager directoryManager;
+
+    // Add this field to the class
+    private long recordingStartTime = 0;
+
     /**
      * Constructor for RTCJoiner
      * @param context Android context
@@ -122,6 +151,9 @@ public class RTCJoiner {
         this.context = context;
         this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
+        
+        // Initialize directoryManager
+        this.directoryManager = new DetectionDirectoryManager(context);
         
         // Get user email
         FirebaseAuth auth = FirebaseAuth.getInstance();
@@ -146,16 +178,39 @@ public class RTCJoiner {
             return false;
         }
         
-        // Check if we have necessary permissions
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions((Activity) context,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+        // Check if camera and audio components are ready
+        if (videoCapturer == null || localVideoTrack == null) {
+            Log.e(TAG, "Camera or video track not initialized for recording");
             return false;
         }
         
-        // Check if camera is running
-        return videoCapturer != null && localVideoTrack != null;
+        // Storage permission check based on Android version:
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13+
+            // Check for READ_MEDIA_VIDEO permission
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "READ_MEDIA_VIDEO permission not granted for Android 13+");
+                return false;
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // Android 10-12
+            // For Android 10-12, we need either legacy storage or WRITE_EXTERNAL_STORAGE
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "WRITE_EXTERNAL_STORAGE permission not granted for Android 10-12");
+                return false;
+            }
+        } else { // Android 9 and below
+            // Check both READ and WRITE permissions
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
+                    != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "Storage permissions not granted for Android 9 and below");
+                return false;
+            }
+        }
+        
+        return true;
     }
     
     /**
@@ -166,46 +221,157 @@ public class RTCJoiner {
             Log.w(TAG, "Recording is already in progress");
             return;
         }
+
+        // Do a final permission check before starting
+        if (!canStartRecording()) {
+            // Less aggressive permission requests - just return false and log why
+            Log.e(TAG, "Cannot start recording - permission check failed");
+            return;
+        }
         
         try {
-            // Create directory for recordings if it doesn't exist
-            File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
-            File recordingDir = new File(moviesDir, "HelioCam");
-            if (!recordingDir.exists()) {
-                if (!recordingDir.mkdirs()) {
-                    Log.e(TAG, "Failed to create recording directory");
-                    return;
+            File recordingDir;
+            String fileName = directoryManager.generateTimestampedFilename("HelioCam", ".mp4");
+            
+            // Try to use the user-selected directory first
+            DocumentFile videoClipsDir = directoryManager.getVideoClipsDirectory();
+            if (videoClipsDir != null) {
+                // Using SAF directory
+                DocumentFile newFile = videoClipsDir.createFile("video/mp4", fileName);
+                if (newFile != null) {
+                    recordingPath = newFile.getUri().toString();
+                    
+                    // For API 26+ we need to use ParcelFileDescriptor
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        mediaRecorder = new MediaRecorder();
+                        
+                        ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(newFile.getUri(), "w");
+                        if (pfd != null) {
+                            mediaRecorder.setOutputFile(pfd.getFileDescriptor());
+                            configureMediaRecorder(mediaRecorder);
+                            startMediaRecording(mediaRecorder);
+                            return;
+                        }
+                    }
                 }
             }
             
-            // Create file for recording with timestamp
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault());
-            String fileName = "HelioCam_" + sdf.format(new Date()) + ".mp4";
-            recordingPath = new File(recordingDir, fileName).getAbsolutePath();
+            // Fall back to app-specific directory or public directory
+            recordingDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "HelioCam");
+            if (!recordingDir.exists()) {
+                if (!recordingDir.mkdirs()) {
+                    Log.e(TAG, "Failed to create recording directory");
+                    recordingDir = directoryManager.getAppStorageDirectory("Video_Clips");
+                }
+            }
+            
+            // Fall back to app-specific directory if public directory fails
+            if (!recordingDir.exists() || !recordingDir.canWrite()) {
+                Log.w(TAG, "Failed to use public directory, falling back to app-specific storage");
+                recordingDir = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "HelioCam");
+                if (!recordingDir.exists()) {
+                    recordingDir.mkdirs();
+                }
+            }
+            
+            // Create file for recording
+            File videoFile = new File(recordingDir, fileName);
+            recordingPath = videoFile.getAbsolutePath();
             
             // Initialize MediaRecorder
             mediaRecorder = new MediaRecorder();
-            mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            mediaRecorder.setVideoEncodingBitRate(2000000);
-            mediaRecorder.setVideoFrameRate(30);
             mediaRecorder.setOutputFile(recordingPath);
-            mediaRecorder.prepare();
-            
-            // Start recording
-            mediaRecorder.start();
-            isRecording = true;
-            
-            Log.d(TAG, "Recording started: " + recordingPath);
-            Toast.makeText(context, "Recording started", Toast.LENGTH_SHORT).show();
+            configureMediaRecorder(mediaRecorder);
+            startMediaRecording(mediaRecorder);
             
         } catch (Exception e) {
             Log.e(TAG, "Failed to start recording", e);
             Toast.makeText(context, "Failed to start recording: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             releaseMediaRecorder();
+        }
+    }
+    
+    // Helper method to configure MediaRecorder
+    private void configureMediaRecorder(MediaRecorder recorder) {
+        try {
+            // Order is CRITICAL: 1. sources, 2. format, 3. encoders, 4. params, 5. prepare
+            
+            // 1. Set sources first
+            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+            
+            // 2. Set output format
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            
+            // 3. Set encoders
+            recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            
+            // 4. Set parameters - use moderate quality for balance
+            recorder.setVideoEncodingBitRate(2500000); // 2.5 Mbps
+            recorder.setVideoFrameRate(25);  // 25fps is good enough
+            recorder.setVideoSize(640, 480); // Standard definition
+            recorder.setAudioEncodingBitRate(128000); // 128 kbps audio
+            recorder.setAudioSamplingRate(44100); // 44.1 kHz
+            
+            // 5. Prepare the recorder
+            recorder.prepare();
+            
+            Log.d(TAG, "MediaRecorder configured successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error configuring MediaRecorder: " + e.getMessage(), e);
+            throw new RuntimeException("MediaRecorder configuration failed", e);
+        }
+    }
+
+    // Helper method to start media recording
+    private void startMediaRecording(MediaRecorder recorder) throws Exception {
+        try {
+            // Step 1: Start the media recorder first
+            Log.d(TAG, "Starting MediaRecorder...");
+            recorder.start();
+            
+            // Step 2: Get the surface from the recorder
+            Surface recorderSurface = recorder.getSurface();
+            if (recorderSurface == null) {
+                throw new RuntimeException("Failed to get recording surface");
+            }
+            
+            // Step 3: Clean up any existing recording sinks
+            for (VideoSink sink : new HashSet<>(recordingSinks)) {
+                if (localVideoTrack != null) {
+                    localVideoTrack.removeSink(sink);
+                }
+                if (sink instanceof SurfaceVideoSink) {
+                    ((SurfaceVideoSink) sink).release();
+                }
+            }
+            recordingSinks.clear();
+            
+            // Step 4: Create and add a new video sink
+            SurfaceVideoSink videoSink = new SurfaceVideoSink(recorderSurface);
+            recordingSinks.add(videoSink);
+            
+            // Step 5: Add the sink to the video track
+            if (localVideoTrack != null) {
+                localVideoTrack.addSink(videoSink);
+                isRecording = true;
+                recordingStartTime = System.currentTimeMillis();
+                Log.d(TAG, "Recording started at: " + recordingPath);
+            } else {
+                throw new RuntimeException("Video track is not available");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start recording: " + e.getMessage());
+            
+            try {
+                // Try to reset the recorder on failure
+                recorder.reset();
+                recordingSinks.clear();
+            } catch (Exception ignored) {
+                // Ignore cleanup errors
+            }
+            throw e;
         }
     }
     
@@ -218,32 +384,104 @@ public class RTCJoiner {
             return;
         }
         
+        // Store path for later
+        String storedPath = recordingPath;
+        
+        Log.d(TAG, "Attempting to stop recording at path: " + storedPath);
+        
+        // First ensure we've recorded for at least 1 second
+        long recordingDuration = System.currentTimeMillis() - recordingStartTime;
+        if (recordingDuration < 1200) { // Give extra buffer time
+            try {
+                long waitTime = 1200 - recordingDuration;
+                Log.d(TAG, "Recording too short (" + recordingDuration + "ms), waiting " + waitTime + "ms");
+                Thread.sleep(waitTime);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Sleep interrupted", e);
+            }
+        }
+        
+        // Now stop the recording
+        boolean recordingStopped = false;
+        
         try {
-            if (mediaRecorder != null) {
-                mediaRecorder.stop();
-                releaseMediaRecorder();
-                
-                // Make the video visible in gallery
-                if (recordingPath != null) {
-                    MediaScannerConnection.scanFile(context,
-                            new String[]{recordingPath}, null,
-                            (path, uri) -> Log.d(TAG, "Recording saved: " + uri));
-                    
-                    Toast.makeText(context, "Recording saved to " + recordingPath, Toast.LENGTH_LONG).show();
+            // First remove any sinks before stopping
+            if (localVideoTrack != null) {
+                for (VideoSink sink : new HashSet<>(recordingSinks)) { // Use copy to avoid concurrent modification
+                    localVideoTrack.removeSink(sink);
                 }
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Error stopping recording", e);
+            
+            // Then try to stop the MediaRecorder
+            if (mediaRecorder != null) {
+                try {
+                    mediaRecorder.stop();
+                    recordingStopped = true;
+                    Log.d(TAG, "MediaRecorder stopped successfully");
+                } catch (RuntimeException e) {
+                    Log.e(TAG, "Error stopping MediaRecorder: " + e.getMessage());
+                    // Fall through and try to save anyway
+                }
+            }
         } finally {
-            isRecording = false;
-            recordingPath = null;
+            // Clean up resources
+            for (VideoSink sink : recordingSinks) {
+                if (sink instanceof SurfaceVideoSink) {
+                    ((SurfaceVideoSink) sink).release();
+                }
+            }
+            recordingSinks.clear();
+            releaseMediaRecorder();
         }
+        
+        // Try to save the recording if we have a path
+        if (storedPath != null) {
+            // For content URIs, the file is already saved via the SAF system
+            if (storedPath.startsWith("content://")) {
+                Toast.makeText(context, recordingStopped ? 
+                        "Recording saved successfully" : 
+                        "Recording may not have saved properly", Toast.LENGTH_SHORT).show();
+            } else {
+                // For file paths, check if the file exists and has data
+                File recordingFile = new File(storedPath);
+                if (recordingFile.exists() && recordingFile.length() > 0) {
+                    // Make the file visible in Gallery
+                    MediaScannerConnection.scanFile(context,
+                            new String[]{storedPath}, null,
+                            (path, uri) -> {
+                                Log.d(TAG, "Recording added to gallery: " + uri);
+                            });
+                
+                    Toast.makeText(context, "Recording saved", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(context, "Recording failed to save properly", Toast.LENGTH_SHORT).show();
+                }
+            }
+        } else {
+            Toast.makeText(context, "Recording path was not available", Toast.LENGTH_SHORT).show();
+        }
+        
+        // Always reset state
+        isRecording = false;
+        recordingPath = null;
     }
     
     /**
      * Release MediaRecorder resources
      */
     private void releaseMediaRecorder() {
+        // First remove any video sinks associated with recording
+        if (localVideoTrack != null) {
+            for (VideoSink sink : recordingSinks) {
+                localVideoTrack.removeSink(sink);
+                if (sink instanceof SurfaceVideoSink) {
+                    ((SurfaceVideoSink) sink).release();
+                }
+            }
+            recordingSinks.clear();
+        }
+        
+        // Release the MediaRecorder
         if (mediaRecorder != null) {
             try {
                 mediaRecorder.reset();
@@ -265,11 +503,29 @@ public class RTCJoiner {
             return false;
         }
         
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions((Activity) context,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-            return false;
+        // For Android 10+ (Q and above), we need to use scoped storage
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions((Activity) context,
+                        new String[]{
+                            Manifest.permission.READ_EXTERNAL_STORAGE, 
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE
+                        }, 1);
+                return false;
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
+                    != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions((Activity) context,
+                        new String[]{
+                            Manifest.permission.READ_EXTERNAL_STORAGE,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE
+                        }, 1);
+                return false;
+            }
         }
         
         return videoCapturer != null && localVideoTrack != null;
@@ -290,22 +546,41 @@ public class RTCJoiner {
             File tempFile = File.createTempFile("buffer", ".mp4", outputDir);
             recordingPath = tempFile.getAbsolutePath();
             
-            // Initialize MediaRecorder similar to regular recording
+            // Initialize MediaRecorder
             mediaRecorder = new MediaRecorder();
+            mediaRecorder.setOutputFile(recordingPath);
+            
+            // Configure MediaRecorder for buffer recording
             mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
             mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
             mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
             mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
             mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            mediaRecorder.setVideoEncodingBitRate(2000000);
-            mediaRecorder.setVideoFrameRate(30);
-            mediaRecorder.setMaxDuration(REPLAY_BUFFER_DURATION_MS); // 30 seconds max
-            mediaRecorder.setOutputFile(recordingPath);
+            mediaRecorder.setVideoEncodingBitRate(1500000); // Lower bitrate for buffer
+            mediaRecorder.setVideoFrameRate(25);
+            mediaRecorder.setVideoSize(640, 480);
+            
+            // Don't set max duration - causes issues
+            // if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            //    mediaRecorder.setMaxDuration(REPLAY_BUFFER_DURATION_MS);
+            // }
+            
             mediaRecorder.prepare();
+            
+            // Get the surface for recording
+            Surface recorderSurface = mediaRecorder.getSurface();
+            SurfaceVideoSink videoSink = new SurfaceVideoSink(recorderSurface);
+            
+            // Add the sink to our collection and to the video track
+            recordingSinks.add(videoSink);
+            if (localVideoTrack != null) {
+                localVideoTrack.addSink(videoSink);
+            }
             
             // Start recording
             mediaRecorder.start();
             isReplayBufferRunning = true;
+            recordingStartTime = System.currentTimeMillis(); // Track when we started recording
             
             Log.d(TAG, "Replay buffer started");
             Toast.makeText(context, "Replay buffer started", Toast.LENGTH_SHORT).show();
@@ -326,27 +601,87 @@ public class RTCJoiner {
             return;
         }
         
-        try {
-            if (mediaRecorder != null) {
+        // First remove any video sinks associated with recording
+        if (localVideoTrack != null) {
+            for (VideoSink sink : recordingSinks) {
+                localVideoTrack.removeSink(sink);
+                if (sink instanceof SurfaceVideoSink) {
+                    ((SurfaceVideoSink) sink).release();
+                }
+            }
+            recordingSinks.clear();
+        }
+        
+        // Store path for later
+        String storedPath = recordingPath;
+        
+        boolean recordingStopped = false;
+        if (mediaRecorder != null) {
+            try {
                 mediaRecorder.stop();
+                recordingStopped = true;
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Error stopping replay buffer", e);
+                // We'll still try to save if something exists
+            } finally {
                 releaseMediaRecorder();
+            }
+        }
+        
+        // Only try to save if we have a path and successfully stopped
+        if (recordingStopped && storedPath != null) {
+            try {
+                // Generate a filename with timestamp
+                String fileName = directoryManager.generateTimestampedFilename("HelioCam_Buffer", ".mp4");
                 
-                // Copy from temp file to permanent location
+                // Try to use the user-selected directory first
+                DocumentFile videoClipsDir = directoryManager.getVideoClipsDirectory();
+                if (videoClipsDir != null) {
+                    // Create a new file in DocumentFile directory
+                    DocumentFile newFile = videoClipsDir.createFile("video/mp4", fileName);
+                    if (newFile != null) {
+                        // Copy from temp file to DocumentFile
+                        InputStream input = new FileInputStream(storedPath);
+                        OutputStream output = context.getContentResolver().openOutputStream(newFile.getUri());
+                        
+                        if (output != null) {
+                            byte[] buffer = new byte[4096];
+                            int length;
+                            while ((length = input.read(buffer)) > 0) {
+                                output.write(buffer, 0, length);
+                            }
+                            output.close();
+                            input.close();
+                            
+                            Toast.makeText(context, "Replay buffer saved", Toast.LENGTH_SHORT).show();
+                            // Delete temp file
+                            new File(storedPath).delete();
+                            isReplayBufferRunning = false;
+                            recordingPath = null;
+                            return;
+                        }
+                    }
+                }
+                
+                // (The rest of the save functionality stays the same)
+                // Fallback to app-specific or public directory
                 File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
                 File recordingDir = new File(moviesDir, "HelioCam");
                 if (!recordingDir.exists()) {
                     recordingDir.mkdirs();
                 }
                 
-                // Create file with timestamp
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault());
-                String fileName = "HelioCam_Buffer_" + sdf.format(new Date()) + ".mp4";
+                // If that fails, use app storage
+                if (!recordingDir.exists()) {
+                    recordingDir = directoryManager.getAppStorageDirectory("Video_Clips");
+                }
+                
                 File destFile = new File(recordingDir, fileName);
                 
                 // Copy buffer to permanent file
                 FileInputStream fis = new FileInputStream(recordingPath);
                 FileOutputStream fos = new FileOutputStream(destFile);
-                byte[] buffer = new byte[1024];
+                byte[] buffer = new byte[4096];
                 int length;
                 while ((length = fis.read(buffer)) > 0) {
                     fos.write(buffer, 0, length);
@@ -359,17 +694,21 @@ public class RTCJoiner {
                         new String[]{destFile.getAbsolutePath()}, null,
                         (path, uri) -> Log.d(TAG, "Buffer saved: " + uri));
                 
-                Toast.makeText(context, "Replay buffer saved to " + destFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                Toast.makeText(context, "Replay buffer saved", Toast.LENGTH_SHORT).show();
                 
                 // Delete temp file
                 new File(recordingPath).delete();
+            } catch (Exception e) {
+                Log.e(TAG, "Error saving buffer: " + e.getMessage());
+                Toast.makeText(context, "Error saving buffer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Error stopping replay buffer", e);
-        } finally {
-            isReplayBufferRunning = false;
-            recordingPath = null;
+        } else {
+            Toast.makeText(context, "Buffer not saved - no valid data recorded", Toast.LENGTH_SHORT).show();
         }
+        
+        // Always reset state
+        isReplayBufferRunning = false;
+        recordingPath = null;
     }
     
     /**
@@ -843,11 +1182,16 @@ public class RTCJoiner {
      */
     public void dispose() {
         // Stop recording if active
-        if (isRecording || isReplayBufferRunning) {
-            releaseMediaRecorder();
-            isRecording = false;
-            isReplayBufferRunning = false;
+        if (isRecording) {
+            stopRecording();
         }
+        
+        if (isReplayBufferRunning) {
+            stopReplayBuffer();
+        }
+        
+        // Release MediaRecorder resources
+        releaseMediaRecorder();
         
         // Remove join request from Firebase
         if (joinerId != null && formattedHostEmail != null && sessionId != null) {
@@ -1031,6 +1375,233 @@ public class RTCJoiner {
     public void setAssignedCameraNumber(int cameraNumber) {
         this.assignedCameraNumber = cameraNumber;
         Log.d(TAG, "Camera assigned number: " + cameraNumber);
+    }
+
+    /**
+     * Check if recording capabilities are available on this device
+     * @return true if recording is supported
+     */
+    public boolean isRecordingSupported() {
+        // Check if the necessary components exist
+        return (eglBase != null && videoSource != null && localVideoTrack != null);
+    }
+    
+    private class SurfaceVideoSink implements VideoSink {
+        private final Surface surface;
+        private EglBase eglBase;
+        private boolean initialized = false;
+        private final Object syncObject = new Object();
+        private Handler handler;
+        private HandlerThread thread;
+        private GlRectDrawer drawer;
+
+        public SurfaceVideoSink(Surface surface) {
+            this.surface = surface;
+            // Create a dedicated thread for EGL operations
+            thread = new HandlerThread("SurfaceVideoSinkThread");
+            thread.start();
+            handler = new Handler(thread.getLooper());
+            // Initialize on the EGL thread
+            handler.post(this::initialize);
+        }
+        
+        private void initialize() {
+            synchronized (syncObject) {
+                // Clean up any existing EGL resources
+                releaseEglContext();
+                
+                try {
+                    // Create a shared EGL context with RECORDABLE flag
+                    eglBase = EglBase.create(RTCJoiner.this.eglBase.getEglBaseContext(), EglBase.CONFIG_RECORDABLE);
+                    if (eglBase == null) {
+                        Log.e(TAG, "Failed to create EGL base for recording");
+                        return;
+                    }
+                    
+                    // Create surface and make context current
+                    try {
+                        eglBase.createSurface(surface);
+                        eglBase.makeCurrent();
+                        
+                        // Create the drawer for rendering frames
+                        drawer = new GlRectDrawer();
+                        
+                        // Clear surface with black color
+                        GLES20.glClearColor(0, 0, 0, 1);
+                        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+                        
+                        // Swap buffers to apply changes
+                        eglBase.swapBuffers();
+                        
+                        initialized = true;
+                        Log.d(TAG, "SurfaceVideoSink initialized successfully");
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to initialize EGL surface: " + e.getMessage(), e);
+                        releaseEglContext();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to create EGL context: " + e.getMessage(), e);
+                    releaseEglContext();
+                }
+            }
+        }
+
+        private void releaseEglContext() {
+            synchronized (syncObject) {
+                if (drawer != null) {
+                    drawer.release();
+                    drawer = null;
+                }
+                
+                if (eglBase != null) {
+                    try {
+                        eglBase.release();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error releasing EGL resources", e);
+                    } finally {
+                        eglBase = null;
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void onFrame(VideoFrame frame) {
+            // Skip if not initialized
+            if (!initialized || eglBase == null) {
+                return;
+            }
+            
+            // Retain the frame for processing on our thread
+            frame.retain();
+            
+            // Process frame on dedicated EGL thread
+            handler.post(() -> {
+                try {
+                    synchronized (syncObject) {
+                        if (!initialized || eglBase == null || drawer == null) {
+                            frame.release();
+                            return;
+                        }
+                        
+                        try {
+                            eglBase.makeCurrent();
+                            
+                            // Get the frame buffer and convert to I420 if needed
+                            VideoFrame.Buffer frameBuffer = frame.getBuffer();
+                            VideoFrame.I420Buffer i420Buffer;
+                            
+                            if (frameBuffer instanceof VideoFrame.I420Buffer) {
+                                i420Buffer = (VideoFrame.I420Buffer) frameBuffer;
+                            } else {
+                                i420Buffer = frameBuffer.toI420();
+                            }
+                            
+                            try {
+                                // Use a simpler approach with reflection to dynamically
+                                // determine which method to call based on the available parameters
+                                renderI420Frame(drawer, i420Buffer, frame.getRotatedWidth(), frame.getRotatedHeight());
+                                
+                                // Swap buffers to present the frame
+                                eglBase.swapBuffers();
+                            } finally {
+                                // Release I420Buffer if we created a new one
+                                if (frameBuffer != i420Buffer) {
+                                    i420Buffer.release();
+                                }
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error rendering frame: " + e.getMessage(), e);
+                            initialize(); // Try to reinitialize on error
+                        }
+                    }
+                } finally {
+                    // Always release the frame when done
+                    frame.release();
+                }
+            });
+        }
+        
+        private void renderI420Frame(GlRectDrawer drawer, VideoFrame.I420Buffer buffer, int width, int height) {
+            try {
+                // Create our own identity matrix instead of using RendererCommon.identityMatrix()
+                float[] samplingMatrix = new float[] {
+                    1.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 1.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, 1.0f
+                };
+                
+                // Clear the surface first
+                GLES20.glClearColor(0, 0, 0, 1);
+                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+
+                // Try the method signature used in your WebRTC version
+                try {
+                    // Get the YUV texture IDs
+                    int[] yuvTextures = new int[3];
+                    GLES20.glGenTextures(3, yuvTextures, 0);
+                    
+                    // Create, bind, and populate the Y-texture
+                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[0]);
+                    GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
+                        buffer.getWidth(), buffer.getHeight(), 0, 
+                        GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataY());
+                        
+                    // Create, bind, and populate the U-texture
+                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[1]);
+                    GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
+                        buffer.getWidth()/2, buffer.getHeight()/2, 0, 
+                        GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataU());
+                        
+                    // Create, bind, and populate the V-texture
+                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[2]);
+                    GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
+                        buffer.getWidth()/2, buffer.getHeight()/2, 0, 
+                        GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataV());
+                        
+                    // Draw using the method signature from your WebRTC version
+                    drawer.drawYuv(yuvTextures, samplingMatrix, width, height, 0, 0, width, height);
+                    
+                    // Clean up
+                    GLES20.glDeleteTextures(3, yuvTextures, 0);
+                    return;
+                } catch (Exception e) {
+                    Log.d(TAG, "First draw attempt failed: " + e.getMessage());
+                    // Continue to next approach
+                }
+                
+                // Try alternative rendering approach - just clear the view and swap buffers
+                // This will at least prevent crashes and allow recording to continue
+                GLES20.glClearColor(0, 0, 0, 1);
+                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Error in renderI420Frame: " + e.getMessage(), e);
+                // Just clear the view as a last resort
+                GLES20.glClearColor(0, 0, 0, 1);
+                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+            }
+        }
+        
+        public void release() {
+            // Post release operation to the handler thread
+            if (handler != null) {
+                handler.post(() -> {
+                    synchronized (syncObject) {
+                        initialized = false;
+                        releaseEglContext();
+                    }
+                    
+                    // Quit the handler thread
+                    if (thread != null) {
+                        thread.quitSafely();
+                        thread = null;
+                    }
+                    handler = null;
+                });
+            }
+        }
     }
 }
 

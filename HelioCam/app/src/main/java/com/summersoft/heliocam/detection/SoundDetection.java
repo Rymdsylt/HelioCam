@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
 import android.widget.Toast;
@@ -290,6 +291,15 @@ public class SoundDetection {
      */
     public long getDetectionLatency() {
         return detectionLatency/1000;
+    }
+
+    /**
+     * Update the directory URI for saving detection images
+     */
+    public void setDirectoryUri(Uri uri) {
+        if (uri != null) {
+            directoryManager.setBaseDirectory(uri);
+        }
     }
 
     // When sound is detected

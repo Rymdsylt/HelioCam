@@ -5,6 +5,7 @@ import static com.summersoft.heliocam.status.IMEI_Util.TAG;
 
 
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -12,6 +13,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.net.Uri;
 
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -39,6 +41,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.documentfile.provider.DocumentFile;
 
 import org.webrtc.Camera2Enumerator;
 import org.webrtc.CameraVideoCapturer;
@@ -60,6 +63,7 @@ import com.summersoft.heliocam.utils.DetectionDirectoryManager;
 import com.summersoft.heliocam.webrtc_utils.RTCHost;
 
 import java.io.File;
+import java.util.Locale;
 
 
 public class CameraActivity extends AppCompatActivity {
@@ -112,6 +116,14 @@ public class CameraActivity extends AppCompatActivity {
                 if (personDetection != null) {
                     personDetection.setDirectoryUri(selectedDirectoryUri);
                 }
+                
+                // Update sound detection
+                if (soundDetection != null) {
+                    soundDetection.setDirectoryUri(selectedDirectoryUri);
+                }
+                
+                // Show the record dialog again with updated path
+                showRecordDialog();
             }
         }
     }
@@ -200,6 +212,9 @@ public class CameraActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
         
+        // Initialize context
+        this.context = this;
+        
         // Initialize non-camera components first
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
@@ -207,6 +222,9 @@ public class CameraActivity extends AppCompatActivity {
         // Get session ID from intent
         String sessionId = getIntent().getStringExtra("session_id");
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+        
+        // Initialize directoryManager
+        directoryManager = new DetectionDirectoryManager(this);
         
         // Set up UI elements
         cameraView = findViewById(R.id.camera_view);
@@ -302,10 +320,31 @@ public class CameraActivity extends AppCompatActivity {
         // Handle storage permissions result (request code 1)
         if (requestCode == 1) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // You can now save the video file
+                // Permission granted, show record dialog
                 Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show();
+                showRecordDialog();
             } else {
                 Toast.makeText(this, "Storage permission is required to save video files.", Toast.LENGTH_SHORT).show();
+                
+                // Check if user clicked "Don't ask again"
+                boolean showRationale = false;
+                for (String permission : permissions) {
+                    showRationale = ActivityCompat.shouldShowRequestPermissionRationale(this, permission) || showRationale;
+                }
+                
+                if (!showRationale) {
+                    // User clicked "Don't ask again" - show dialog explaining how to enable in settings
+                    new AlertDialog.Builder(this)
+                        .setTitle("Permission Required")
+                        .setMessage("Storage permission is required for recording videos. Please enable it in app settings.")
+                        .setPositiveButton("Open Settings", (dialog, which) -> {
+                            Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                            intent.setData(Uri.fromParts("package", getPackageName(), null));
+                            startActivity(intent);
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+                }
             }
         }
     }
@@ -364,8 +403,15 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
+    // Add this field to your class
+    private AlertDialog currentDialog;
 
     private void showRecordDialog() {
+        // Make sure directoryManager is initialized before using it
+        if (directoryManager == null) {
+            directoryManager = new DetectionDirectoryManager(this);
+        }
+        
         // Create a dialog with recording options
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_record_options, null);
@@ -385,36 +431,92 @@ public class CameraActivity extends AppCompatActivity {
         btnRecordBufferStop.setEnabled(isReplayBufferRunning);
         btnRecordBuffer.setEnabled(!isReplayBufferRunning);
         
-        // Update storage path display
-        String storagePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES) + "/HelioCam";
+        // Display the storage path with null check
+        String storagePath;
+        if (directoryManager != null && directoryManager.hasValidDirectory()) {
+            DocumentFile videoClipsDir = directoryManager.getVideoClipsDirectory();
+            if (videoClipsDir != null) {
+                storagePath = "Custom: " + Uri.decode(videoClipsDir.getUri().toString()).replace("content://", "");
+            } else {
+                storagePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES) + "/HelioCam";
+            }
+        } else {
+            storagePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES) + "/HelioCam";
+        }
         tvPathValue.setText(storagePath);
         
         // Calculate and display available space
         updateSpaceLeft(tvSpaceLeft, storagePath);
         
+        // Create the dialog
+        AlertDialog dialog = builder.setView(view)
+                               .setCancelable(true)
+                               .create();
+    
+        // Store reference to the dialog
+        this.currentDialog = dialog;
+        
         // Set click listeners
         btnSelectPath.setOnClickListener(v -> {
-            // Open directory picker
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-            startActivityForResult(intent, REQUEST_DIRECTORY_PICKER);
+            openDirectoryPicker();
+            // Dismiss dialog using our reference
+            if (currentDialog != null) {
+                currentDialog.dismiss();
+            }
         });
         
         btnRecordNow.setOnClickListener(v -> {
-            // Start recording
-            if (rtcJoiner.canStartRecording()) {
-                rtcJoiner.startRecording();
-                isRecording = true;
-                btnRecordNow.setEnabled(false);
-                btnRecordStop.setEnabled(true);
-                btnRecordBuffer.setEnabled(false);
-                recordingStatus.setText("● RECORDING");
-                recordingStatus.setVisibility(View.VISIBLE);
-                Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Cannot start recording", Toast.LENGTH_SHORT).show();
+            // First check permissions
+            if (!hasStoragePermissions()) {
+                requestStoragePermissions();
+                return;
             }
+            
+            // Show a progress spinner
+            ProgressDialog progress = new ProgressDialog(this);
+            progress.setMessage("Starting Recording...");
+            progress.setCancelable(false);
+            progress.show();
+            
+            // Do recording work on a background thread
+            new Thread(() -> {
+                try {
+                    final boolean canRecord = rtcJoiner.canStartRecording();
+                    
+                    // Switch back to UI thread for UI updates
+                    runOnUiThread(() -> {
+                        try {
+                            progress.dismiss();
+                            
+                            if (!canRecord) {
+                                Toast.makeText(this, "Cannot start recording", Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            
+                            // Start recording
+                            rtcJoiner.startRecording();
+                            
+                            // Update UI
+                            isRecording = true;
+                            btnRecordNow.setEnabled(false);
+                            btnRecordStop.setEnabled(true);
+                            btnRecordBuffer.setEnabled(false);
+                            recordingStatus.setText("● RECORDING");
+                            recordingStatus.setVisibility(View.VISIBLE);
+                            currentDialog.dismiss();
+                        } catch (Exception e) {
+                            isRecording = false;
+                            Log.e(TAG, "Recording failed: " + e.getMessage(), e);
+                            Toast.makeText(this, "Recording failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(() -> {
+                        progress.dismiss();
+                        Toast.makeText(this, "Error checking recording state", Toast.LENGTH_SHORT).show();
+                    });
+                }
+            }).start();
         });
         
         btnRecordStop.setOnClickListener(v -> {
@@ -455,25 +557,81 @@ public class CameraActivity extends AppCompatActivity {
             Toast.makeText(this, "Replay buffer saved", Toast.LENGTH_SHORT).show();
         });
         
-        builder.setView(view);
-        builder.setCancelable(true);
-        
-        AlertDialog dialog = builder.create();
+        // Show the dialog
         dialog.show();
     }
 
     private void updateSpaceLeft(TextView tvSpaceLeft, String path) {
-        try {
-            File storagePath = new File(path);
-            StatFs stat = new StatFs(storagePath.getPath());
-            long bytesAvailable = stat.getBlockSizeLong() * stat.getAvailableBlocksLong();
-            long megabytesAvailable = bytesAvailable / (1024 * 1024);
-            tvSpaceLeft.setText("Space Left: " + megabytesAvailable + " MB");
-        } catch (Exception e) {
-            tvSpaceLeft.setText("Space Left: Error calculating");
-            Log.e(TAG, "Error calculating space left: " + e.getMessage());
+    try {
+        File storagePath;
+        
+        if (path == null || path.isEmpty()) {
+            // Default to external storage directory
+            storagePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
+        } else if (path.startsWith("Custom:")) {
+            // Handle custom paths as indicated by "Custom:" prefix, which might be a content URI
+            tvSpaceLeft.setText("Space: Available (Custom Location)");
+            return;
+        } else {
+            storagePath = new File(path);
         }
+        
+        // Make sure the directory exists
+        if (!storagePath.exists()) {
+            if (!storagePath.mkdirs()) {
+                // Try using app's private storage instead
+                storagePath = getExternalFilesDir(null);
+                if (storagePath == null || !storagePath.exists()) {
+                    tvSpaceLeft.setText("Space Left: Cannot access storage");
+                    return;
+                }
+            }
+        }
+        
+        StatFs stat;
+        try {
+            stat = new StatFs(storagePath.getPath());
+        } catch (IllegalArgumentException e) {
+            // Try to recover by using the external files directory
+            storagePath = getExternalFilesDir(null);
+            if (storagePath != null) {
+                stat = new StatFs(storagePath.getPath());
+            } else {
+                tvSpaceLeft.setText("Space Left: Error calculating");
+                return;
+            }
+        }
+        
+        long blockSize = stat.getBlockSizeLong();
+        long availableBlocks = stat.getAvailableBlocksLong();
+        long totalBlocks = stat.getBlockCountLong();
+        
+        long bytesAvailable = blockSize * availableBlocks;
+        long bytesTotal = blockSize * totalBlocks;
+        
+        // Convert to appropriate units (GB or MB)
+        String availableText;
+        String totalText;
+        
+        if (bytesAvailable >= 1_000_000_000) {
+            availableText = String.format(Locale.getDefault(), "%.1f GB", bytesAvailable / 1_000_000_000.0);
+        } else {
+            availableText = String.format(Locale.getDefault(), "%.1f MB", bytesAvailable / 1_000_000.0);
+        }
+        
+        if (bytesTotal >= 1_000_000_000) {
+            totalText = String.format(Locale.getDefault(), "%.1f GB", bytesTotal / 1_000_000_000.0);
+        } else {
+            totalText = String.format(Locale.getDefault(), "%.1f MB", bytesTotal / 1_000_000.0);
+        }
+        
+        tvSpaceLeft.setText(String.format("Space: %s free of %s", availableText, totalText));
+        
+    } catch (Exception e) {
+        Log.e(TAG, "Error calculating space left: " + e.getMessage(), e);
+        tvSpaceLeft.setText("Space Left: Error calculating");
     }
+}
 
 
     private void showThresholdDialog() {
@@ -674,5 +832,35 @@ public class CameraActivity extends AppCompatActivity {
 
     public String getSessionId() {
         return getIntent().getStringExtra("session_id");
+    }
+
+    /**
+     * Check if we have the necessary storage permissions based on Android version
+     */
+    private boolean hasStoragePermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) == 
+                   PackageManager.PERMISSION_GRANTED;
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == 
+                   PackageManager.PERMISSION_GRANTED;
+        } else {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == 
+                   PackageManager.PERMISSION_GRANTED;
+        }
+    }
+
+    /**
+     * Request storage permissions based on Android version
+     */
+    private void requestStoragePermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_MEDIA_VIDEO}, 1);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+        } else {
+            ActivityCompat.requestPermissions(this, 
+                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+        }
     }
 }

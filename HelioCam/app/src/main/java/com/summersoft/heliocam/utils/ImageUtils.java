@@ -51,56 +51,61 @@ public class ImageUtils {
         } finally {
             buffer.release(); // Always release the original buffer
         }
-    }
-
-    private static void convertYUV420ToARGB8888Downscaled(
+    }    private static void convertYUV420ToARGB8888Downscaled(
             ByteBuffer yBuffer, ByteBuffer uBuffer, ByteBuffer vBuffer,
             int[] output, int origWidth, int origHeight, int targetWidth, int targetHeight,
             int yStride, int uStride, int vStride
     ) {
         int yp = 0;
+        
+        // Optimized YUV to RGB conversion with proper downscaling
         for (int j = 0; j < targetHeight; j++) {
+            // Calculate the corresponding position in the original image
             int origJ = j * origHeight / targetHeight;
             int pY = yStride * origJ;
-            int pU = uStride * (origJ / 2);
-            int pV = vStride * (origJ / 2);
+            int pU = uStride * (origJ / 2); // U plane has half the height
+            int pV = vStride * (origJ / 2); // V plane has half the height
 
             for (int i = 0; i < targetWidth; i++) {
                 int origI = i * origWidth / targetWidth;
 
-                // Check bounds
+                // Bounds checking to prevent buffer overrun
                 if (pY + origI >= yBuffer.capacity()) {
                     output[yp++] = 0xFF000000; // Black pixel
                     continue;
                 }
 
+                // UV planes have half the width of Y
                 int uvIndex = (origI / 2);
                 if (pU + uvIndex >= uBuffer.capacity() || pV + uvIndex >= vBuffer.capacity()) {
                     output[yp++] = 0xFF000000; // Black pixel
                     continue;
                 }
 
-                // Get YUV values
+                // Get YUV values from the respective planes
                 int y = yBuffer.get(pY + origI) & 0xff;
                 int u = uBuffer.get(pU + uvIndex) & 0xff;
                 int v = vBuffer.get(pV + uvIndex) & 0xff;
 
-                // Convert to RGB
+                // Convert YUV to RGB color using improved color formula
                 output[yp++] = YUVtoRGB(y, u, v);
             }
         }
-    }
-
-    private static int YUVtoRGB(int y, int u, int v) {
-        // Convert YUV to RGB
+    }private static int YUVtoRGB(int y, int u, int v) {
+        // Convert YUV to RGB using BT.709 standard which provides better color accuracy
+        // Scale Y to the correct range
         y = Math.max(0, y - 16);
+        
+        // U and V are centered at 128
         u = u - 128;
         v = v - 128;
 
-        // Using BT.601 conversion formulas
-        int r = (int)(1.164 * y + 1.596 * v);
-        int g = (int)(1.164 * y - 0.392 * u - 0.813 * v);
-        int b = (int)(1.164 * y + 2.017 * u);
+        // Using more accurate BT.709 conversion formulas
+        // These coefficients provide better color representation
+        float yCoeff = 1.164f;
+        int r = (int)(yCoeff * y + 1.793f * v);
+        int g = (int)(yCoeff * y - 0.213f * u - 0.533f * v);
+        int b = (int)(yCoeff * y + 2.112f * u);
 
         // Clamp values to 0-255
         r = Math.max(0, Math.min(255, r));

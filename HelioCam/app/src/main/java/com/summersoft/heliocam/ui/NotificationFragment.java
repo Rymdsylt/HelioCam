@@ -12,6 +12,7 @@ import android.widget.TextView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.ImageButton;
+import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 
@@ -23,25 +24,46 @@ import java.util.Set;
 public class NotificationFragment extends Fragment {
 
     private static final String TAG = "NotificationFragment";
+    public static NotificationFragment activeInstance;
 
     public NotificationFragment() {
         // Required empty public constructor
     }
 
-
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+                         Bundle savedInstanceState) {
         Log.d(TAG, "NotificationFragment: onCreateView started");
         View view = inflater.inflate(R.layout.fragment_notification, container, false);
 
-        ViewGroup notificationContainer = view.findViewById(R.id.notifcation_card_container);
+        // FIX: Correct the ID name (was notifcation_card_container)
+        ViewGroup notificationContainer = view.findViewById(R.id.notification_card_container);
         
-        // Set up refresh button
+        // Check if notification container exists before proceeding
+        if (notificationContainer == null) {
+            Log.e(TAG, "Notification container not found! Check if R.id.notification_card_container exists in fragment_notification.xml");
+            return view; // Return the view anyway to prevent crash
+        }
+        
+        // Set up refresh button with null check and proper error handling
         com.google.android.material.button.MaterialButton refreshButton = view.findViewById(R.id.refreshButton);
         if (refreshButton != null) {
-            refreshButton.setOnClickListener(v -> refreshNotifications());
+            refreshButton.setOnClickListener(v -> {
+                try {
+                    Log.d(TAG, "Refresh button clicked");
+                    refreshNotifications();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in refresh button click", e);
+                    if (getContext() != null) {
+                        Toast.makeText(getContext(), "Error refreshing notifications", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        } else {
+            Log.w(TAG, "Refresh button not found in layout");
         }
+        
+        // REMOVED: Debug button code completely removed
         
         // Add Clear All button functionality
         com.google.android.material.button.MaterialButton clearAllButton = view.findViewById(R.id.clear_all_button);
@@ -50,25 +72,35 @@ public class NotificationFragment extends Fragment {
             clearAllButton.setVisibility(View.VISIBLE);
             
             clearAllButton.setOnClickListener(v -> {
-                if (getContext() != null && notificationContainer != null) {
-                    // Clear all notifications from preferences
-                    SharedPreferences prefs = getContext().getSharedPreferences(
-                            "NotificationPrefs", Context.MODE_PRIVATE);
-                    
-                    // Get existing notifications and mark all as deleted
-                    PopulateNotifs populator = PopulateNotifs.getInstance();
-                    Set<String> notificationIds = populator.getNotificationIds();
-                    
-                    if (notificationIds != null && !notificationIds.isEmpty()) {
-                        prefs.edit()
-                             .putStringSet("deleted_notifs", notificationIds)
-                             .apply();
-                             
-                        // Refresh the UI
-                        refreshNotifications();
+                try {
+                    if (getContext() != null && notificationContainer != null) {
+                        // Clear all notifications from preferences
+                        SharedPreferences prefs = getContext().getSharedPreferences(
+                                "NotificationPrefs", Context.MODE_PRIVATE);
                         
-                        // Hide the button after clearing
-                        clearAllButton.setVisibility(View.GONE);
+                        // Get existing notifications and mark all as deleted
+                        PopulateNotifs populator = PopulateNotifs.getInstance();
+                        Set<String> notificationIds = populator.getNotificationIds();
+                        
+                        if (notificationIds != null && !notificationIds.isEmpty()) {
+                            prefs.edit()
+                                 .putStringSet("deleted_notifs", notificationIds)
+                                 .apply();
+                                 
+                            // Refresh the UI
+                            refreshNotifications();
+                            
+                            // Show confirmation
+                            Toast.makeText(getContext(), "All notifications cleared", Toast.LENGTH_SHORT).show();
+                            
+                            // Hide the button after clearing
+                            clearAllButton.setVisibility(View.GONE);
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error clearing all notifications", e);
+                    if (getContext() != null) {
+                        Toast.makeText(getContext(), "Error clearing notifications", Toast.LENGTH_SHORT).show();
                     }
                 }
             });
@@ -79,14 +111,19 @@ public class NotificationFragment extends Fragment {
         // Only attempt to populate notifications if container exists
         if (notificationContainer != null && getContext() != null) {
             Log.d(TAG, "Starting notification population");
-            PopulateNotifs populator = PopulateNotifs.getInstance();
-            populator.startPopulatingNotifs(getContext(), notificationContainer);
+            try {
+                PopulateNotifs populator = PopulateNotifs.getInstance();
+                populator.startPopulatingNotifs(getContext(), notificationContainer);
+            } catch (Exception e) {
+                Log.e(TAG, "Error populating notifications", e);
+            }
         } else {
             Log.e(TAG, "Cannot populate notifications: container or context is null");
         }
 
         return view;
     }
+
     // In NotificationFragment.java - fixed refreshNotifications method:
     public static void refreshNotifications() {
         if (activeInstance == null) {
@@ -112,7 +149,8 @@ public class NotificationFragment extends Fragment {
             return;
         }
 
-        ViewGroup container = view.findViewById(R.id.notifcation_card_container);
+        // FIX: Correct the ID name here too
+        ViewGroup container = view.findViewById(R.id.notification_card_container);
         if (container == null) {
             Log.d(TAG, "refreshNotifications: Container not found");
             return;
@@ -143,10 +181,6 @@ public class NotificationFragment extends Fragment {
         }, 500);
     }
 
-    // Keep track of the active instance
-    public static NotificationFragment activeInstance;
-
-
     @Override
     public void onResume() {
         super.onResume();
@@ -161,10 +195,15 @@ public class NotificationFragment extends Fragment {
         }
     }
 
-    // Add this inside your displayNotifications method where you handle card creation
+    // Enhanced setUpViewDetailsButton method
     public void setUpViewDetailsButton(View innerLayout, View detailsButton) {
-        // Find metadata container
+        // Find metadata container (now it's a MaterialCardView)
         View metadataContainer = innerLayout.findViewById(R.id.metadata_container);
+        
+        if (metadataContainer == null) {
+            Log.w(TAG, "Metadata container not found in notification layout");
+            return;
+        }
         
         // Set initial text and icon based on visibility state
         boolean isVisible = metadataContainer.getVisibility() == View.VISIBLE;
@@ -175,14 +214,15 @@ public class NotificationFragment extends Fragment {
         }
         
         detailsButton.setOnClickListener(v -> {
-            // Toggle metadata container visibility with animation
+            // Toggle metadata container visibility with enhanced animation
             boolean currentlyVisible = metadataContainer.getVisibility() == View.VISIBLE;
             
             if (currentlyVisible) {
-                // Hide with animation
+                // Hide with smooth slide-up animation
                 metadataContainer.animate()
                     .alpha(0f)
-                    .setDuration(200)
+                    .scaleY(0.8f)
+                    .setDuration(250)
                     .withEndAction(() -> {
                         metadataContainer.setVisibility(View.GONE);
                         if (detailsButton instanceof com.google.android.material.button.MaterialButton) {
@@ -191,12 +231,14 @@ public class NotificationFragment extends Fragment {
                     })
                     .start();
             } else {
-                // Show with animation
+                // Show with smooth slide-down animation
                 metadataContainer.setAlpha(0f);
+                metadataContainer.setScaleY(0.8f);
                 metadataContainer.setVisibility(View.VISIBLE);
                 metadataContainer.animate()
                     .alpha(1f)
-                    .setDuration(200)
+                    .scaleY(1f)
+                    .setDuration(250)
                     .start();
                 if (detailsButton instanceof com.google.android.material.button.MaterialButton) {
                     updateDetailsButton((com.google.android.material.button.MaterialButton) detailsButton, true);
@@ -208,10 +250,10 @@ public class NotificationFragment extends Fragment {
     private void updateDetailsButton(com.google.android.material.button.MaterialButton button, boolean expanded) {
         if (expanded) {
             button.setText("Hide Details");
-            button.setIconResource(R.drawable.ic_visibility_off);
+            button.setIconResource(R.drawable.ic_expand_less);
         } else {
             button.setText("Details");
-            button.setIconResource(R.drawable.ic_visibility);
+            button.setIconResource(R.drawable.ic_expand_more);
         }
     }
 }

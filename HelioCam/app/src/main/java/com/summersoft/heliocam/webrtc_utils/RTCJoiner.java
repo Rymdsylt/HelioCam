@@ -41,9 +41,12 @@ import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Set;
@@ -68,7 +71,7 @@ public class RTCJoiner {
     private Context context;
     private SurfaceViewRenderer localView;
     private String sessionId;
-    private String hostEmail;
+    public String hostEmail;
     private String formattedHostEmail;
     private String joinerId;
 
@@ -187,11 +190,6 @@ public class RTCJoiner {
         localVideoTrack = peerConnectionFactory.createVideoTrack("video", videoSource);
         localVideoTrack.setEnabled(true);
         localVideoTrack.addSink(localView);
-        // Connect to person detection if available
-        if (personDetection != null) {
-            Log.d(TAG, "Connecting video track to person detection");
-            localVideoTrack.addSink(personDetection);
-        }
 
         // Create audio source and track
         MediaConstraints audioConstraints = new MediaConstraints();
@@ -210,9 +208,8 @@ public class RTCJoiner {
 
         // Start capture with optimized settings for person detection
         try {
-            // Use lower resolution and frame rate to reduce processing load for detection
-            // while maintaining good quality for WebRTC streaming
-            videoCapturer.startCapture(480, 360, 20); // Reduced from 640x480@30fps
+            // Use better resolution for detection while maintaining performance
+            videoCapturer.startCapture(640, 480, 20); // Slightly higher resolution for better detection
             Log.d(TAG, "Camera started with optimized settings for detection: " + (useFrontCamera ? "front" : "back") + " camera");
         } catch (Exception e) {
             Log.e(TAG, "Failed to start camera capture", e);
@@ -675,6 +672,17 @@ public class RTCJoiner {
         if (localVideoTrack != null && personDetection != null) {
             Log.d(TAG, "Connecting video track to person detection");
             localVideoTrack.addSink(personDetection);
+            
+            // Verify the connection
+            Log.d(TAG, "Person detection connected. Video track enabled: " + localVideoTrack.enabled());
+        } else {
+            Log.w(TAG, "Cannot connect person detection - localVideoTrack: " + 
+                  (localVideoTrack != null) + ", personDetection: " + (personDetection != null));
+        
+            // If video track exists but detection doesn't, store it for later connection
+            if (localVideoTrack != null && personDetection == null) {
+                Log.d(TAG, "Video track exists, will connect person detection when available");
+            }
         }
     }
 
@@ -722,61 +730,208 @@ public class RTCJoiner {
     }
 
     /**
-     * Report a detection event to the host session
+     * Report a person detection event to the host session
+     *
+     * @param personCount Number of people detected
+     */
+    public void reportPersonDetection(int personCount) {
+        if (sessionId == null || hostEmail == null) {
+            Log.w(TAG, "Cannot report person detection - missing session info");
+            return;
+        }
+
+        Map<String, Object> detectionData = new HashMap<>();
+        detectionData.put("type", "person");
+        detectionData.put("personCount", personCount);
+        detectionData.put("confidence", "high");
+        
+        reportDetectionEvent("person", detectionData);
+    }
+
+    /**
+     * Report a sound detection event to the host session
+     *
+     * @param amplitude Sound amplitude detected
+     */
+    public void reportSoundDetection(double amplitude) {
+        if (sessionId == null || hostEmail == null) {
+            Log.w(TAG, "Cannot report sound detection - missing session info");
+            return;
+        }
+
+        Map<String, Object> detectionData = new HashMap<>();
+        detectionData.put("type", "sound");
+        detectionData.put("amplitude", amplitude);
+        detectionData.put("threshold", "exceeded");
+        
+        reportDetectionEvent("sound", detectionData);
+    }
+
+    /**
+     * Report a detection event to the host session - Enhanced to match notification card design
      *
      * @param detectionType Type of detection (sound, person)
      * @param detectionData Additional data about the detection
      */
     public void reportDetectionEvent(String detectionType, Map<String, Object> detectionData) {
         if (sessionId == null || hostEmail == null) {
-            Log.e(TAG, "Cannot report detection - missing session or host info");
+            Log.w(TAG, "Cannot report detection: session or host info missing");
             return;
         }
 
         // Get the current time for the event ID
         long timestamp = System.currentTimeMillis();
+        String eventId = String.valueOf(timestamp);
 
-        // Create detection event data matching the web format
-        Map<String, Object> detectionEvent = new HashMap<>();
-        detectionEvent.put("type", detectionType);
-        detectionEvent.put("timestamp", timestamp);
-        detectionEvent.put("cameraNumber", assignedCameraNumber);
-        detectionEvent.put("deviceName", Build.MANUFACTURER + " " + Build.MODEL);
-        detectionEvent.put("email", userEmail);
-
-        // Add any additional data
-        if (detectionData != null) {
-            detectionEvent.put("data", detectionData);
+        // Format host email for Firebase path
+        String formattedHostEmail = hostEmail.replace(".", "_");
+        
+        // Get current user info
+        String currentUserEmail;
+        String deviceInfo = android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL;
+        
+        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+            currentUserEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+        } else {
+            currentUserEmail = "";
         }
 
-        // Format email for Firebase path
-        String formattedHostEmail = hostEmail.replace(".", "_");
+        // Create formatted date/time for notifications
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+        Date eventDate = new Date(timestamp);
+        String dateString = dateFormat.format(eventDate);
+        String timeString = timeFormat.format(eventDate);
 
-        // Use the detection_events path that matches the web app
-        String detectionPath = "users/" + formattedHostEmail + "/sessions/" + sessionId +
-                "/detection_events/" + timestamp;
+        // First, get the session name to create proper notifications
+        DatabaseReference sessionNameRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedHostEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("session_name");
+                
+        sessionNameRef.get().addOnCompleteListener(task -> {
+            String sessionName = "Unknown Session";
+            if (task.isSuccessful() && task.getResult().exists()) {
+                sessionName = task.getResult().getValue(String.class);
+                if (sessionName == null) sessionName = "Unknown Session";
+            }
+            
+            // Create the complete metadata structure that matches notification card expectations
+            Map<String, Object> completeMetadata = new HashMap<>();
+            completeMetadata.put("sessionName", sessionName);
+            completeMetadata.put("cameraNumber", "Camera " + assignedCameraNumber);
+            completeMetadata.put("deviceInfo", deviceInfo);
+            completeMetadata.put("detectionType", detectionType);
+            if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
+                completeMetadata.put("userEmail", currentUserEmail);
+            }
+            
+            // Add any additional detection-specific data
+            if (detectionData != null) {
+                // Add person count or amplitude to metadata
+                if (detectionData.containsKey("personCount")) {
+                    completeMetadata.put("personCount", detectionData.get("personCount"));
+                }
+                if (detectionData.containsKey("amplitude")) {
+                    completeMetadata.put("amplitude", detectionData.get("amplitude"));
+                }
+                if (detectionData.containsKey("confidence")) {
+                    completeMetadata.put("confidence", detectionData.get("confidence"));
+                }
+            }
 
-        // Send to Firebase
-        firebaseDatabase.child(detectionPath).setValue(detectionEvent)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Reported " + detectionType + " detection to host");
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error reporting detection", e);
-                });
-    }
+            // 1. Save to host's session detection_events (new format matching web app)
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("type", detectionType);
+            eventData.put("timestamp", timestamp);
+            eventData.put("cameraNumber", assignedCameraNumber);
+            eventData.put("deviceName", deviceInfo);
+            eventData.put("email", currentUserEmail);
+            
+            // Add detection-specific data to event
+            if (detectionData != null) {
+                eventData.putAll(detectionData);
+            }
 
-    // Helper methods for specific detection types (no motion detection)
-    public void reportSoundDetection(double amplitude) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("amplitude", amplitude);
-        reportDetectionEvent("sound", data);
-    }
+            DatabaseReference hostEventRef = FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(formattedHostEmail)
+                    .child("sessions")
+                    .child(sessionId)
+                    .child("detection_events")
+                    .child(eventId);
 
-    public void reportPersonDetection(int personCount) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("count", personCount);
-        reportDetectionEvent("person", data);
+            hostEventRef.setValue(eventData)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "Detection event saved successfully to host session");
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to save detection event to host session", e);
+                    });
+
+            // 2. Save enhanced notification to host's session notifications (matching notification card design)
+            String notificationReason = detectionType.equals("person") ? 
+                "Person detected by Camera " + assignedCameraNumber :
+                "Sound detected by Camera " + assignedCameraNumber;
+                
+            Map<String, Object> enhancedNotificationData = new HashMap<>();
+            enhancedNotificationData.put("reason", notificationReason);
+            enhancedNotificationData.put("date", dateString);
+            enhancedNotificationData.put("time", timeString);
+            enhancedNotificationData.put("cameraNumber", assignedCameraNumber);
+            enhancedNotificationData.put("deviceInfo", deviceInfo);
+            
+            // Add the complete metadata that matches notification card expectations
+            enhancedNotificationData.put("metadata", completeMetadata);
+
+            DatabaseReference hostNotificationRef = FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(formattedHostEmail)
+                    .child("sessions")
+                    .child(sessionId)
+                    .child("notifications")
+                    .child(eventId);
+
+            hostNotificationRef.setValue(enhancedNotificationData)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "Enhanced notification saved successfully to host session");
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to save enhanced notification to host session", e);
+                    });
+
+            // 3. Save to camera user's universal notifications if they have an account
+            if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
+                String formattedCameraEmail = currentUserEmail.replace(".", "_");
+                
+                // Create enhanced universal notification with complete metadata
+                Map<String, Object> universalNotificationData = new HashMap<>();
+                universalNotificationData.put("reason", notificationReason + " at " + sessionName);
+                universalNotificationData.put("date", dateString);
+                universalNotificationData.put("time", timeString);
+                
+                // Add the same complete metadata for universal notifications
+                universalNotificationData.put("metadata", completeMetadata);
+                
+                DatabaseReference universalNotifRef = FirebaseDatabase.getInstance()
+                        .getReference("users")
+                        .child(formattedCameraEmail)
+                        .child("universal_notifications")
+                        .child(eventId);
+                    
+                universalNotifRef.setValue(universalNotificationData)
+                        .addOnSuccessListener(aVoid -> {
+                            Log.d(TAG, "Enhanced universal notification saved successfully");
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "Failed to save enhanced universal notification", e);
+                        });
+            }
+
+            Log.d(TAG, "Enhanced detection event reported: " + detectionType + " at " + timeString + " for session: " + sessionName);
+        });
     }
 
     /**

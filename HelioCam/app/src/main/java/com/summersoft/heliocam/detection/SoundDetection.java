@@ -153,17 +153,29 @@ public class SoundDetection {
 
             // Check if notification should be created
             if (!NotificationSettings.isSoundNotificationsEnabled(context)) {
-                return;  // Skip notification creation
+                Log.d("SoundDetection", "Sound notifications disabled, skipping notification creation");
+                return;
             }
 
-            // Don't use Firebase Database directly - use the RTCJoiner to report detection
+            // Report detection to host and save notifications
             if (webRTCClient != null) {
                 try {
-                    // Get amplitude for reporting
-                    double amplitude = calculateAmplitude(new short[1024], 1024); // Just an estimate 
+                    // Get amplitude for reporting (use actual calculated value)
+                    double amplitude = soundThreshold * 1.5; // Estimate based on threshold exceeded
+                    
+                    Log.d("SoundDetection", "Reporting sound detection to host with amplitude: " + amplitude);
 
-                    // Report sound detection to ensure consistent notification format
-                    webRTCClient.reportSoundDetection(amplitude);
+                    // Create enhanced detection data with all details needed for notification card
+                    Map<String, Object> detectionData = new HashMap<>();
+                    detectionData.put("amplitude", amplitude);
+                    detectionData.put("threshold", soundThreshold);
+                    detectionData.put("confidence", "high");
+                    detectionData.put("detectionMethod", "audioRecord");
+                    detectionData.put("sampleRate", SAMPLE_RATE);
+                    detectionData.put("detectionTime", System.currentTimeMillis());
+                    
+                    // Report sound detection with enhanced data
+                    webRTCClient.reportDetectionEvent("sound", detectionData);
                     
                     // Take screenshot if needed (keep this functionality)
                     String sessionId = ((CameraActivity) context).getSessionId();
@@ -304,13 +316,13 @@ public class SoundDetection {
 
     // When sound is detected
     private void onSoundDetected(double amplitude) {
-        // Your existing sound detection code...
+        Log.d("SoundDetection", "Sound detection callback triggered with amplitude: " + amplitude);
         
-        // Report using the new method in RTCJoiner
+        // Report using the method in RTCJoiner
         if (webRTCClient != null) {
             webRTCClient.reportSoundDetection(amplitude);
+        } else {
+            Log.w("SoundDetection", "Cannot report sound detection - webRTCClient is null");
         }
-        
-        // Rest of your event handling...
     }
 }

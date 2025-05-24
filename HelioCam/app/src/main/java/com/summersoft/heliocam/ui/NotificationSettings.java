@@ -21,14 +21,12 @@ import com.summersoft.heliocam.R;
 
 public class NotificationSettings extends Fragment {
     private static final String TAG = "NotificationSettings";
-    private static final String PREFS_NAME = "NotificationSettings";
-
-    // Keys for SharedPreferences
-    private static final String KEY_ALL_NOTIFICATIONS = "all_notifications_enabled";
-    private static final String KEY_EMAIL_NOTIFICATIONS = "email_notifications_enabled";
-    private static final String KEY_SOUND_NOTIFICATIONS = "sound_notifications_enabled";
-    private static final String KEY_PERSON_NOTIFICATIONS = "person_notifications_enabled";
-    private static final String KEY_IN_APP_NOTIFICATIONS = "in_app_notifications_enabled";
+    private static final String PREFS_NAME = "notification_settings";
+    private static final String KEY_ALL_NOTIFICATIONS = "all_notifications";
+    private static final String KEY_EMAIL_NOTIFICATIONS = "email_notifications";
+    private static final String KEY_SOUND_NOTIFICATIONS = "sound_notifications";
+    private static final String KEY_PERSON_NOTIFICATIONS = "person_notifications";
+    private static final String KEY_IN_APP_NOTIFICATIONS = "in_app_notifications";
 
     // UI Components
     private MaterialSwitch allNotificationsSwitch;
@@ -220,18 +218,30 @@ public class NotificationSettings extends Fragment {
      * Helper method to check if a specific notification type is enabled
      */
     public static boolean isEmailNotificationsEnabled(Context context) {
-        return isNotificationTypeEnabled(context, "email");
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean allEnabled = prefs.getBoolean(KEY_ALL_NOTIFICATIONS, true);
+        boolean emailEnabled = prefs.getBoolean(KEY_EMAIL_NOTIFICATIONS, true);
+        return allEnabled && emailEnabled;
     }
 
     public static boolean isSoundNotificationsEnabled(Context context) {
-        return isNotificationTypeEnabled(context, "sound");
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean allEnabled = prefs.getBoolean(KEY_ALL_NOTIFICATIONS, true);
+        boolean soundEnabled = prefs.getBoolean(KEY_SOUND_NOTIFICATIONS, true);
+        return allEnabled && soundEnabled;
     }
 
     public static boolean isPersonNotificationsEnabled(Context context) {
-        return isNotificationTypeEnabled(context, "person");
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean allEnabled = prefs.getBoolean(KEY_ALL_NOTIFICATIONS, true);
+        boolean personEnabled = prefs.getBoolean(KEY_PERSON_NOTIFICATIONS, true);
+        return allEnabled && personEnabled;
     }
 
     public static boolean isInAppNotificationsEnabled(Context context) {
-        return isNotificationTypeEnabled(context, "in_app");
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean allEnabled = prefs.getBoolean(KEY_ALL_NOTIFICATIONS, true);
+        boolean inAppEnabled = prefs.getBoolean(KEY_IN_APP_NOTIFICATIONS, true);
+        return allEnabled && inAppEnabled;
     }
 }

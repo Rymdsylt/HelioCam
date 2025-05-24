@@ -38,6 +38,7 @@ import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -101,6 +102,16 @@ public class PersonDetection implements VideoSink {
 
     private void run() {
         try {
+            // Check if model files exist before loading
+            try {
+                context.getAssets().open(MODEL_FILE).close();
+                context.getAssets().open(LABEL_FILE).close();
+            } catch (IOException e) {
+                Log.e(TAG, "Model files not found: " + e.getMessage());
+                handler.post(() -> Toast.makeText(context, "Person detection model files missing", Toast.LENGTH_LONG).show());
+                return;
+            }
+
             // Load model and labels using FileUtils
             MappedByteBuffer model = FileUtils.loadModelFile(context, MODEL_FILE);
             labels = FileUtils.readLabels(context, LABEL_FILE);
@@ -111,17 +122,56 @@ public class PersonDetection implements VideoSink {
             options.setNumThreads(2);  // Use fewer threads to avoid contention
 
             tflite = new Interpreter(model, options);
+            
+            // Verify model input/output shapes
+            int[] inputShape = tflite.getInputTensor(0).shape();
+            int[] outputShape = tflite.getOutputTensor(0).shape();
+            
+            Log.d(TAG, "Model input shape: " + Arrays.toString(inputShape));
+            Log.d(TAG, "Model output shape: " + Arrays.toString(outputShape));
+            
             Log.d(TAG, "Model loaded successfully with optimized settings");
             isModelLoaded.set(true);
         } catch (IOException e) {
             Log.e(TAG, "Error loading model", e);
-            handler.post(() -> Toast.makeText(context, "Failed to load detection model", Toast.LENGTH_LONG).show());
+            handler.post(() -> Toast.makeText(context, "Failed to load detection model: " + e.getMessage(), Toast.LENGTH_LONG).show());
         }
     }
 
     public interface DetectionListener {
         void onPersonDetected(Bitmap detectionBitmap);
         void onDetectionStatusChanged(boolean isDetecting);
+    }
+
+    // Add this method for debugging
+    private void debugModelFiles() {
+        try {
+            // Check if model files exist
+            android.content.res.AssetManager assetManager = context.getAssets();
+            String[] assets = assetManager.list("");
+            
+            Log.d(TAG, "Available assets:");
+            for (String asset : assets) {
+                Log.d(TAG, "  " + asset);
+            }
+            
+            // Specifically check for our model files
+            try {
+                assetManager.open(MODEL_FILE).close();
+                Log.d(TAG, "✓ Model file found: " + MODEL_FILE);
+            } catch (IOException e) {
+                Log.e(TAG, "✗ Model file NOT found: " + MODEL_FILE);
+            }
+            
+            try {
+                assetManager.open(LABEL_FILE).close();
+                Log.d(TAG, "✓ Label file found: " + LABEL_FILE);
+            } catch (IOException e) {
+                Log.e(TAG, "✗ Label file NOT found: " + LABEL_FILE);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking model files: " + e.getMessage());
+        }
     }
 
     public PersonDetection(Context context, RTCJoiner webRTCClient) {
@@ -134,6 +184,10 @@ public class PersonDetection implements VideoSink {
         this.boxPaint.setStyle(Paint.Style.STROKE);
         this.boxPaint.setStrokeWidth(8.0f);
         this.directoryManager = new DetectionDirectoryManager(context);
+        
+        // Debug model files
+        debugModelFiles();
+        
         loadModel();
     }
 
@@ -225,7 +279,7 @@ public class PersonDetection implements VideoSink {
         }
 
         // Adaptive frame skipping based on processing load
-        int skipFactor = isProcessingFrame.get() ? 5 : 3; // Skip more frames if already processing
+        int skipFactor = isProcessingFrame.get() ? 6 : 3; // Reduced for better detection
         if (frameCounter.incrementAndGet() % skipFactor != 0) {
             return;
         }
@@ -235,166 +289,264 @@ public class PersonDetection implements VideoSink {
             return;
         }
 
-        // Make a copy of the frame with proper refcounting
-        VideoFrame.Buffer buffer = frame.getBuffer();
-        buffer.retain(); // Retain the buffer explicitly
-        VideoFrame frameCopy = new VideoFrame(
-                buffer, // Pass the retained buffer directly
-                frame.getRotation(),
-                frame.getTimestampNs());
+        // Retain the frame before passing to background thread
+        frame.retain();
 
+        // Process frame on executor thread
         executor.execute(() -> {
             try {
-                Bitmap bitmap = ImageUtils.videoFrameToBitmap(frameCopy);
-                if (bitmap != null) {
+                // Convert frame to bitmap with better error handling
+                Bitmap bitmap = ImageUtils.videoFrameToBitmap(frame);
+                if (bitmap != null && !bitmap.isRecycled()) {
                     detectPerson(bitmap);
+                    // Don't recycle here - let detectPerson handle it
+                } else {
+                    Log.w(TAG, "Failed to convert frame to bitmap or bitmap is recycled");
                 }
+            } catch (Exception e) {
+                Log.e(TAG, "Error processing frame: " + e.getMessage(), e);
             } finally {
-                frameCopy.release(); // Always release the frame copy
+                // Always release the frame and reset processing flag
+                try {
+                    frame.release();
+                } catch (Exception e) {
+                    Log.w(TAG, "Error releasing frame: " + e.getMessage());
+                }
                 isProcessingFrame.set(false);
             }
         });
     }
 
     private void detectPerson(Bitmap bitmap) {
-        executor.execute(() -> {
-            if (!isRunning.get() || isInLatencyPeriod.get()) {
-                return; // Double-check state has not changed
+        if (!isRunning.get() || isInLatencyPeriod.get() || bitmap == null || bitmap.isRecycled()) {
+            if (bitmap != null && !bitmap.isRecycled()) {
+                bitmap.recycle();
+            }
+            return;
+        }
+
+        try {
+            // Verify model is still loaded
+            if (tflite == null) {
+                Log.e(TAG, "TensorFlow Lite interpreter is null");
+                bitmap.recycle();
+                return;
             }
 
+            // Get model input shape
+            int[] inputShape = tflite.getInputTensor(0).shape();
+            if (inputShape.length != 4) {
+                Log.e(TAG, "Invalid input shape: " + Arrays.toString(inputShape));
+                bitmap.recycle();
+                return;
+            }
+            
+            int inputWidth = inputShape[2];  // Width is typically at index 2
+            int inputHeight = inputShape[1]; // Height is typically at index 1
+
+            // Prepare input tensor with proper error handling
+            ByteBuffer inputBuffer;
             try {
-                // Resize bitmap to match model input size
-                int[] inputShape = tflite.getInputTensor(0).shape();
-                int inputWidth = inputShape[1];
-                int inputHeight = inputShape[2];
-
-                // Prepare input tensor
-
-                ByteBuffer inputBuffer = ImageUtils.bitmapToByteBuffer(bitmap, inputWidth, inputHeight, 0f, 1f);
-
-                // Output buffer for YOLOv8 - match the actual output shape [1, 84, 8400]
-                float[][][] output = new float[1][84][8400];
-
-
-                // Create input and output objects (not maps)
-                Object[] inputs = {inputBuffer};
-                Map<Integer, Object> outputs = new HashMap<>();
-                outputs.put(0, output);
-
-                // Run inference
-                tflite.runForMultipleInputsOutputs(inputs, outputs);
-
-                // Process YOLOv8 output
-                List<Detection> detections = new ArrayList<>();
-                boolean personDetected = false;
-
-                // YOLOv8 format: first 4 values are box coords, remaining 80 are class scores
-                int numClasses = 80;
-
-                for (int i = 0; i < output[0][0].length; i++) { // Iterate through 8400 predictions
-                    // Find max confidence and class index among the class scores
-                    float maxConfidence = 0;
-                    int detectedClass = -1;
-
-                    for (int c = 0; c < numClasses; c++) {
-                        float confidence = output[0][c + 4][i];
-                        if (confidence > maxConfidence) {
-                            maxConfidence = confidence;
-                            detectedClass = c;
-                        }
-                    }
-
-                    // Check if it's a person with sufficient confidence
-                    if (maxConfidence > CONFIDENCE_THRESHOLD &&
-                            detectedClass >= 0 && detectedClass < labels.size() &&
-                            labels.get(detectedClass).equals("person")) {
-
-                        personDetected = true;
-
-                        // Get bounding box coordinates (xywh format in YOLOv8)
-                        float x = output[0][0][i]; // center x
-                        float y = output[0][1][i]; // center y
-                        float w = output[0][2][i]; // width
-                        float h = output[0][3][i]; // height
-
-                        // Convert to corner format (left, top, right, bottom)
-                        float xScale = (float) bitmap.getWidth() / INPUT_WIDTH;
-                        float yScale = (float) bitmap.getHeight() / INPUT_HEIGHT;
-
-                        float left = (x - w/2) * xScale;
-                        float top = (y - h/2) * yScale;
-                        float right = (x + w/2) * xScale;
-                        float bottom = (y + h/2) * yScale;
-
-                        RectF boundingBox = new RectF(left, top, right, bottom);
-                        detections.add(new Detection("person", maxConfidence, boundingBox));
-                    }
-                }
-
-                if (personDetected) {
-                    lastDetectionTime = System.currentTimeMillis();
-
-                    // Create a copy of the bitmap to draw bounding boxes
-                    Bitmap finalBitmap = bitmap.copy(bitmap.getConfig(), true);
-                    Canvas canvas = new Canvas(finalBitmap);
-
-                    // Draw bounding boxes
-                    for (Detection detection : detections) {
-                        canvas.drawRect(detection.boundingBox, boxPaint);
-                    }
-
-                    // Count the number of persons detected
-                    int personCount = detections.size();
-                    
-                    // Call the method to report the detection to the host
-                    onPersonDetected(personCount);
-
-                    handler.post(() -> {
-                        // Only enter latency period if we're not already in it
-                        if (isInLatencyPeriod.compareAndSet(false, true)) {
-                            // Trigger person detected notification
-                            triggerPersonDetected(finalBitmap);
-
-                            if (detectionListener != null) {
-                                detectionListener.onPersonDetected(finalBitmap);
-                                detectionListener.onDetectionStatusChanged(true);
-                            }
-
-                            Log.d(TAG, "Person detected - pausing detection for " + detectionLatency + " ms");
-                            handler.post(() -> Toast.makeText(context, "Detection paused for " + (detectionLatency/1000) + " seconds", Toast.LENGTH_SHORT).show());
-
-                            // Schedule resumption after user-defined latency period
-                            latencyHandler.removeCallbacks(resumeDetectionRunnable);
-                            latencyHandler.postDelayed(resumeDetectionRunnable, detectionLatency);
-                        }
-                    });
-                }
+                inputBuffer = ImageUtils.bitmapToByteBuffer(bitmap, inputWidth, inputHeight, 0f, 1f);
             } catch (Exception e) {
-                Log.e(TAG, "Detection error", e);
+                Log.e(TAG, "Error converting bitmap to ByteBuffer: " + e.getMessage());
+                bitmap.recycle();
+                return;
+            }
+
+            // Get output shape and create output buffer
+            int[] outputShape = tflite.getOutputTensor(0).shape();
+            Log.d(TAG, "Output shape: " + Arrays.toString(outputShape));
+            
+            // For YOLOv8, output shape is typically [1, 84, 8400] or [1, 8400, 84]
+            float[][][] output;
+            if (outputShape.length == 3) {
+                if (outputShape[1] == 84) {
+                    output = new float[outputShape[0]][outputShape[1]][outputShape[2]]; // [1, 84, 8400]
+                } else {
+                    output = new float[outputShape[0]][outputShape[2]][outputShape[1]]; // [1, 8400, 84] -> transpose
+                }
+            } else {
+                Log.e(TAG, "Unexpected output shape: " + Arrays.toString(outputShape));
+                bitmap.recycle();
+                return;
+            }
+
+            // Run inference
+            try {
+                long startTime = System.currentTimeMillis();
+                tflite.run(inputBuffer, output);
+                long endTime = System.currentTimeMillis();
+                Log.d(TAG, "Inference time: " + (endTime - startTime) + "ms");
+            } catch (Exception e) {
+                Log.e(TAG, "Error during model inference: " + e.getMessage());
+                bitmap.recycle();
+                return;
+            }
+
+            // Process results
+            processDetectionResults(output, bitmap, inputWidth, inputHeight);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Detection error: " + e.getMessage(), e);
+            if (bitmap != null && !bitmap.isRecycled()) {
+                bitmap.recycle();
+            }
+        }
+    }
+
+    private void processDetectionResults(float[][][] output, Bitmap bitmap, int inputWidth, int inputHeight) {
+        try {
+            List<Detection> detections = new ArrayList<>();
+            boolean personDetected = false;
+
+            // YOLOv8 format: first 4 values are box coords, remaining 80 are class scores
+            int numClasses = 80;
+            int numDetections = output[0][0].length; // Should be 8400 for YOLOv8
+
+            Log.d(TAG, "Processing " + numDetections + " detections");
+
+            for (int i = 0; i < numDetections; i++) {
+                // Find max confidence and class index among the class scores
+                float maxConfidence = 0;
+                int detectedClass = -1;
+
+                for (int c = 0; c < numClasses; c++) {
+                    float confidence = output[0][c + 4][i]; // Class scores start at index 4
+                    if (confidence > maxConfidence) {
+                        maxConfidence = confidence;
+                        detectedClass = c;
+                    }
+                }
+
+                // Check if it's a person with sufficient confidence
+                if (maxConfidence > CONFIDENCE_THRESHOLD &&
+                        detectedClass >= 0 && detectedClass < labels.size() &&
+                        labels.get(detectedClass).equals("person")) {
+
+                    personDetected = true;
+
+                    // Get bounding box coordinates (xywh format in YOLOv8)
+                    float x = output[0][0][i]; // center x
+                    float y = output[0][1][i]; // center y
+                    float w = output[0][2][i]; // width
+                    float h = output[0][3][i]; // height
+
+                    // Convert to corner format (left, top, right, bottom)
+                    float xScale = (float) bitmap.getWidth() / inputWidth;
+                    float yScale = (float) bitmap.getHeight() / inputHeight;
+
+                    float left = (x - w/2) * xScale;
+                    float top = (y - h/2) * yScale;
+                    float right = (x + w/2) * xScale;
+                    float bottom = (y + h/2) * yScale;
+
+                    RectF boundingBox = new RectF(left, top, right, bottom);
+                    detections.add(new Detection("person", maxConfidence, boundingBox));
+
+                    Log.d(TAG, "Person detected with confidence: " + maxConfidence);
+                }
+            }
+
+            if (personDetected) {
+                handlePersonDetection(detections, bitmap);
+            } else {
+                // No person detected, recycle bitmap
+                bitmap.recycle();
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing detection results: " + e.getMessage(), e);
+            if (bitmap != null && !bitmap.isRecycled()) {
+                bitmap.recycle();
+            }
+        }
+    }
+
+    private void handlePersonDetection(List<Detection> detections, Bitmap bitmap) {
+        lastDetectionTime = System.currentTimeMillis();
+
+        // Create a copy of the bitmap to draw bounding boxes
+        Bitmap finalBitmap = bitmap.copy(bitmap.getConfig(), true);
+        Canvas canvas = new Canvas(finalBitmap);
+
+        // Draw bounding boxes
+        for (Detection detection : detections) {
+            canvas.drawRect(detection.boundingBox, boxPaint);
+        }
+
+        // Count the number of persons detected
+        int personCount = detections.size();
+        
+        // Call the method to report the detection to the host
+        onPersonDetected(personCount);
+
+        handler.post(() -> {
+            // Only enter latency period if we're not already in it
+            if (isInLatencyPeriod.compareAndSet(false, true)) {
+                // Show toast immediately
+                Toast.makeText(context, "Person detected! (" + personCount + " person" + (personCount > 1 ? "s" : "") + ")", Toast.LENGTH_SHORT).show();
+                
+                // Trigger person detected notification
+                triggerPersonDetected(finalBitmap);
+
+                if (detectionListener != null) {
+                    detectionListener.onPersonDetected(finalBitmap);
+                    detectionListener.onDetectionStatusChanged(true);
+                }
+
+                Log.d(TAG, "Person detected - pausing detection for " + detectionLatency + " ms");
+
+                // Schedule resumption after user-defined latency period
+                latencyHandler.removeCallbacks(resumeDetectionRunnable);
+                latencyHandler.postDelayed(resumeDetectionRunnable, detectionLatency);
             }
         });
+
+        // Recycle the original bitmap
+        bitmap.recycle();
     }
 
     // In PersonDetection.java, modify triggerPersonDetected() method:
     private void triggerPersonDetected(Bitmap bitmap) {
         try {
-            // Check if notification should be shown
+            // Always show toast
+            uiHandler.post(() -> Toast.makeText(context, "Person detected!", Toast.LENGTH_SHORT).show());
+
+            // Check if notification should be created
             if (!NotificationSettings.isPersonNotificationsEnabled(context)) {
-                // Skip notification creation but still show toast
-                Toast.makeText(context, "Person detected", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "Person notifications disabled, skipping notification creation");
+                // Still save image locally but don't create notifications
+                String sessionId = ((CameraActivity) context).getSessionId();
+                if (sessionId != null) {
+                    saveDetectionImage(bitmap, sessionId);
+                }
                 return;
             }
 
-            // Don't use Firebase Database directly - use the RTCJoiner to report detection
+            // Report detection to host and save notifications
             if (webRTCClient != null) {
                 // Count how many people were detected (could be multiple in one frame)
                 int personCount = countDetectedPeople(bitmap);
                 
-                // Report person detection to ensure consistent notification format
-                webRTCClient.reportPersonDetection(personCount);
+                Log.d(TAG, "Reporting person detection to host: " + personCount + " person(s)");
+                
+                // Create enhanced detection data with all details needed for notification card
+                Map<String, Object> detectionData = new HashMap<>();
+                detectionData.put("personCount", personCount);
+                detectionData.put("confidence", "high");
+                detectionData.put("detectionMethod", "yolov8");
+                detectionData.put("imageWidth", bitmap.getWidth());
+                detectionData.put("imageHeight", bitmap.getHeight());
+                detectionData.put("processingTime", System.currentTimeMillis()); // For performance tracking
+                
+                // Report person detection with enhanced data
+                webRTCClient.reportDetectionEvent("person", detectionData);
+            } else {
+                Log.w(TAG, "WebRTC client is null, cannot report detection");
             }
 
-            // Save image locally (keep this functionality)
+            // Save image locally
             String sessionId = ((CameraActivity) context).getSessionId();
             if (sessionId != null) {
                 saveDetectionImage(bitmap, sessionId);
@@ -536,13 +688,13 @@ public class PersonDetection implements VideoSink {
 
     // When a person is detected
     private void onPersonDetected(int personCount) {
-        // Your existing person detection code...
+        Log.d(TAG, "Person detection callback triggered with count: " + personCount);
         
-        // Report using the new method in RTCJoiner
-        if (webRTCClient != null) {  // CHANGED from rtcJoiner to webRTCClient
+        // Report using the method in RTCJoiner
+        if (webRTCClient != null) {
             webRTCClient.reportPersonDetection(personCount);
+        } else {
+            Log.w(TAG, "Cannot report person detection - webRTCClient is null");
         }
-        
-        // Rest of your event handling...
     }
 }

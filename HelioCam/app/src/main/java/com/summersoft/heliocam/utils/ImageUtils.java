@@ -14,28 +14,47 @@ public class ImageUtils {
     private static final String TAG = "ImageUtils";
 
     public static Bitmap videoFrameToBitmap(VideoFrame frame) {
-        VideoFrame.Buffer buffer = frame.getBuffer();
-        // Explicitly retain the buffer before conversion
-        buffer.retain();
+        if (frame == null) {
+            Log.e(TAG, "VideoFrame is null");
+            return null;
+        }
 
+        VideoFrame.Buffer buffer = frame.getBuffer();
+        if (buffer == null) {
+            Log.e(TAG, "VideoFrame buffer is null");
+            return null;
+        }
+
+        // Don't retain here - the buffer is already valid when passed to us
         try {
             VideoFrame.I420Buffer i420Buffer = buffer.toI420();
+            if (i420Buffer == null) {
+                Log.e(TAG, "Failed to convert to I420Buffer");
+                return null;
+            }
+
             try {
                 int width = i420Buffer.getWidth();
                 int height = i420Buffer.getHeight();
 
+                if (width <= 0 || height <= 0) {
+                    Log.e(TAG, "Invalid frame dimensions: " + width + "x" + height);
+                    return null;
+                }
+
                 // More aggressive downscaling for detection purposes to improve performance
-                int targetWidth = width / 3;  // Reduce resolution by 66% instead of 50%
-                int targetHeight = height / 3;
-                
-                // Ensure minimum resolution for detection accuracy
-                targetWidth = Math.max(targetWidth, 160);
-                targetHeight = Math.max(targetHeight, 120);
+                int targetWidth = Math.max(width / 2, 160);  // Less aggressive downscaling
+                int targetHeight = Math.max(height / 2, 120);
 
                 // Get YUV planes
                 ByteBuffer yBuffer = i420Buffer.getDataY();
                 ByteBuffer uBuffer = i420Buffer.getDataU();
                 ByteBuffer vBuffer = i420Buffer.getDataV();
+
+                if (yBuffer == null || uBuffer == null || vBuffer == null) {
+                    Log.e(TAG, "YUV buffers are null");
+                    return null;
+                }
 
                 int[] argb = new int[targetWidth * targetHeight];
                 convertYUV420ToARGB8888Downscaled(
@@ -50,11 +69,13 @@ public class ImageUtils {
                 bitmap.setPixels(argb, 0, targetWidth, 0, 0, targetWidth, targetHeight);
                 return bitmap;
             } finally {
-                i420Buffer.release(); // Release I420Buffer when done
+                // Don't manually release i420Buffer - let WebRTC handle it
             }
-        } finally {
-            buffer.release(); // Always release the original buffer
+        } catch (Exception e) {
+            Log.e(TAG, "Error converting VideoFrame to Bitmap: " + e.getMessage(), e);
+            return null;
         }
+        // Don't manually release buffer - let WebRTC handle it
     }
     
     /**
@@ -135,7 +156,7 @@ public class ImageUtils {
             for (int i = 0; i < targetWidth; i++) {
                 int origI = i * origWidth / targetWidth;
 
-                // Check bounds
+                // Check bounds for Y plane
                 if (pY + origI >= yBuffer.capacity()) {
                     output[yp++] = 0xFF000000; // Black pixel
                     continue;
@@ -147,13 +168,18 @@ public class ImageUtils {
                     continue;
                 }
 
-                // Get YUV values
-                int y = yBuffer.get(pY + origI) & 0xff;
-                int u = uBuffer.get(pU + uvIndex) & 0xff;
-                int v = vBuffer.get(pV + uvIndex) & 0xff;
+                try {
+                    // Get YUV values
+                    int y = yBuffer.get(pY + origI) & 0xff;
+                    int u = uBuffer.get(pU + uvIndex) & 0xff;
+                    int v = vBuffer.get(pV + uvIndex) & 0xff;
 
-                // Convert to RGB
-                output[yp++] = YUVtoRGB(y, u, v);
+                    // Convert to RGB
+                    output[yp++] = YUVtoRGB(y, u, v);
+                } catch (Exception e) {
+                    // Handle any buffer overflow gracefully
+                    output[yp++] = 0xFF000000; // Black pixel
+                }
             }
         }
     }

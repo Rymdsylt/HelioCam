@@ -15,6 +15,7 @@ import android.media.MediaScannerConnection;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.view.ContextMenu;
@@ -128,12 +129,12 @@ public class CameraActivity extends AppCompatActivity {
                 if (personDetection != null) {
                     personDetection.setDirectoryUri(selectedDirectoryUri);
                 }
-                
+
                 // Update sound detection
                 if (soundDetection != null) {
                     soundDetection.setDirectoryUri(selectedDirectoryUri);
                 }
-                
+
                 // Show the record dialog again with updated path
                 showRecordDialog();
             }
@@ -223,106 +224,120 @@ public class CameraActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
-        
+
         // Initialize context
         this.context = this;
-        
+
         // Initialize non-camera components first
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseDatabase.getInstance().getReference();
-        
+
         // Get session ID from intent
         String sessionId = getIntent().getStringExtra("session_id");
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-        
+
         // Initialize directoryManager
         directoryManager = new DetectionDirectoryManager(this);
-        
+
         // Set up UI elements
         cameraView = findViewById(R.id.camera_view);
         // ... other UI initialization ...
-        
+
         // Check for required permissions BEFORE starting camera
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
                 ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            
+
             // Request permissions and return - the rest will happen in onRequestPermissionsResult
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, 
+                    new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO},
                     CAMERA_PERMISSION_REQUEST_CODE);
             return; // ← Important! Don't continue execution
         }
-        
+
         // Only initialize camera if we already have permissions
         initializeCamera();
         initializeWebRTC(sessionId, userEmail);
 
         // Get reference to the recording status text
         recordingStatus = findViewById(R.id.recording_status);
-        
+
         // Set up button click listeners - USING VIEW INSTEAD OF IMAGEBUTTON TO AVOID CAST EXCEPTIONS
         View micButton = findViewById(R.id.mic_button);
         micButton.setOnClickListener(v -> toggleMic());
-        
+
         View recordButton = findViewById(R.id.record_button);
         recordButton.setOnClickListener(v -> showRecordDialog());
-        
+
         View endButton = findViewById(R.id.end_surveillance_button);
         endButton.setOnClickListener(v -> onBackPressed());
-        
+
         View switchCameraButton = findViewById(R.id.switch_camera_button);
         switchCameraButton.setOnClickListener(v -> {
             if (rtcJoiner != null) {
                 rtcJoiner.switchCamera();
             }
         });
-        
+
         View settingsButton = findViewById(R.id.settings_button);
         registerForContextMenu(settingsButton);
     }
 
     // Add constant for request code
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;    // Add this method to initialize camera-related components
+
     private void initializeCamera() {
-        // Create webRTCClient
-        rtcJoiner = new com.summersoft.heliocam.webrtc_utils.RTCJoiner(this, cameraView, mDatabase);
-        
-        // Initialize detection components
-        personDetection = new PersonDetection(this, rtcJoiner);
-        personDetection.start();
-        rtcJoiner.setPersonDetection(personDetection);
-        
-        // Initialize sound detection
-        soundDetection = new SoundDetection(this, rtcJoiner);
-        soundDetection.setSoundThreshold(3000);
-        soundDetection.setDetectionLatency(3000);
-        soundDetection.startDetection();
-        
-        // Start camera (rtcJoiner will handle this)
-        rtcJoiner.startCamera(true); // Start with front camera
-        
-        // Store references for direct recording access
-        videoCapturer = rtcJoiner.getVideoCapturer();
-        videoTrack = rtcJoiner.getLocalVideoTrack();
+        try {
+            // Create webRTCClient
+            rtcJoiner = new com.summersoft.heliocam.webrtc_utils.RTCJoiner(this, cameraView, mDatabase);
+
+            // Start camera first (rtcJoiner will handle this)
+            rtcJoiner.startCamera(true); // Start with front camera
+
+            // Wait a moment for camera to initialize before connecting detection
+            new android.os.Handler(Looper.getMainLooper()).postDelayed(() -> {
+                // Initialize detection components AFTER camera is started
+                personDetection = new PersonDetection(this, rtcJoiner);
+                rtcJoiner.setPersonDetection(personDetection);
+                personDetection.start();
+
+                // Initialize sound detection
+                soundDetection = new SoundDetection(this, rtcJoiner);
+                soundDetection.setSoundThreshold(3000);
+                soundDetection.setDetectionLatency(3000);
+                soundDetection.startDetection();
+
+                Log.d(TAG, "Detection systems initialized successfully");
+            }, 500); // 500ms delay to ensure camera is ready
+
+            // Store references for direct recording access
+            videoCapturer = rtcJoiner.getVideoCapturer();
+            videoTrack = rtcJoiner.getLocalVideoTrack();
+
+            Log.d(TAG, "Camera initialized successfully");
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing camera: " + e.getMessage(), e);
+            Toast.makeText(this, "Failed to initialize camera: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        
+
         if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
             // Check if permission was granted
-            if (grantResults.length > 0 && 
-                grantResults[0] == PackageManager.PERMISSION_GRANTED && 
-                grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-                
+            if (grantResults.length > 0 &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED &&
+                    grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+
                 // Permission granted, initialize camera
                 String sessionId = getIntent().getStringExtra("session_id");
                 String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-                
+
                 initializeCamera();
                 initializeWebRTC(sessionId, userEmail);
-                
+
                 Toast.makeText(this, "Permissions granted. You can now use the camera and audio.", Toast.LENGTH_SHORT).show();
             } else {
                 // Permission denied
@@ -330,7 +345,7 @@ public class CameraActivity extends AppCompatActivity {
                 finish(); // Close the activity as it can't function without camera
             }
         }
-        
+
         // Handle storage permissions result (request code 1)
         if (requestCode == 1) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -339,25 +354,25 @@ public class CameraActivity extends AppCompatActivity {
                 showRecordDialog();
             } else {
                 Toast.makeText(this, "Storage permission is required to save video files.", Toast.LENGTH_SHORT).show();
-                
+
                 // Check if user clicked "Don't ask again"
                 boolean showRationale = false;
                 for (String permission : permissions) {
                     showRationale = ActivityCompat.shouldShowRequestPermissionRationale(this, permission) || showRationale;
                 }
-                
+
                 if (!showRationale) {
                     // User clicked "Don't ask again" - show dialog explaining how to enable in settings
                     new AlertDialog.Builder(this)
-                        .setTitle("Permission Required")
-                        .setMessage("Storage permission is required for recording videos. Please enable it in app settings.")
-                        .setPositiveButton("Open Settings", (dialog, which) -> {
-                            Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                            intent.setData(Uri.fromParts("package", getPackageName(), null));
-                            startActivity(intent);
-                        })
-                        .setNegativeButton("Cancel", null)
-                        .show();
+                            .setTitle("Permission Required")
+                            .setMessage("Storage permission is required for recording videos. Please enable it in app settings.")
+                            .setPositiveButton("Open Settings", (dialog, which) -> {
+                                Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                intent.setData(Uri.fromParts("package", getPackageName(), null));
+                                startActivity(intent);
+                            })
+                            .setNegativeButton("Cancel", null)
+                            .show();
                 }
             }
         }
@@ -378,7 +393,6 @@ public class CameraActivity extends AppCompatActivity {
     public interface OnBitmapCapturedListener {
         void onBitmapCaptured(Bitmap bitmap);
     }
-
 
 
     @Override
@@ -425,11 +439,11 @@ public class CameraActivity extends AppCompatActivity {
         if (directoryManager == null) {
             directoryManager = new DetectionDirectoryManager(this);
         }
-        
+
         // Create a dialog with recording options
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_record_options, null);
-        
+
         // Get references to views
         TextView tvPathValue = view.findViewById(R.id.tv_path_value);
         TextView tvSpaceLeft = view.findViewById(R.id.tv_space_left);
@@ -442,7 +456,7 @@ public class CameraActivity extends AppCompatActivity {
         btnRecordNow.setEnabled(!isRecording);
         btnRecordBufferStop.setEnabled(isReplayBufferRunning);
         btnRecordBuffer.setEnabled(!isReplayBufferRunning);
-        
+
         // Display the storage path with null check
         String storagePath;
         if (directoryManager != null && directoryManager.hasValidDirectory()) {
@@ -456,18 +470,18 @@ public class CameraActivity extends AppCompatActivity {
             storagePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES) + "/HelioCam";
         }
         tvPathValue.setText(storagePath);
-        
+
         // Calculate and display available space
         updateSpaceLeft(tvSpaceLeft, storagePath);
-        
+
         // Create the dialog
         AlertDialog dialog = builder.setView(view)
-                               .setCancelable(true)
-                               .create();
-    
+                .setCancelable(true)
+                .create();
+
         // Store reference to the dialog
         this.currentDialog = dialog;
-        
+
         // Set click listeners
         btnSelectPath.setOnClickListener(v -> {
             openDirectoryPicker();
@@ -476,35 +490,35 @@ public class CameraActivity extends AppCompatActivity {
                 currentDialog.dismiss();
             }
         });
-          btnRecordNow.setOnClickListener(v -> {
+        btnRecordNow.setOnClickListener(v -> {
             // First check permissions
             if (!hasStoragePermissions()) {
                 requestStoragePermissions();
                 return;
             }
-            
+
             // Show a progress spinner
             ProgressDialog progress = new ProgressDialog(this);
             progress.setMessage("Starting Recording...");
             progress.setCancelable(false);
             progress.show();
-              // Do recording work on a background thread
+            // Do recording work on a background thread
             new Thread(() -> {
                 try {
                     final boolean canRecord = canStartRecording();
-                    
+
                     // Switch back to UI thread for UI updates
                     runOnUiThread(() -> {
                         try {
                             progress.dismiss();
-                            
+
                             if (!canRecord) {
                                 Toast.makeText(this, "Cannot start recording", Toast.LENGTH_SHORT).show();
                                 return;
                             }
-                              // Start recording using CameraActivity's own method
+                            // Start recording using CameraActivity's own method
                             startRecording();
-                            
+
                             // Update UI
                             btnRecordNow.setEnabled(false);
                             btnRecordStop.setEnabled(true);
@@ -524,14 +538,18 @@ public class CameraActivity extends AppCompatActivity {
                         Toast.makeText(this, "Error checking recording state", Toast.LENGTH_SHORT).show();
                     });
                 }
-            }).start();        });          btnRecordStop.setOnClickListener(v -> {
+            }).start();
+        });
+        btnRecordStop.setOnClickListener(v -> {
             // Stop recording using CameraActivity's own method
             stopRecording();
             btnRecordNow.setEnabled(true);
             btnRecordStop.setEnabled(false);
             btnRecordBuffer.setEnabled(true);
             recordingStatus.setVisibility(View.GONE);
-            Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show();        });btnRecordBuffer.setOnClickListener(v -> {
+            Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show();
+        });
+        btnRecordBuffer.setOnClickListener(v -> {
             // Start replay buffer using CameraActivity's own method
             if (canStartRecording()) {
                 startReplayBuffer();
@@ -544,7 +562,8 @@ public class CameraActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "Cannot start replay buffer", Toast.LENGTH_SHORT).show();
             }
-        });        btnRecordBufferStop.setOnClickListener(v -> {
+        });
+        btnRecordBufferStop.setOnClickListener(v -> {
             // Stop and save replay buffer using CameraActivity's own method
             stopReplayBuffer();
             btnRecordBuffer.setEnabled(true);
@@ -553,82 +572,82 @@ public class CameraActivity extends AppCompatActivity {
             recordingStatus.setVisibility(View.GONE);
             Toast.makeText(this, "Replay buffer saved", Toast.LENGTH_SHORT).show();
         });
-        
+
         // Show the dialog
         dialog.show();
     }
 
     private void updateSpaceLeft(TextView tvSpaceLeft, String path) {
-    try {
-        File storagePath;
-        
-        if (path == null || path.isEmpty()) {
-            // Default to external storage directory
-            storagePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
-        } else if (path.startsWith("Custom:")) {
-            // Handle custom paths as indicated by "Custom:" prefix, which might be a content URI
-            tvSpaceLeft.setText("Space: Available (Custom Location)");
-            return;
-        } else {
-            storagePath = new File(path);
-        }
-        
-        // Make sure the directory exists
-        if (!storagePath.exists()) {
-            if (!storagePath.mkdirs()) {
-                // Try using app's private storage instead
+        try {
+            File storagePath;
+
+            if (path == null || path.isEmpty()) {
+                // Default to external storage directory
+                storagePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
+            } else if (path.startsWith("Custom:")) {
+                // Handle custom paths as indicated by "Custom:" prefix, which might be a content URI
+                tvSpaceLeft.setText("Space: Available (Custom Location)");
+                return;
+            } else {
+                storagePath = new File(path);
+            }
+
+            // Make sure the directory exists
+            if (!storagePath.exists()) {
+                if (!storagePath.mkdirs()) {
+                    // Try using app's private storage instead
+                    storagePath = getExternalFilesDir(null);
+                    if (storagePath == null || !storagePath.exists()) {
+                        tvSpaceLeft.setText("Space Left: Cannot access storage");
+                        return;
+                    }
+                }
+            }
+
+            StatFs stat;
+            try {
+                stat = new StatFs(storagePath.getPath());
+            } catch (IllegalArgumentException e) {
+                // Try to recover by using the external files directory
                 storagePath = getExternalFilesDir(null);
-                if (storagePath == null || !storagePath.exists()) {
-                    tvSpaceLeft.setText("Space Left: Cannot access storage");
+                if (storagePath != null) {
+                    stat = new StatFs(storagePath.getPath());
+                } else {
+                    tvSpaceLeft.setText("Space Left: Error calculating");
                     return;
                 }
             }
-        }
-        
-        StatFs stat;
-        try {
-            stat = new StatFs(storagePath.getPath());
-        } catch (IllegalArgumentException e) {
-            // Try to recover by using the external files directory
-            storagePath = getExternalFilesDir(null);
-            if (storagePath != null) {
-                stat = new StatFs(storagePath.getPath());
+
+            long blockSize = stat.getBlockSizeLong();
+            long availableBlocks = stat.getAvailableBlocksLong();
+            long totalBlocks = stat.getBlockCountLong();
+
+            long bytesAvailable = blockSize * availableBlocks;
+            long bytesTotal = blockSize * totalBlocks;
+
+            // Convert to appropriate units (GB or MB)
+            String availableText;
+            String totalText;
+
+            if (bytesAvailable >= 1_000_000_000) {
+                availableText = String.format(Locale.getDefault(), "%.1f GB", bytesAvailable / 1_000_000_000.0);
             } else {
-                tvSpaceLeft.setText("Space Left: Error calculating");
-                return;
+                availableText = String.format(Locale.getDefault(), "%.1f MB", bytesAvailable / 1_000_000.0);
             }
+
+            if (bytesTotal >= 1_000_000_000) {
+                totalText = String.format(Locale.getDefault(), "%.1f GB", bytesTotal / 1_000_000_000.0);
+            } else {
+                totalText = String.format(Locale.getDefault(), "%.1f MB", bytesTotal / 1_000_000.0);
+            }
+
+            tvSpaceLeft.setText(String.format("Space: %s free of %s", availableText, totalText));
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error calculating space left: " + e.getMessage(), e);
+            tvSpaceLeft.setText("Space Left: Error calculating");
         }
-        
-        long blockSize = stat.getBlockSizeLong();
-        long availableBlocks = stat.getAvailableBlocksLong();
-        long totalBlocks = stat.getBlockCountLong();
-        
-        long bytesAvailable = blockSize * availableBlocks;
-        long bytesTotal = blockSize * totalBlocks;
-        
-        // Convert to appropriate units (GB or MB)
-        String availableText;
-        String totalText;
-        
-        if (bytesAvailable >= 1_000_000_000) {
-            availableText = String.format(Locale.getDefault(), "%.1f GB", bytesAvailable / 1_000_000_000.0);
-        } else {
-            availableText = String.format(Locale.getDefault(), "%.1f MB", bytesAvailable / 1_000_000.0);
-        }
-        
-        if (bytesTotal >= 1_000_000_000) {
-            totalText = String.format(Locale.getDefault(), "%.1f GB", bytesTotal / 1_000_000_000.0);
-        } else {
-            totalText = String.format(Locale.getDefault(), "%.1f MB", bytesTotal / 1_000_000.0);
-        }
-        
-        tvSpaceLeft.setText(String.format("Space: %s free of %s", availableText, totalText));
-        
-    } catch (Exception e) {
-        Log.e(TAG, "Error calculating space left: " + e.getMessage(), e);
-        tvSpaceLeft.setText("Space Left: Error calculating");
     }
-}
 
 
     private void showThresholdDialog() {
@@ -732,10 +751,6 @@ public class CameraActivity extends AppCompatActivity {
     }
 
 
-
-
-
-
     private void initializeWebRTC(String sessionId, String email) { //a
         rtcJoiner.startCamera(isUsingFrontCamera); // Start camera first
         // In RTCJoiner, you'll need to implement the joinSession method
@@ -781,7 +796,6 @@ public class CameraActivity extends AppCompatActivity {
     }
 
 
-
     private void fetchSessionName() {
         String sessionName = getIntent().getStringExtra("session_name");
         String sessionId = getIntent().getStringExtra("session_id");
@@ -808,10 +822,6 @@ public class CameraActivity extends AppCompatActivity {
     }
 
 
-
-
-
-
     private CameraVideoCapturer createCameraCapturer(Camera2Enumerator cameraEnumerator, boolean useFrontCamera) {
         for (String deviceName : cameraEnumerator.getDeviceNames()) {
             if (useFrontCamera && cameraEnumerator.isFrontFacing(deviceName)) {
@@ -824,9 +834,6 @@ public class CameraActivity extends AppCompatActivity {
     }
 
 
-
-
-
     public String getSessionId() {
         return getIntent().getStringExtra("session_id");
     }
@@ -836,14 +843,14 @@ public class CameraActivity extends AppCompatActivity {
      */
     private boolean hasStoragePermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) == 
-                   PackageManager.PERMISSION_GRANTED;
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) ==
+                    PackageManager.PERMISSION_GRANTED;
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == 
-                   PackageManager.PERMISSION_GRANTED;
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+                    PackageManager.PERMISSION_GRANTED;
         } else {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == 
-                   PackageManager.PERMISSION_GRANTED;
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+                    PackageManager.PERMISSION_GRANTED;
         }
     }
 
@@ -856,11 +863,11 @@ public class CameraActivity extends AppCompatActivity {
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
         } else {
-            ActivityCompat.requestPermissions(this, 
-                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
         }
     }
-    
+
     /**
      * Check if recording can be started
      */
@@ -870,22 +877,23 @@ public class CameraActivity extends AppCompatActivity {
             Log.w(TAG, "Recording or replay buffer already running");
             return false;
         }
-        
+
         // Check if camera is initialized
         if (rtcJoiner == null || rtcJoiner.getLocalVideoTrack() == null) {
             Log.e(TAG, "Camera or video track not initialized for recording");
             return false;
         }
-        
+
         // Storage permission check
         if (!hasStoragePermissions()) {
             Log.d(TAG, "Storage permissions not granted");
             return false;
         }
-        
+
         return true;
     }
-      /**
+
+    /**
      * Start recording the camera feed directly (bypassing RTCJoiner for better performance)
      */
     private void startRecording() {
@@ -900,14 +908,14 @@ public class CameraActivity extends AppCompatActivity {
             Toast.makeText(this, "Cannot start recording", Toast.LENGTH_SHORT).show();
             return;
         }
-        
+
         try {
             // Generate a filename with timestamp
             String fileName = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + ".mp4";
-            
+
             // Try to use the user-selected directory first
             File recordingDir;
-            
+
             if (directoryManager != null && directoryManager.hasValidDirectory()) {
                 DocumentFile videoClipsDir = directoryManager.getVideoClipsDirectory();
                 if (videoClipsDir != null) {
@@ -920,7 +928,7 @@ public class CameraActivity extends AppCompatActivity {
                             mediaRecorder = new MediaRecorder();
                             mediaRecorder.setOutputFile(pfd.getFileDescriptor());
                             configureMediaRecorder(mediaRecorder);
-                            
+
                             // Connect to camera surface for direct recording
                             startDirectCameraRecording();
                             recordingPath = newFile.getUri().toString();
@@ -929,7 +937,7 @@ public class CameraActivity extends AppCompatActivity {
                     }
                 }
             }
-            
+
             // Fall back to app-specific directory or public directory
             recordingDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "HelioCam");
             if (!recordingDir.exists()) {
@@ -938,7 +946,7 @@ public class CameraActivity extends AppCompatActivity {
                     recordingDir = directoryManager.getAppStorageDirectory("Video_Clips");
                 }
             }
-            
+
             // Fall back to app-specific directory if public directory fails
             if (!recordingDir.exists() || !recordingDir.canWrite()) {
                 Log.w(TAG, "Failed to use public directory, falling back to app-specific storage");
@@ -947,104 +955,107 @@ public class CameraActivity extends AppCompatActivity {
                     recordingDir.mkdirs();
                 }
             }
-            
+
             // Create file for recording
             File videoFile = new File(recordingDir, fileName);
             recordingPath = videoFile.getAbsolutePath();
-            
+
             // Initialize MediaRecorder for direct camera recording
             mediaRecorder = new MediaRecorder();
             mediaRecorder.setOutputFile(recordingPath);
             configureMediaRecorder(mediaRecorder);
             startDirectCameraRecording();
-            
+
         } catch (Exception e) {
             Log.e(TAG, "Failed to start recording", e);
             Toast.makeText(this, "Failed to start recording: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             releaseMediaRecorder();
         }
     }
-      /**
+
+    /**
      * Configure the MediaRecorder with optimal settings
      */
     private void configureMediaRecorder(MediaRecorder recorder) throws Exception {
         // Order is CRITICAL: 1. sources, 2. format, 3. encoders, 4. params, 5. prepare
-        
+
         // 1. Set sources first
         recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-        
+
         // 2. Set output format
         recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-        
+
         // 3. Set encoders (use hardware acceleration when available)
         recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-        
+
         // 4. Set parameters - optimized for lower latency
         recorder.setVideoEncodingBitRate(2500000); // 2.5 Mbps - reduced for lower latency
         recorder.setVideoFrameRate(25);  // 25fps for better performance
         recorder.setVideoSize(720, 480); // Lower resolution for better performance
         recorder.setAudioEncodingBitRate(96000); // 96 kbps audio - reduced
         recorder.setAudioSamplingRate(44100); // 44.1 kHz
-        
+
         // 5. Prepare the recorder
         recorder.prepare();
-        
+
         Log.d(TAG, "MediaRecorder configured successfully");
-    }    /**
+    }
+
+    /**
      * Start direct camera recording by connecting VideoTrack to MediaRecorder surface
      */
     private void startDirectCameraRecording() throws Exception {
         try {
             // Get the MediaRecorder's surface for recording
             android.view.Surface recorderSurface = mediaRecorder.getSurface();
-            
+
             if (rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null && recorderSurface != null) {
                 // Get EGL context from RTCJoiner
                 org.webrtc.EglBase.Context eglContext = rtcJoiner.getEglContext();
                 if (eglContext != null) {
-                    
+
                     // Create a VideoSink that renders frames to the MediaRecorder surface
                     recordingVideoSink = new org.webrtc.VideoSink() {
                         private org.webrtc.VideoFrame lastFrame;
                         private android.graphics.Canvas canvas;
-                        
+
                         @Override
                         public void onFrame(org.webrtc.VideoFrame frame) {
                             try {
                                 // Convert VideoFrame to bitmap and draw to surface
                                 this.lastFrame = frame;
-                                
+
                                 // Lock the canvas for drawing
                                 if (recorderSurface != null && recorderSurface.isValid()) {
                                     canvas = recorderSurface.lockCanvas(null);
                                     if (canvas != null) {
                                         // Convert VideoFrame to Bitmap using proper I420 to RGB conversion
                                         org.webrtc.VideoFrame.I420Buffer i420Buffer = frame.getBuffer().toI420();
-                                        
+
                                         // Get dimensions
                                         int width = i420Buffer.getWidth();
                                         int height = i420Buffer.getHeight();
-                                        
+
                                         // Use the direct conversion method for better color accuracy
                                         android.graphics.Bitmap bitmap = convertI420ToBitmapDirect(i420Buffer, width, height);
-                                        
+
                                         if (bitmap != null) {
                                             // Scale bitmap to fit canvas
                                             android.graphics.Bitmap scaledBitmap = android.graphics.Bitmap.createScaledBitmap(
-                                                bitmap, canvas.getWidth(), canvas.getHeight(), false);
-                                            
+                                                    bitmap, canvas.getWidth(), canvas.getHeight(), false);
+
                                             // Draw bitmap to canvas
                                             canvas.drawBitmap(scaledBitmap, 0, 0, null);
-                                            
+
                                             bitmap.recycle();
                                             scaledBitmap.recycle();
                                         }
-                                        
+
                                         // Unlock and post the canvas
                                         recorderSurface.unlockCanvasAndPost(canvas);
-                                        
+
                                         i420Buffer.release();
                                     }
                                 }
@@ -1053,38 +1064,39 @@ public class CameraActivity extends AppCompatActivity {
                                 if (canvas != null) {
                                     try {
                                         recorderSurface.unlockCanvasAndPost(canvas);
-                                    } catch (Exception ignored) {}
+                                    } catch (Exception ignored) {
+                                    }
                                 }
                             }
                         }
                     };
-                    
+
                     // Add the video sink to capture frames
                     rtcJoiner.getLocalVideoTrack().addSink(recordingVideoSink);
-                    
+
                     Log.d(TAG, "Connected video track to MediaRecorder surface via custom VideoSink");
                 } else {
                     throw new Exception("EGL context not available from RTCJoiner");
                 }
             } else {
-                Log.e(TAG, "Missing components - rtcJoiner: " + (rtcJoiner != null) + 
-                     ", videoTrack: " + (rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null) + 
-                     ", surface: " + (recorderSurface != null));
+                Log.e(TAG, "Missing components - rtcJoiner: " + (rtcJoiner != null) +
+                        ", videoTrack: " + (rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null) +
+                        ", surface: " + (recorderSurface != null));
                 throw new Exception("Cannot connect video track to MediaRecorder surface - missing components");
             }
-            
+
             // Start the media recorder
             Log.d(TAG, "Starting MediaRecorder...");
             mediaRecorder.start();
-            
+
             // Mark the recording start time
             recordingStartTime = System.currentTimeMillis();
-            
+
             // Update state
             isRecording = true;
-            
+
             Log.d(TAG, "Direct camera recording started successfully at path: " + recordingPath);
-            
+
         } catch (Exception e) {
             Log.e(TAG, "Failed to start direct camera recording: " + e.getMessage(), e);
             cleanupRecordingResources();
@@ -1102,52 +1114,52 @@ public class CameraActivity extends AppCompatActivity {
             java.nio.ByteBuffer yPlane = i420Buffer.getDataY();
             java.nio.ByteBuffer uPlane = i420Buffer.getDataU();
             java.nio.ByteBuffer vPlane = i420Buffer.getDataV();
-            
+
             int yStride = i420Buffer.getStrideY();
             int uStride = i420Buffer.getStrideU();
             int vStride = i420Buffer.getStrideV();
-            
+
             // Create RGB array
             int[] rgbArray = new int[width * height];
-            
+
             // Convert YUV to RGB pixel by pixel
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     int yIndex = y * yStride + x;
                     int uvIndex = (y / 2) * uStride + (x / 2);
-                    
+
                     // Get YUV values
                     int yValue = yPlane.get(yIndex) & 0xFF;
                     int uValue = (uPlane.get(uvIndex) & 0xFF) - 128;
                     int vValue = (vPlane.get(uvIndex) & 0xFF) - 128;
-                    
+
                     // Convert to RGB using standard formula
                     int r = (int) (yValue + 1.402 * vValue);
                     int g = (int) (yValue - 0.344 * uValue - 0.714 * vValue);
                     int b = (int) (yValue + 1.772 * uValue);
-                    
+
                     // Clamp values to 0-255
                     r = Math.max(0, Math.min(255, r));
                     g = Math.max(0, Math.min(255, g));
                     b = Math.max(0, Math.min(255, b));
-                    
+
                     // Set RGB pixel
                     rgbArray[y * width + x] = (0xFF << 24) | (r << 16) | (g << 8) | b;
                 }
             }
-            
+
             // Create bitmap from RGB array
             android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(
-                rgbArray, width, height, android.graphics.Bitmap.Config.ARGB_8888);
-            
+                    rgbArray, width, height, android.graphics.Bitmap.Config.ARGB_8888);
+
             return bitmap;
-            
+
         } catch (Exception e) {
             Log.e(TAG, "Error converting I420 to bitmap directly: " + e.getMessage());
             return null;
         }
     }
-    
+
     /**
      * Stop recording
      */
@@ -1156,12 +1168,12 @@ public class CameraActivity extends AppCompatActivity {
             Log.w(TAG, "No recording in progress to stop");
             return;
         }
-        
+
         // Store path for later
         String storedPath = recordingPath;
-        
+
         Log.d(TAG, "Attempting to stop recording at path: " + storedPath);
-        
+
         // First ensure we've recorded for at least 1 second
         long recordingDuration = System.currentTimeMillis() - recordingStartTime;
         if (recordingDuration < 1200) { // Give extra buffer time
@@ -1173,10 +1185,10 @@ public class CameraActivity extends AppCompatActivity {
                 Log.e(TAG, "Sleep interrupted", e);
             }
         }
-        
+
         // Now stop the recording
         boolean recordingStopped = false;
-        
+
         try {
             // Try to stop the MediaRecorder
             if (mediaRecorder != null) {
@@ -1188,11 +1200,12 @@ public class CameraActivity extends AppCompatActivity {
                     Log.e(TAG, "Error stopping MediaRecorder: " + e.getMessage());
                     // Fall through and try to save anyway
                 }
-            }        } finally {
+            }
+        } finally {
             // Clean up resources including VideoSink
             cleanupRecordingResources();
         }
-        
+
         // Try to save the recording if we have a path
         if (storedPath != null) {
             // For content URIs, the file is already saved via the SAF system
@@ -1203,10 +1216,10 @@ public class CameraActivity extends AppCompatActivity {
                 File file = new File(storedPath);
                 if (file.exists() && file.length() > 0) {
                     MediaScannerConnection.scanFile(
-                        this,
-                        new String[] { file.getAbsolutePath() },
-                        new String[] { "video/mp4" },
-                        null
+                            this,
+                            new String[]{file.getAbsolutePath()},
+                            new String[]{"video/mp4"},
+                            null
                     );
                     Toast.makeText(this, "Recording saved to " + file.getAbsolutePath(), Toast.LENGTH_SHORT).show();
                 } else {
@@ -1217,11 +1230,13 @@ public class CameraActivity extends AppCompatActivity {
         } else {
             Toast.makeText(this, "Recording path was not available", Toast.LENGTH_SHORT).show();
         }
-        
+
         // Always reset state
         isRecording = false;
         recordingPath = null;
-    }    /**
+    }
+
+    /**
      * Clean up recording resources including VideoSink and SurfaceRenderer
      */
     private void cleanupRecordingResources() {
@@ -1235,7 +1250,7 @@ public class CameraActivity extends AppCompatActivity {
             }
             recordingVideoSink = null;
         }
-        
+
         // Clean up recording surface renderer
         if (recordingSurfaceRenderer != null && rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null) {
             try {
@@ -1245,7 +1260,7 @@ public class CameraActivity extends AppCompatActivity {
                 Log.e(TAG, "Error removing SurfaceViewRenderer from video track: " + e.getMessage());
             }
         }
-        
+
         if (recordingSurfaceRenderer != null) {
             try {
                 recordingSurfaceRenderer.release();
@@ -1255,7 +1270,7 @@ public class CameraActivity extends AppCompatActivity {
             }
             recordingSurfaceRenderer = null;
         }
-        
+
         // Release MediaRecorder
         releaseMediaRecorder();
     }
@@ -1270,17 +1285,17 @@ public class CameraActivity extends AppCompatActivity {
             } catch (Exception e) {
                 Log.e(TAG, "Error resetting MediaRecorder", e);
             }
-            
+
             try {
                 mediaRecorder.release();
             } catch (Exception e) {
                 Log.e(TAG, "Error releasing MediaRecorder", e);
             }
-            
+
             mediaRecorder = null;
         }
     }
-    
+
     /**
      * Start replay buffer (circular recording buffer)
      */
@@ -1290,7 +1305,7 @@ public class CameraActivity extends AppCompatActivity {
         startRecording();
         isReplayBufferRunning = true;
     }
-    
+
     /**
      * Stop replay buffer and save the recording
      */
@@ -1299,9 +1314,44 @@ public class CameraActivity extends AppCompatActivity {
             Log.w(TAG, "No replay buffer running");
             return;
         }
-        
+
         // For now, just stop the regular recording
         stopRecording();
         isReplayBufferRunning = false;
+    }
+
+    // Add this method for debugging
+    private void debugFirebaseNotifications() {
+        if (rtcJoiner == null) return;
+
+        Log.d(TAG, "=== DEBUGGING FIREBASE NOTIFICATIONS ===");
+        Log.d(TAG, "Session ID: " + getSessionId());
+        Log.d(TAG, "Host Email: " + (rtcJoiner.hostEmail != null ? rtcJoiner.hostEmail : "null"));
+
+        // You can call this method after a detection to verify the data is being saved
+        String sessionId = getSessionId();
+        if (sessionId != null && rtcJoiner.hostEmail != null) {
+            String formattedHostEmail = rtcJoiner.hostEmail.replace(".", "_");
+
+            FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(formattedHostEmail)
+                    .child("sessions")
+                    .child(sessionId)
+                    .child("detection_events")
+                    .get()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            DataSnapshot snapshot = task.getResult();
+                            Log.d(TAG, "Detection events found: " + snapshot.exists());
+                            Log.d(TAG, "Event count: " + snapshot.getChildrenCount());
+                            for (DataSnapshot event : snapshot.getChildren()) {
+                                Log.d(TAG, "Event: " + event.getKey() + " = " + event.getValue());
+                            }
+                        } else {
+                            Log.e(TAG, "Failed to fetch detection events", task.getException());
+                        }
+                    });
+        }
     }
 }

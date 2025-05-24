@@ -227,55 +227,12 @@
                         android:background="#EEEEEE"
                         android:layout_marginBottom="12dp" />
 
-                    <!-- Notifications container -->
+                    <!-- Notifications container - REMOVED duplicate empty state -->
                     <LinearLayout
                         android:id="@+id/notification_card_container"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical" />
-
-                    <!-- Empty state placeholder (will be shown/hidden programmatically) -->
-                    <LinearLayout
-                        android:id="@+id/empty_notification_container"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:padding="24dp">
-
-                        <FrameLayout
-                            android:layout_width="64dp"
-                            android:layout_height="64dp"
-                            android:background="@drawable/circle_background"
-                            android:layout_marginBottom="16dp">
-
-                            <ImageView
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:layout_gravity="center"
-                                android:src="@drawable/baseline_notifications_off_24"
-                                app:tint="@color/white" />
-                        </FrameLayout>
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="No Notifications"
-                            android:textAlignment="center"
-                            android:textSize="18sp"                       
-                            android:textStyle="bold"
-                            android:textColor="#212121"
-                            android:layout_marginTop="8dp" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="You don't have any notifications yet"
-                            android:textAlignment="center"
-                            android:textSize="14sp"                         
-                            android:textColor="#757575"
-                            android:layout_marginTop="8dp" />
-                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

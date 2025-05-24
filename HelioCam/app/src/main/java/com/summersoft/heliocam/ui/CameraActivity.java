@@ -1020,28 +1020,15 @@ public class CameraActivity extends AppCompatActivity {
                                 if (recorderSurface != null && recorderSurface.isValid()) {
                                     canvas = recorderSurface.lockCanvas(null);
                                     if (canvas != null) {
-                                        // Convert VideoFrame to Bitmap and draw
+                                        // Convert VideoFrame to Bitmap using proper I420 to RGB conversion
                                         org.webrtc.VideoFrame.I420Buffer i420Buffer = frame.getBuffer().toI420();
                                         
-                                        // Create bitmap from I420 buffer
+                                        // Get dimensions
                                         int width = i420Buffer.getWidth();
                                         int height = i420Buffer.getHeight();
                                         
-                                        // Create YUV420 byte array
-                                        byte[] yuvData = new byte[width * height * 3 / 2];
-                                        i420Buffer.getDataY().get(yuvData, 0, width * height);
-                                        i420Buffer.getDataU().get(yuvData, width * height, width * height / 4);
-                                        i420Buffer.getDataV().get(yuvData, width * height * 5 / 4, width * height / 4);
-                                        
-                                        // Convert YUV to RGB bitmap
-                                        android.graphics.YuvImage yuvImage = new android.graphics.YuvImage(
-                                            yuvData, android.graphics.ImageFormat.NV21, width, height, null);
-                                        
-                                        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-                                        yuvImage.compressToJpeg(new android.graphics.Rect(0, 0, width, height), 100, out);
-                                        
-                                        byte[] imageBytes = out.toByteArray();
-                                        android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+                                        // Use the direct conversion method for better color accuracy
+                                        android.graphics.Bitmap bitmap = convertI420ToBitmapDirect(i420Buffer, width, height);
                                         
                                         if (bitmap != null) {
                                             // Scale bitmap to fit canvas
@@ -1058,7 +1045,6 @@ public class CameraActivity extends AppCompatActivity {
                                         // Unlock and post the canvas
                                         recorderSurface.unlockCanvasAndPost(canvas);
                                         
-                                        out.close();
                                         i420Buffer.release();
                                     }
                                 }
@@ -1108,37 +1094,57 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     /**
-     * Start the MediaRecorder and attach to the camera
+     * Convert I420 buffer to RGB bitmap with direct pixel conversion
      */
-    private void startMediaRecording() throws Exception {
+    private android.graphics.Bitmap convertI420ToBitmapDirect(org.webrtc.VideoFrame.I420Buffer i420Buffer, int width, int height) {
         try {
-            // Start the media recorder first
-            Log.d(TAG, "Starting MediaRecorder...");
-            mediaRecorder.start();
+            // Get Y, U, V planes
+            java.nio.ByteBuffer yPlane = i420Buffer.getDataY();
+            java.nio.ByteBuffer uPlane = i420Buffer.getDataU();
+            java.nio.ByteBuffer vPlane = i420Buffer.getDataV();
             
-            // Mark the recording start time
-            recordingStartTime = System.currentTimeMillis();
+            int yStride = i420Buffer.getStrideY();
+            int uStride = i420Buffer.getStrideU();
+            int vStride = i420Buffer.getStrideV();
             
-            // Update state
-            isRecording = true;
+            // Create RGB array
+            int[] rgbArray = new int[width * height];
             
-            Log.d(TAG, "MediaRecorder started successfully at path: " + recordingPath);
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start media recording: " + e.getMessage(), e);
-            
-            try {
-                if (mediaRecorder != null) {
-                    mediaRecorder.reset();
-                    mediaRecorder.release();
-                    mediaRecorder = null;
+            // Convert YUV to RGB pixel by pixel
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int yIndex = y * yStride + x;
+                    int uvIndex = (y / 2) * uStride + (x / 2);
+                    
+                    // Get YUV values
+                    int yValue = yPlane.get(yIndex) & 0xFF;
+                    int uValue = (uPlane.get(uvIndex) & 0xFF) - 128;
+                    int vValue = (vPlane.get(uvIndex) & 0xFF) - 128;
+                    
+                    // Convert to RGB using standard formula
+                    int r = (int) (yValue + 1.402 * vValue);
+                    int g = (int) (yValue - 0.344 * uValue - 0.714 * vValue);
+                    int b = (int) (yValue + 1.772 * uValue);
+                    
+                    // Clamp values to 0-255
+                    r = Math.max(0, Math.min(255, r));
+                    g = Math.max(0, Math.min(255, g));
+                    b = Math.max(0, Math.min(255, b));
+                    
+                    // Set RGB pixel
+                    rgbArray[y * width + x] = (0xFF << 24) | (r << 16) | (g << 8) | b;
                 }
-            } catch (Exception ignored) {
-                // Just cleaning up, ignore any errors
             }
             
-            isRecording = false;
-            throw e;
+            // Create bitmap from RGB array
+            android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(
+                rgbArray, width, height, android.graphics.Bitmap.Config.ARGB_8888);
+            
+            return bitmap;
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error converting I420 to bitmap directly: " + e.getMessage());
+            return null;
         }
     }
     

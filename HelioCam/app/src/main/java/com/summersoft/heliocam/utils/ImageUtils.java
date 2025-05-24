@@ -24,9 +24,13 @@ public class ImageUtils {
                 int width = i420Buffer.getWidth();
                 int height = i420Buffer.getHeight();
 
-                // Downscale during conversion for detection purposes
-                int targetWidth = width / 2;  // Reduce resolution by half
-                int targetHeight = height / 2;
+                // More aggressive downscaling for detection purposes to improve performance
+                int targetWidth = width / 3;  // Reduce resolution by 66% instead of 50%
+                int targetHeight = height / 3;
+                
+                // Ensure minimum resolution for detection accuracy
+                targetWidth = Math.max(targetWidth, 160);
+                targetHeight = Math.max(targetHeight, 120);
 
                 // Get YUV planes
                 ByteBuffer yBuffer = i420Buffer.getDataY();
@@ -52,7 +56,70 @@ public class ImageUtils {
             buffer.release(); // Always release the original buffer
         }
     }
+    
+    /**
+     * Fast bitmap conversion for real-time detection with minimal quality loss
+     */
+    public static Bitmap videoFrameToBitmapFast(VideoFrame frame) {
+        VideoFrame.Buffer buffer = frame.getBuffer();
+        buffer.retain();
 
+        try {
+            VideoFrame.I420Buffer i420Buffer = buffer.toI420();
+            try {
+                int width = i420Buffer.getWidth();
+                int height = i420Buffer.getHeight();
+
+                // Ultra-aggressive downscaling for maximum performance
+                int targetWidth = width / 4;  // 75% reduction
+                int targetHeight = height / 4;
+                
+                // Ensure minimum viable resolution
+                targetWidth = Math.max(targetWidth, 80);
+                targetHeight = Math.max(targetHeight, 60);
+
+                // Simplified conversion without full YUV processing for speed
+                return createFastBitmap(i420Buffer, targetWidth, targetHeight);
+            } finally {
+                i420Buffer.release();
+            }
+        } finally {
+            buffer.release();
+        }
+    }
+    
+    private static Bitmap createFastBitmap(VideoFrame.I420Buffer i420Buffer, int targetWidth, int targetHeight) {
+        // Fast grayscale conversion using only Y channel for detection
+        ByteBuffer yBuffer = i420Buffer.getDataY();
+        int width = i420Buffer.getWidth();
+        int height = i420Buffer.getHeight();
+        int yStride = i420Buffer.getStrideY();
+        
+        int[] pixels = new int[targetWidth * targetHeight];
+        int pixelIndex = 0;
+        
+        for (int j = 0; j < targetHeight; j++) {
+            int origJ = j * height / targetHeight;
+            int yRowStart = yStride * origJ;
+            
+            for (int i = 0; i < targetWidth; i++) {
+                int origI = i * width / targetWidth;
+                
+                if (yRowStart + origI < yBuffer.capacity()) {
+                    int y = yBuffer.get(yRowStart + origI) & 0xff;
+                    // Convert to grayscale RGB
+                    pixels[pixelIndex++] = 0xFF000000 | (y << 16) | (y << 8) | y;
+                } else {
+                    pixels[pixelIndex++] = 0xFF000000; // Black pixel
+                }
+            }
+        }
+        
+        Bitmap bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888);
+        bitmap.setPixels(pixels, 0, targetWidth, 0, 0, targetWidth, targetHeight);
+        return bitmap;
+    }
+    
     private static void convertYUV420ToARGB8888Downscaled(
             ByteBuffer yBuffer, ByteBuffer uBuffer, ByteBuffer vBuffer,
             int[] output, int origWidth, int origHeight, int targetWidth, int targetHeight,

@@ -5,23 +5,13 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.media.MediaRecorder;
-import android.media.MediaScannerConnection;
 import android.net.Uri;
-import android.opengl.GLES20;
 import android.os.Build;
-import android.os.Environment;
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.ParcelFileDescriptor;
 import android.util.Log;
-import android.view.Surface;
 import android.widget.Toast;
-import android.app.AlertDialog;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.documentfile.provider.DocumentFile;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.ChildEventListener;
@@ -30,7 +20,6 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.summersoft.heliocam.utils.DetectionDirectoryManager;
 
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
@@ -39,35 +28,22 @@ import org.webrtc.CameraVideoCapturer;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
-import org.webrtc.GlRectDrawer;
-import org.webrtc.GlUtil;
 import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.RendererCommon;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoFrame;
-
 import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Set;
@@ -87,7 +63,7 @@ public class RTCJoiner {
     private AudioSource audioSource;
     private CameraVideoCapturer videoCapturer;
     private SurfaceTextureHelper surfaceTextureHelper;
-    
+
     // Connection components
     private Context context;
     private SurfaceViewRenderer localView;
@@ -95,66 +71,42 @@ public class RTCJoiner {
     private String hostEmail;
     private String formattedHostEmail;
     private String joinerId;
-    
+
     // Firebase reference
     private DatabaseReference firebaseDatabase;
-    
+
     // User info
     private String userEmail;
     private String formattedUserEmail;
-    
+
     // Camera state
     private boolean isUsingFrontCamera = true;
-    
     // Audio/video state
     private boolean isAudioEnabled = true;
     private boolean isVideoEnabled = true;
-    
-    // Recording state
-    private boolean isRecording = false;
-    private boolean isReplayBufferRunning = false;
-    private String recordingPath = null;
-    private MediaRecorder mediaRecorder = null;
-    
+
     // WebRTC TURN/STUN server configuration
     private final String stunServer = "stun:stun.relay.metered.ca:80";
-   
-    
-    private final String meteredApiKey = "4611ab82d5ec3882669178686393394a7ca4";
-    
-    // Add these constants
-    private static final int REPLAY_BUFFER_DURATION_MS = 30000; // 30 seconds
 
-    // Add these fields to the top of the class with other field declarations
+
+    private final String meteredApiKey = "4611ab82d5ec3882669178686393394a7ca4";    // Add these fields to the top of the class with other field declarations
     private com.summersoft.heliocam.detection.PersonDetection personDetection;
-    private org.webrtc.VideoSink detectionVideoSink;
-    
+
     // Add to RTCJoiner class fields
     private int assignedCameraNumber = 1; // Default to 1, but will be set by host
-    
-    // Recording sinks
-    private final Set<VideoSink> recordingSinks = new HashSet<>();
-
-    // Add this private field
-    private DetectionDirectoryManager directoryManager;
-
-    // Add this field to the class
-    private long recordingStartTime = 0;
 
     /**
      * Constructor for RTCJoiner
-     * @param context Android context
-     * @param localView Surface view for rendering the camera feed
+     *
+     * @param context          Android context
+     * @param localView        Surface view for rendering the camera feed
      * @param firebaseDatabase Firebase database reference
      */
     public RTCJoiner(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
         this.context = context;
         this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
-        
-        // Initialize directoryManager
-        this.directoryManager = new DetectionDirectoryManager(context);
-        
+
         // Get user email
         FirebaseAuth auth = FirebaseAuth.getInstance();
         if (auth.getCurrentUser() != null) {
@@ -164,611 +116,71 @@ public class RTCJoiner {
             Log.e(TAG, "User is not authenticated");
             throw new IllegalStateException("User must be authenticated");
         }
-        
+
         // Initialize WebRTC components
         initializeWebRTC();
     }
-    
-    /**
-     * Check if recording can be started
-     */
-    public boolean canStartRecording() {
-        // Check if we already have a recording running
-        if (isRecording || isReplayBufferRunning) {
-            return false;
-        }
-        
-        // Check if camera and audio components are ready
-        if (videoCapturer == null || localVideoTrack == null) {
-            Log.e(TAG, "Camera or video track not initialized for recording");
-            return false;
-        }
-        
-        // Storage permission check based on Android version:
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13+
-            // Check for READ_MEDIA_VIDEO permission
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) 
-                    != PackageManager.PERMISSION_GRANTED) {
-                Log.d(TAG, "READ_MEDIA_VIDEO permission not granted for Android 13+");
-                return false;
-            }
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // Android 10-12
-            // For Android 10-12, we need either legacy storage or WRITE_EXTERNAL_STORAGE
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
-                    != PackageManager.PERMISSION_GRANTED) {
-                Log.d(TAG, "WRITE_EXTERNAL_STORAGE permission not granted for Android 10-12");
-                return false;
-            }
-        } else { // Android 9 and below
-            // Check both READ and WRITE permissions
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
-                    != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) 
-                    != PackageManager.PERMISSION_GRANTED) {
-                Log.d(TAG, "Storage permissions not granted for Android 9 and below");
-                return false;
-            }
-        }
-        
-        return true;
-    }
-    
-    /**
-     * Start recording the camera feed
-     */
-    public void startRecording() {
-        if (isRecording) {
-            Log.w(TAG, "Recording is already in progress");
-            return;
-        }
 
-        // Do a final permission check before starting
-        if (!canStartRecording()) {
-            // Less aggressive permission requests - just return false and log why
-            Log.e(TAG, "Cannot start recording - permission check failed");
-            return;
-        }
-        
-        try {
-            File recordingDir;
-            String fileName = directoryManager.generateTimestampedFilename("HelioCam", ".mp4");
-            
-            // Try to use the user-selected directory first
-            DocumentFile videoClipsDir = directoryManager.getVideoClipsDirectory();
-            if (videoClipsDir != null) {
-                // Using SAF directory
-                DocumentFile newFile = videoClipsDir.createFile("video/mp4", fileName);
-                if (newFile != null) {
-                    recordingPath = newFile.getUri().toString();
-                    
-                    // For API 26+ we need to use ParcelFileDescriptor
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        mediaRecorder = new MediaRecorder();
-                        
-                        ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(newFile.getUri(), "w");
-                        if (pfd != null) {
-                            mediaRecorder.setOutputFile(pfd.getFileDescriptor());
-                            configureMediaRecorder(mediaRecorder);
-                            startMediaRecording(mediaRecorder);
-                            return;
-                        }
-                    }
-                }
-            }
-            
-            // Fall back to app-specific directory or public directory
-            recordingDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "HelioCam");
-            if (!recordingDir.exists()) {
-                if (!recordingDir.mkdirs()) {
-                    Log.e(TAG, "Failed to create recording directory");
-                    recordingDir = directoryManager.getAppStorageDirectory("Video_Clips");
-                }
-            }
-            
-            // Fall back to app-specific directory if public directory fails
-            if (!recordingDir.exists() || !recordingDir.canWrite()) {
-                Log.w(TAG, "Failed to use public directory, falling back to app-specific storage");
-                recordingDir = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "HelioCam");
-                if (!recordingDir.exists()) {
-                    recordingDir.mkdirs();
-                }
-            }
-            
-            // Create file for recording
-            File videoFile = new File(recordingDir, fileName);
-            recordingPath = videoFile.getAbsolutePath();
-            
-            // Initialize MediaRecorder
-            mediaRecorder = new MediaRecorder();
-            mediaRecorder.setOutputFile(recordingPath);
-            configureMediaRecorder(mediaRecorder);
-            startMediaRecording(mediaRecorder);
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start recording", e);
-            Toast.makeText(context, "Failed to start recording: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            releaseMediaRecorder();
-        }
-    }
-    
-    // Helper method to configure MediaRecorder
-    private void configureMediaRecorder(MediaRecorder recorder) {
-        try {
-            // Order is CRITICAL: 1. sources, 2. format, 3. encoders, 4. params, 5. prepare
-            
-            // 1. Set sources first
-            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-            
-            // 2. Set output format
-            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            
-            // 3. Set encoders
-            recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            
-            // 4. Set parameters - use moderate quality for balance
-            recorder.setVideoEncodingBitRate(2500000); // 2.5 Mbps
-            recorder.setVideoFrameRate(25);  // 25fps is good enough
-            recorder.setVideoSize(640, 480); // Standard definition
-            recorder.setAudioEncodingBitRate(128000); // 128 kbps audio
-            recorder.setAudioSamplingRate(44100); // 44.1 kHz
-            
-            // 5. Prepare the recorder
-            recorder.prepare();
-            
-            Log.d(TAG, "MediaRecorder configured successfully");
-        } catch (Exception e) {
-            Log.e(TAG, "Error configuring MediaRecorder: " + e.getMessage(), e);
-            throw new RuntimeException("MediaRecorder configuration failed", e);
-        }
-    }
 
-    // Helper method to start media recording
-    private void startMediaRecording(MediaRecorder recorder) throws Exception {
-        try {
-            // Step 1: Start the media recorder first
-            Log.d(TAG, "Starting MediaRecorder...");
-            recorder.start();
-            
-            // Step 2: Get the surface from the recorder
-            Surface recorderSurface = recorder.getSurface();
-            if (recorderSurface == null) {
-                throw new RuntimeException("Failed to get recording surface");
-            }
-            
-            // Step 3: Clean up any existing recording sinks
-            for (VideoSink sink : new HashSet<>(recordingSinks)) {
-                if (localVideoTrack != null) {
-                    localVideoTrack.removeSink(sink);
-                }
-                if (sink instanceof SurfaceVideoSink) {
-                    ((SurfaceVideoSink) sink).release();
-                }
-            }
-            recordingSinks.clear();
-            
-            // Step 4: Create and add a new video sink
-            SurfaceVideoSink videoSink = new SurfaceVideoSink(recorderSurface);
-            recordingSinks.add(videoSink);
-            
-            // Step 5: Add the sink to the video track
-            if (localVideoTrack != null) {
-                localVideoTrack.addSink(videoSink);
-                isRecording = true;
-                recordingStartTime = System.currentTimeMillis();
-                Log.d(TAG, "Recording started at: " + recordingPath);
-            } else {
-                throw new RuntimeException("Video track is not available");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start recording: " + e.getMessage());
-            
-            try {
-                // Try to reset the recorder on failure
-                recorder.reset();
-                recordingSinks.clear();
-            } catch (Exception ignored) {
-                // Ignore cleanup errors
-            }
-            throw e;
-        }
-    }
-    
-    /**
-     * Stop recording
-     */
-    public void stopRecording() {
-        if (!isRecording) {
-            Log.w(TAG, "No recording in progress to stop");
-            return;
-        }
-        
-        // Store path for later
-        String storedPath = recordingPath;
-        
-        Log.d(TAG, "Attempting to stop recording at path: " + storedPath);
-        
-        // First ensure we've recorded for at least 1 second
-        long recordingDuration = System.currentTimeMillis() - recordingStartTime;
-        if (recordingDuration < 1200) { // Give extra buffer time
-            try {
-                long waitTime = 1200 - recordingDuration;
-                Log.d(TAG, "Recording too short (" + recordingDuration + "ms), waiting " + waitTime + "ms");
-                Thread.sleep(waitTime);
-            } catch (InterruptedException e) {
-                Log.e(TAG, "Sleep interrupted", e);
-            }
-        }
-        
-        // Now stop the recording
-        boolean recordingStopped = false;
-        
-        try {
-            // First remove any sinks before stopping
-            if (localVideoTrack != null) {
-                for (VideoSink sink : new HashSet<>(recordingSinks)) { // Use copy to avoid concurrent modification
-                    localVideoTrack.removeSink(sink);
-                }
-            }
-            
-            // Then try to stop the MediaRecorder
-            if (mediaRecorder != null) {
-                try {
-                    mediaRecorder.stop();
-                    recordingStopped = true;
-                    Log.d(TAG, "MediaRecorder stopped successfully");
-                } catch (RuntimeException e) {
-                    Log.e(TAG, "Error stopping MediaRecorder: " + e.getMessage());
-                    // Fall through and try to save anyway
-                }
-            }
-        } finally {
-            // Clean up resources
-            for (VideoSink sink : recordingSinks) {
-                if (sink instanceof SurfaceVideoSink) {
-                    ((SurfaceVideoSink) sink).release();
-                }
-            }
-            recordingSinks.clear();
-            releaseMediaRecorder();
-        }
-        
-        // Try to save the recording if we have a path
-        if (storedPath != null) {
-            // For content URIs, the file is already saved via the SAF system
-            if (storedPath.startsWith("content://")) {
-                Toast.makeText(context, recordingStopped ? 
-                        "Recording saved successfully" : 
-                        "Recording may not have saved properly", Toast.LENGTH_SHORT).show();
-            } else {
-                // For file paths, check if the file exists and has data
-                File recordingFile = new File(storedPath);
-                if (recordingFile.exists() && recordingFile.length() > 0) {
-                    // Make the file visible in Gallery
-                    MediaScannerConnection.scanFile(context,
-                            new String[]{storedPath}, null,
-                            (path, uri) -> {
-                                Log.d(TAG, "Recording added to gallery: " + uri);
-                            });
-                
-                    Toast.makeText(context, "Recording saved", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(context, "Recording failed to save properly", Toast.LENGTH_SHORT).show();
-                }
-            }
-        } else {
-            Toast.makeText(context, "Recording path was not available", Toast.LENGTH_SHORT).show();
-        }
-        
-        // Always reset state
-        isRecording = false;
-        recordingPath = null;
-    }
-    
-    /**
-     * Release MediaRecorder resources
-     */
-    private void releaseMediaRecorder() {
-        // First remove any video sinks associated with recording
-        if (localVideoTrack != null) {
-            for (VideoSink sink : recordingSinks) {
-                localVideoTrack.removeSink(sink);
-                if (sink instanceof SurfaceVideoSink) {
-                    ((SurfaceVideoSink) sink).release();
-                }
-            }
-            recordingSinks.clear();
-        }
-        
-        // Release the MediaRecorder
-        if (mediaRecorder != null) {
-            try {
-                mediaRecorder.reset();
-                mediaRecorder.release();
-            } catch (Exception e) {
-                Log.e(TAG, "Error releasing MediaRecorder", e);
-            } finally {
-                mediaRecorder = null;
-            }
-        }
-    }
-    
-    /**
-     * Check if replay buffer can be started
-     */
-    public boolean canStartReplayBuffer() {
-        // Similar checks as for regular recording
-        if (isRecording || isReplayBufferRunning) {
-            return false;
-        }
-        
-        // For Android 10+ (Q and above), we need to use scoped storage
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
-                    != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions((Activity) context,
-                        new String[]{
-                            Manifest.permission.READ_EXTERNAL_STORAGE, 
-                            Manifest.permission.WRITE_EXTERNAL_STORAGE
-                        }, 1);
-                return false;
-            }
-        } else {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
-                    != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) 
-                    != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions((Activity) context,
-                        new String[]{
-                            Manifest.permission.READ_EXTERNAL_STORAGE,
-                            Manifest.permission.WRITE_EXTERNAL_STORAGE
-                        }, 1);
-                return false;
-            }
-        }
-        
-        return videoCapturer != null && localVideoTrack != null;
-    }
-    
-    /**
-     * Start replay buffer (circular recording buffer)
-     */
-    public void startReplayBuffer() {
-        if (isReplayBufferRunning) {
-            Log.w(TAG, "Replay buffer is already running");
-            return;
-        }
-        
-        try {
-            // Create temporary file for buffer
-            File outputDir = context.getCacheDir();
-            File tempFile = File.createTempFile("buffer", ".mp4", outputDir);
-            recordingPath = tempFile.getAbsolutePath();
-            
-            // Initialize MediaRecorder
-            mediaRecorder = new MediaRecorder();
-            mediaRecorder.setOutputFile(recordingPath);
-            
-            // Configure MediaRecorder for buffer recording
-            mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            mediaRecorder.setVideoEncodingBitRate(1500000); // Lower bitrate for buffer
-            mediaRecorder.setVideoFrameRate(25);
-            mediaRecorder.setVideoSize(640, 480);
-            
-            // Don't set max duration - causes issues
-            // if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            //    mediaRecorder.setMaxDuration(REPLAY_BUFFER_DURATION_MS);
-            // }
-            
-            mediaRecorder.prepare();
-            
-            // Get the surface for recording
-            Surface recorderSurface = mediaRecorder.getSurface();
-            SurfaceVideoSink videoSink = new SurfaceVideoSink(recorderSurface);
-            
-            // Add the sink to our collection and to the video track
-            recordingSinks.add(videoSink);
-            if (localVideoTrack != null) {
-                localVideoTrack.addSink(videoSink);
-            }
-            
-            // Start recording
-            mediaRecorder.start();
-            isReplayBufferRunning = true;
-            recordingStartTime = System.currentTimeMillis(); // Track when we started recording
-            
-            Log.d(TAG, "Replay buffer started");
-            Toast.makeText(context, "Replay buffer started", Toast.LENGTH_SHORT).show();
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start replay buffer", e);
-            Toast.makeText(context, "Failed to start replay buffer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            releaseMediaRecorder();
-        }
-    }
-    
-    /**
-     * Stop replay buffer and save the recording
-     */
-    public void stopReplayBuffer() {
-        if (!isReplayBufferRunning) {
-            Log.w(TAG, "No replay buffer running to stop");
-            return;
-        }
-        
-        // First remove any video sinks associated with recording
-        if (localVideoTrack != null) {
-            for (VideoSink sink : recordingSinks) {
-                localVideoTrack.removeSink(sink);
-                if (sink instanceof SurfaceVideoSink) {
-                    ((SurfaceVideoSink) sink).release();
-                }
-            }
-            recordingSinks.clear();
-        }
-        
-        // Store path for later
-        String storedPath = recordingPath;
-        
-        boolean recordingStopped = false;
-        if (mediaRecorder != null) {
-            try {
-                mediaRecorder.stop();
-                recordingStopped = true;
-            } catch (RuntimeException e) {
-                Log.e(TAG, "Error stopping replay buffer", e);
-                // We'll still try to save if something exists
-            } finally {
-                releaseMediaRecorder();
-            }
-        }
-        
-        // Only try to save if we have a path and successfully stopped
-        if (recordingStopped && storedPath != null) {
-            try {
-                // Generate a filename with timestamp
-                String fileName = directoryManager.generateTimestampedFilename("HelioCam_Buffer", ".mp4");
-                
-                // Try to use the user-selected directory first
-                DocumentFile videoClipsDir = directoryManager.getVideoClipsDirectory();
-                if (videoClipsDir != null) {
-                    // Create a new file in DocumentFile directory
-                    DocumentFile newFile = videoClipsDir.createFile("video/mp4", fileName);
-                    if (newFile != null) {
-                        // Copy from temp file to DocumentFile
-                        InputStream input = new FileInputStream(storedPath);
-                        OutputStream output = context.getContentResolver().openOutputStream(newFile.getUri());
-                        
-                        if (output != null) {
-                            byte[] buffer = new byte[4096];
-                            int length;
-                            while ((length = input.read(buffer)) > 0) {
-                                output.write(buffer, 0, length);
-                            }
-                            output.close();
-                            input.close();
-                            
-                            Toast.makeText(context, "Replay buffer saved", Toast.LENGTH_SHORT).show();
-                            // Delete temp file
-                            new File(storedPath).delete();
-                            isReplayBufferRunning = false;
-                            recordingPath = null;
-                            return;
-                        }
-                    }
-                }
-                
-                // (The rest of the save functionality stays the same)
-                // Fallback to app-specific or public directory
-                File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
-                File recordingDir = new File(moviesDir, "HelioCam");
-                if (!recordingDir.exists()) {
-                    recordingDir.mkdirs();
-                }
-                
-                // If that fails, use app storage
-                if (!recordingDir.exists()) {
-                    recordingDir = directoryManager.getAppStorageDirectory("Video_Clips");
-                }
-                
-                File destFile = new File(recordingDir, fileName);
-                
-                // Copy buffer to permanent file
-                FileInputStream fis = new FileInputStream(recordingPath);
-                FileOutputStream fos = new FileOutputStream(destFile);
-                byte[] buffer = new byte[4096];
-                int length;
-                while ((length = fis.read(buffer)) > 0) {
-                    fos.write(buffer, 0, length);
-                }
-                fis.close();
-                fos.close();
-                
-                // Make the video visible in gallery
-                MediaScannerConnection.scanFile(context,
-                        new String[]{destFile.getAbsolutePath()}, null,
-                        (path, uri) -> Log.d(TAG, "Buffer saved: " + uri));
-                
-                Toast.makeText(context, "Replay buffer saved", Toast.LENGTH_SHORT).show();
-                
-                // Delete temp file
-                new File(recordingPath).delete();
-            } catch (Exception e) {
-                Log.e(TAG, "Error saving buffer: " + e.getMessage());
-                Toast.makeText(context, "Error saving buffer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            Toast.makeText(context, "Buffer not saved - no valid data recorded", Toast.LENGTH_SHORT).show();
-        }
-        
-        // Always reset state
-        isReplayBufferRunning = false;
-        recordingPath = null;
-    }
-    
     /**
      * Initialize WebRTC components
      */
     private void initializeWebRTC() {
         // Create EGL context
         eglBase = EglBase.create();
-        
+
         // Initialize the local view
         localView.init(eglBase.getEglBaseContext(), null);
         localView.setMirror(true);
-        
+
         // Initialize the PeerConnectionFactory
-        PeerConnectionFactory.InitializationOptions options = 
+        PeerConnectionFactory.InitializationOptions options =
                 PeerConnectionFactory.InitializationOptions.builder(context)
                         .createInitializationOptions();
         PeerConnectionFactory.initialize(options);
-        
-        DefaultVideoEncoderFactory encoderFactory = 
+
+        DefaultVideoEncoderFactory encoderFactory =
                 new DefaultVideoEncoderFactory(eglBase.getEglBaseContext(), true, true);
-        DefaultVideoDecoderFactory decoderFactory = 
+        DefaultVideoDecoderFactory decoderFactory =
                 new DefaultVideoDecoderFactory(eglBase.getEglBaseContext());
-        
+
         PeerConnectionFactory.Options peerOptions = new PeerConnectionFactory.Options();
-        
+
         peerConnectionFactory = PeerConnectionFactory.builder()
                 .setOptions(peerOptions)
                 .setVideoEncoderFactory(encoderFactory)
                 .setVideoDecoderFactory(decoderFactory)
                 .createPeerConnectionFactory();
     }
-    
+
     /**
      * Start camera capture
+     *
      * @param useFrontCamera Whether to use front camera
      */
     public void startCamera(boolean useFrontCamera) {
         this.isUsingFrontCamera = useFrontCamera;
-        
+
         // Check if camera is already running
         if (videoCapturer != null) {
             Log.d(TAG, "Camera is already running");
             return;
         }
-        
+
         // Create camera capturer
         Camera2Enumerator enumerator = new Camera2Enumerator(context);
         videoCapturer = createCameraCapturer(enumerator, useFrontCamera);
-        
+
         if (videoCapturer == null) {
             Log.e(TAG, "Failed to create camera capturer");
             Toast.makeText(context, "Failed to access camera", Toast.LENGTH_SHORT).show();
             return;
         }
-        
+
         // Create surface texture helper
-        surfaceTextureHelper = 
+        surfaceTextureHelper =
                 SurfaceTextureHelper.create("CaptureThread", eglBase.getEglBaseContext());
-        
+
         // Create video source and track
         videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
         videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
@@ -780,7 +192,7 @@ public class RTCJoiner {
             Log.d(TAG, "Connecting video track to person detection");
             localVideoTrack.addSink(personDetection);
         }
-        
+
         // Create audio source and track
         MediaConstraints audioConstraints = new MediaConstraints();
         audioConstraints.mandatory.add(
@@ -791,22 +203,25 @@ public class RTCJoiner {
                 new MediaConstraints.KeyValuePair("googHighpassFilter", "true"));
         audioConstraints.mandatory.add(
                 new MediaConstraints.KeyValuePair("googNoiseSuppression", "true"));
-                
+
         audioSource = peerConnectionFactory.createAudioSource(audioConstraints);
         localAudioTrack = peerConnectionFactory.createAudioTrack("audio", audioSource);
         localAudioTrack.setEnabled(true);
-        
-        // Start capture
+
+        // Start capture with optimized settings for person detection
         try {
-            videoCapturer.startCapture(640, 480, 30);
-            Log.d(TAG, "Camera started with " + (useFrontCamera ? "front" : "back") + " camera");
+            // Use lower resolution and frame rate to reduce processing load for detection
+            // while maintaining good quality for WebRTC streaming
+            videoCapturer.startCapture(480, 360, 20); // Reduced from 640x480@30fps
+            Log.d(TAG, "Camera started with optimized settings for detection: " + (useFrontCamera ? "front" : "back") + " camera");
         } catch (Exception e) {
             Log.e(TAG, "Failed to start camera capture", e);
         }
     }
-    
+
     /**
      * Join a session as a camera
+     *
      * @param hostEmail Email of the host
      * @param sessionId Session ID to join
      */
@@ -815,30 +230,30 @@ public class RTCJoiner {
         this.formattedHostEmail = hostEmail.replace(".", "_");
         this.sessionId = sessionId;
         this.joinerId = UUID.randomUUID().toString();
-        
+
         Log.d(TAG, "Joining session: " + sessionId + " hosted by: " + hostEmail);
-        
+
         // Get unique device identifiers
         String deviceId = android.provider.Settings.Secure.getString(
-                context.getContentResolver(), 
+                context.getContentResolver(),
                 android.provider.Settings.Secure.ANDROID_ID);
-        
+
         String deviceName = Build.MANUFACTURER + " " + Build.MODEL;
-        
+
         // Send join request with device identifiers
         Map<String, Object> joinRequest = new HashMap<>();
         joinRequest.put("email", userEmail);
         joinRequest.put("timestamp", System.currentTimeMillis());
         joinRequest.put("deviceId", deviceId);  // Add unique device ID
         joinRequest.put("deviceName", deviceName);  // Add device name
-        
+
         DatabaseReference joinRequestRef = firebaseDatabase.child("users")
                 .child(formattedHostEmail)
                 .child("sessions")
                 .child(sessionId)
                 .child("join_requests")
                 .child(joinerId);
-                
+
         joinRequestRef.setValue(joinRequest)
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "Join request sent successfully");
@@ -849,7 +264,7 @@ public class RTCJoiner {
                     Toast.makeText(context, "Failed to join session", Toast.LENGTH_SHORT).show();
                 });
     }
-    
+
     /**
      * Listen for SDP offer from host
      */
@@ -859,7 +274,7 @@ public class RTCJoiner {
                 .child("sessions")
                 .child(sessionId)
                 .child("Offer");
-                
+
         offerRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
@@ -867,16 +282,16 @@ public class RTCJoiner {
                     String offerSdp = dataSnapshot.getValue(String.class);
                     if (offerSdp != null) {
                         Log.d(TAG, "Received offer from host");
-                        
+
                         // Initialize peer connection now that we have an offer
                         initializePeerConnection(offerSdp);
-                        
+
                         // Remove this listener after getting the offer
                         offerRef.removeEventListener(this);
                     }
                 }
             }
-            
+
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 Log.e(TAG, "Failed to listen for offer: " + databaseError.getMessage());
@@ -890,7 +305,7 @@ public class RTCJoiner {
                 .child("join_requests")
                 .child(joinerId)
                 .child("assigned_camera");
-                
+
         assignedCameraRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
@@ -901,23 +316,23 @@ public class RTCJoiner {
                     }
                 }
             }
-            
+
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 // Handle error
             }
         });
     }
-    
+
     /**
      * Initialize peer connection with received offer
      */
     private void initializePeerConnection(String offerSdp) {
         // Create RTCConfiguration with ICE servers
-        PeerConnection.RTCConfiguration rtcConfig = 
+        PeerConnection.RTCConfiguration rtcConfig =
                 new PeerConnection.RTCConfiguration(getIceServers());
         rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
-        
+
         // Create peer connection
         peerConnection = peerConnectionFactory.createPeerConnection(
                 rtcConfig,
@@ -927,7 +342,7 @@ public class RTCJoiner {
                         super.onIceCandidate(candidate);
                         sendIceCandidateToHost(candidate);
                     }
-                    
+
                     @Override
                     public void onAddStream(MediaStream stream) {
                         super.onAddStream(stream);
@@ -937,12 +352,12 @@ public class RTCJoiner {
                         }
                     }
                 });
-                
+
         if (peerConnection == null) {
             Log.e(TAG, "Failed to create peer connection");
             return;
         }
-        
+
         // Add local media stream with video and audio
         MediaStream localStream = peerConnectionFactory.createLocalMediaStream("cameraStream");
         if (localVideoTrack != null) {
@@ -952,30 +367,30 @@ public class RTCJoiner {
             localStream.addTrack(localAudioTrack);
         }
         peerConnection.addStream(localStream);
-        
+
         // Set remote description (the host's offer)
         SessionDescription offer = new SessionDescription(
                 SessionDescription.Type.OFFER, offerSdp);
-                
+
         peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription") {
             @Override
             public void onSetSuccess() {
                 super.onSetSuccess();
-                
+
                 // Create answer
                 createAnswer();
             }
-            
+
             @Override
             public void onSetFailure(String error) {
                 Log.e(TAG, "Failed to set remote description: " + error);
             }
         }, offer);
-        
+
         // Listen for ICE candidates from host
         listenForHostIceCandidates();
     }
-    
+
     /**
      * Create SDP answer
      */
@@ -983,26 +398,26 @@ public class RTCJoiner {
         MediaConstraints constraints = new MediaConstraints();
         constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
         constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"));
-        
+
         peerConnection.createAnswer(new SdpAdapter("CreateAnswer") {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
                 super.onCreateSuccess(sessionDescription);
-                
+
                 peerConnection.setLocalDescription(
                         new SdpAdapter("SetLocalDescription"), sessionDescription);
-                
+
                 // Send answer to host
                 sendAnswerToHost(sessionDescription);
             }
-            
+
             @Override
             public void onCreateFailure(String error) {
                 Log.e(TAG, "Failed to create answer: " + error);
             }
         }, constraints);
     }
-    
+
     /**
      * Send SDP answer to host
      */
@@ -1012,7 +427,7 @@ public class RTCJoiner {
                 .child("sessions")
                 .child(sessionId)
                 .child("Answer");
-                
+
         answerRef.setValue(answer.description)
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "Answer sent to host successfully");
@@ -1021,7 +436,7 @@ public class RTCJoiner {
                     Log.e(TAG, "Failed to send answer to host", e);
                 });
     }
-    
+
     /**
      * Send ICE candidate to host
      */
@@ -1031,20 +446,20 @@ public class RTCJoiner {
                 .child("sessions")
                 .child(sessionId)
                 .child("ice_candidates");
-                
+
         String candidateId = "camera_candidate_" + UUID.randomUUID().toString().substring(0, 8);
-        
+
         Map<String, Object> candidateData = new HashMap<>();
         candidateData.put("candidate", candidate.sdp);
         candidateData.put("sdpMid", candidate.sdpMid);
         candidateData.put("sdpMLineIndex", candidate.sdpMLineIndex);
-        
+
         iceCandidatesRef.child(candidateId).setValue(candidateData)
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to send ICE candidate to host", e);
                 });
     }
-    
+
     /**
      * Listen for ICE candidates from host
      */
@@ -1054,17 +469,17 @@ public class RTCJoiner {
                 .child("sessions")
                 .child(sessionId)
                 .child("host_candidates");
-                
+
         hostCandidatesRef.addChildEventListener(new ChildEventListener() {
             @Override
             public void onChildAdded(DataSnapshot dataSnapshot, String previousChildName) {
                 String sdp = dataSnapshot.child("sdp").getValue(String.class);
                 String sdpMid = dataSnapshot.child("sdpMid").getValue(String.class);
                 Integer sdpMLineIndex = dataSnapshot.child("sdpMLineIndex").getValue(Integer.class);
-                
+
                 if (sdp != null && sdpMid != null && sdpMLineIndex != null) {
                     IceCandidate iceCandidate = new IceCandidate(sdpMid, sdpMLineIndex, sdp);
-                    
+
                     if (peerConnection != null) {
                         peerConnection.addIceCandidate(iceCandidate);
                         Log.d(TAG, "Added ICE candidate from host");
@@ -1073,13 +488,16 @@ public class RTCJoiner {
             }
 
             @Override
-            public void onChildChanged(DataSnapshot dataSnapshot, String previousChildName) {}
+            public void onChildChanged(DataSnapshot dataSnapshot, String previousChildName) {
+            }
 
             @Override
-            public void onChildRemoved(DataSnapshot dataSnapshot) {}
+            public void onChildRemoved(DataSnapshot dataSnapshot) {
+            }
 
             @Override
-            public void onChildMoved(DataSnapshot dataSnapshot, String previousChildName) {}
+            public void onChildMoved(DataSnapshot dataSnapshot, String previousChildName) {
+            }
 
             @Override
             public void onCancelled(DatabaseError databaseError) {
@@ -1087,12 +505,12 @@ public class RTCJoiner {
             }
         });
     }
-    
+
     /**
      * Create camera capturer
      */
-    private CameraVideoCapturer createCameraCapturer(Camera2Enumerator enumerator, 
-                                                    boolean useFrontCamera) {
+    private CameraVideoCapturer createCameraCapturer(Camera2Enumerator enumerator,
+                                                     boolean useFrontCamera) {
         for (String deviceName : enumerator.getDeviceNames()) {
             if (useFrontCamera && enumerator.isFrontFacing(deviceName)) {
                 return enumerator.createCapturer(deviceName, null);
@@ -1100,15 +518,15 @@ public class RTCJoiner {
                 return enumerator.createCapturer(deviceName, null);
             }
         }
-        
+
         // If specific camera not found, try any camera
         for (String deviceName : enumerator.getDeviceNames()) {
             return enumerator.createCapturer(deviceName, null);
         }
-        
+
         return null;
     }
-    
+
     /**
      * Switch between front and back camera
      */
@@ -1119,7 +537,7 @@ public class RTCJoiner {
             localView.setMirror(isUsingFrontCamera);
         }
     }
-    
+
     /**
      * Toggle video on/off
      */
@@ -1131,7 +549,7 @@ public class RTCJoiner {
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
         }
     }
-    
+
     /**
      * Mute microphone
      */
@@ -1141,7 +559,7 @@ public class RTCJoiner {
             localAudioTrack.setEnabled(false);
         }
     }
-    
+
     /**
      * Unmute microphone
      */
@@ -1151,48 +569,36 @@ public class RTCJoiner {
             localAudioTrack.setEnabled(true);
         }
     }
-    
+
     /**
      * Get ICE servers list
      */
     private List<PeerConnection.IceServer> getIceServers() {
         return Arrays.asList(
-            PeerConnection.IceServer.builder("stun:stun.relay.metered.ca:80").createIceServer(),
-            PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:80")
-                .setUsername("08a10b202c595304495012c2")
-                .setPassword("JnsH2+jc2q3/uGon")
-                .createIceServer(),
-            PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:80?transport=tcp")
-                .setUsername("08a10b202c595304495012c2")
-                .setPassword("JnsH2+jc2q3/uGon")
-                .createIceServer(),
-            PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:443")
-                .setUsername("08a10b202c595304495012c2")
-                .setPassword("JnsH2+jc2q3/uGon")
-                .createIceServer(),
-            PeerConnection.IceServer.builder("turns:asia.relay.metered.ca:443?transport=tcp")
-                .setUsername("08a10b202c595304495012c2")
-                .setPassword("JnsH2+jc2q3/uGon")
-                .createIceServer()
+                PeerConnection.IceServer.builder("stun:stun.relay.metered.ca:80").createIceServer(),
+                PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:80")
+                        .setUsername("08a10b202c595304495012c2")
+                        .setPassword("JnsH2+jc2q3/uGon")
+                        .createIceServer(),
+                PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:80?transport=tcp")
+                        .setUsername("08a10b202c595304495012c2")
+                        .setPassword("JnsH2+jc2q3/uGon")
+                        .createIceServer(),
+                PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:443")
+                        .setUsername("08a10b202c595304495012c2")
+                        .setPassword("JnsH2+jc2q3/uGon")
+                        .createIceServer(),
+                PeerConnection.IceServer.builder("turns:asia.relay.metered.ca:443?transport=tcp")
+                        .setUsername("08a10b202c595304495012c2")
+                        .setPassword("JnsH2+jc2q3/uGon")
+                        .createIceServer()
         );
     }
-    
+
     /**
      * Dispose of all resources
      */
     public void dispose() {
-        // Stop recording if active
-        if (isRecording) {
-            stopRecording();
-        }
-        
-        if (isReplayBufferRunning) {
-            stopReplayBuffer();
-        }
-        
-        // Release MediaRecorder resources
-        releaseMediaRecorder();
-        
         // Remove join request from Firebase
         if (joinerId != null && formattedHostEmail != null && sessionId != null) {
             firebaseDatabase.child("users")
@@ -1203,7 +609,7 @@ public class RTCJoiner {
                     .child(joinerId)
                     .removeValue();
         }
-        
+
         // Stop camera capture
         if (videoCapturer != null) {
             try {
@@ -1214,77 +620,79 @@ public class RTCJoiner {
             videoCapturer.dispose();
             videoCapturer = null;
         }
-        
+
         // Close peer connection
         if (peerConnection != null) {
             peerConnection.close();
             peerConnection = null;
         }
-        
+
         // Dispose of video source
         if (videoSource != null) {
             videoSource.dispose();
             videoSource = null;
         }
-        
+
         // Dispose of audio source
         if (audioSource != null) {
             audioSource.dispose();
             audioSource = null;
         }
-        
+
         // Release surface texture helper
         if (surfaceTextureHelper != null) {
             surfaceTextureHelper.dispose();
             surfaceTextureHelper = null;
         }
-        
+
         // Release local view
         if (localView != null) {
             localView.release();
         }
-        
+
         // Release EGL base
         if (eglBase != null) {
             eglBase.release();
             eglBase = null;
         }
-        
+
         // Dispose of factory
         if (peerConnectionFactory != null) {
             peerConnectionFactory.dispose();
             peerConnectionFactory = null;
         }
     }
-    
+
     /**
      * Set person detection module to receive video frames
+     *
      * @param personDetection The PersonDetection instance
      */
     public void setPersonDetection(com.summersoft.heliocam.detection.PersonDetection personDetection) {
         this.personDetection = personDetection;
-        
+
         // If we have a video track, connect it to the person detection
         if (localVideoTrack != null && personDetection != null) {
             Log.d(TAG, "Connecting video track to person detection");
             localVideoTrack.addSink(personDetection);
         }
     }
-    
+
     /**
      * Find a session by session code (passkey)
+     *
      * @param sessionCode The 6-digit session code entered by user
      */
     public static void findSessionByCode(String sessionCode, SessionFoundCallback callback) {
         DatabaseReference sessionCodeRef = FirebaseDatabase.getInstance().getReference().child("session_codes").child(sessionCode);
-    
+
         sessionCodeRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
                     String sessionId = dataSnapshot.child("session_id").getValue(String.class);
                     String hostEmail = dataSnapshot.child("host_email").getValue(String.class);
-                    
+
                     if (sessionId != null && hostEmail != null) {
                         callback.onSessionFound(sessionId, hostEmail);
                     } else {
@@ -1294,25 +702,28 @@ public class RTCJoiner {
                     callback.onSessionNotFound();
                 }
             }
-            
+
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 callback.onError("Database error", databaseError.toException());
             }
         });
     }
-    
+
     /**
      * Callback interface for session lookup
      */
     public interface SessionFoundCallback {
         void onSessionFound(String sessionId, String hostEmail);
+
         void onSessionNotFound();
+
         void onError(String message, Exception e);
     }
 
     /**
      * Report a detection event to the host session
+     *
      * @param detectionType Type of detection (sound, person)
      * @param detectionData Additional data about the detection
      */
@@ -1324,7 +735,7 @@ public class RTCJoiner {
 
         // Get the current time for the event ID
         long timestamp = System.currentTimeMillis();
-        
+
         // Create detection event data matching the web format
         Map<String, Object> detectionEvent = new HashMap<>();
         detectionEvent.put("type", detectionType);
@@ -1332,27 +743,27 @@ public class RTCJoiner {
         detectionEvent.put("cameraNumber", assignedCameraNumber);
         detectionEvent.put("deviceName", Build.MANUFACTURER + " " + Build.MODEL);
         detectionEvent.put("email", userEmail);
-        
+
         // Add any additional data
         if (detectionData != null) {
             detectionEvent.put("data", detectionData);
         }
-        
+
         // Format email for Firebase path
         String formattedHostEmail = hostEmail.replace(".", "_");
-        
+
         // Use the detection_events path that matches the web app
-        String detectionPath = "users/" + formattedHostEmail + "/sessions/" + sessionId + 
+        String detectionPath = "users/" + formattedHostEmail + "/sessions/" + sessionId +
                 "/detection_events/" + timestamp;
-        
+
         // Send to Firebase
         firebaseDatabase.child(detectionPath).setValue(detectionEvent)
-            .addOnSuccessListener(aVoid -> {
-                Log.d(TAG, "Reported " + detectionType + " detection to host");
-            })
-            .addOnFailureListener(e -> {
-                Log.e(TAG, "Error reporting detection", e);
-            });
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Reported " + detectionType + " detection to host");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error reporting detection", e);
+                });
     }
 
     // Helper methods for specific detection types (no motion detection)
@@ -1370,6 +781,7 @@ public class RTCJoiner {
 
     /**
      * Set the camera number assigned by the host
+     *
      * @param cameraNumber The assigned camera number (1-4)
      */
     public void setAssignedCameraNumber(int cameraNumber) {
@@ -1378,228 +790,56 @@ public class RTCJoiner {
     }
 
     /**
-     * Check if recording capabilities are available on this device
-     * @return true if recording is supported
+     * Get access to video capturer for camera operations
+     *
+     * @return the camera video capturer
      */
-    public boolean isRecordingSupported() {
-        // Check if the necessary components exist
-        return (eglBase != null && videoSource != null && localVideoTrack != null);
+    public CameraVideoCapturer getVideoCapturer() {
+        return videoCapturer;
+    }    /**
+     * Get access to local video track
+     *
+     * @return the local video track
+     */
+    public VideoTrack getLocalVideoTrack() {
+        return localVideoTrack;
     }
-    
-    private class SurfaceVideoSink implements VideoSink {
-        private final Surface surface;
-        private EglBase eglBase;
-        private boolean initialized = false;
-        private final Object syncObject = new Object();
-        private Handler handler;
-        private HandlerThread thread;
-        private GlRectDrawer drawer;
 
-        public SurfaceVideoSink(Surface surface) {
-            this.surface = surface;
-            // Create a dedicated thread for EGL operations
-            thread = new HandlerThread("SurfaceVideoSinkThread");
-            thread.start();
-            handler = new Handler(thread.getLooper());
-            // Initialize on the EGL thread
-            handler.post(this::initialize);
-        }
-        
-        private void initialize() {
-            synchronized (syncObject) {
-                // Clean up any existing EGL resources
-                releaseEglContext();
-                
-                try {
-                    // Create a shared EGL context with RECORDABLE flag
-                    eglBase = EglBase.create(RTCJoiner.this.eglBase.getEglBaseContext(), EglBase.CONFIG_RECORDABLE);
-                    if (eglBase == null) {
-                        Log.e(TAG, "Failed to create EGL base for recording");
-                        return;
-                    }
-                    
-                    // Create surface and make context current
-                    try {
-                        eglBase.createSurface(surface);
-                        eglBase.makeCurrent();
-                        
-                        // Create the drawer for rendering frames
-                        drawer = new GlRectDrawer();
-                        
-                        // Clear surface with black color
-                        GLES20.glClearColor(0, 0, 0, 1);
-                        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-                        
-                        // Swap buffers to apply changes
-                        eglBase.swapBuffers();
-                        
-                        initialized = true;
-                        Log.d(TAG, "SurfaceVideoSink initialized successfully");
-                    } catch (Exception e) {
-                        Log.e(TAG, "Failed to initialize EGL surface: " + e.getMessage(), e);
-                        releaseEglContext();
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to create EGL context: " + e.getMessage(), e);
-                    releaseEglContext();
-                }
-            }
-        }
+    /**
+     * Get access to EGL context for surface operations
+     *
+     * @return the EGL base context
+     */
+    public EglBase.Context getEglContext() {
+        return eglBase != null ? eglBase.getEglBaseContext() : null;
+    }
 
-        private void releaseEglContext() {
-            synchronized (syncObject) {
-                if (drawer != null) {
-                    drawer.release();
-                    drawer = null;
-                }
-                
-                if (eglBase != null) {
-                    try {
-                        eglBase.release();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error releasing EGL resources", e);
-                    } finally {
-                        eglBase = null;
-                    }
-                }
-            }
-        }
-
-        @Override
-        public void onFrame(VideoFrame frame) {
-            // Skip if not initialized
-            if (!initialized || eglBase == null) {
-                return;
-            }
-            
-            // Retain the frame for processing on our thread
-            frame.retain();
-            
-            // Process frame on dedicated EGL thread
-            handler.post(() -> {
-                try {
-                    synchronized (syncObject) {
-                        if (!initialized || eglBase == null || drawer == null) {
-                            frame.release();
-                            return;
-                        }
-                        
-                        try {
-                            eglBase.makeCurrent();
-                            
-                            // Get the frame buffer and convert to I420 if needed
-                            VideoFrame.Buffer frameBuffer = frame.getBuffer();
-                            VideoFrame.I420Buffer i420Buffer;
-                            
-                            if (frameBuffer instanceof VideoFrame.I420Buffer) {
-                                i420Buffer = (VideoFrame.I420Buffer) frameBuffer;
-                            } else {
-                                i420Buffer = frameBuffer.toI420();
-                            }
-                            
-                            try {
-                                // Use a simpler approach with reflection to dynamically
-                                // determine which method to call based on the available parameters
-                                renderI420Frame(drawer, i420Buffer, frame.getRotatedWidth(), frame.getRotatedHeight());
-                                
-                                // Swap buffers to present the frame
-                                eglBase.swapBuffers();
-                            } finally {
-                                // Release I420Buffer if we created a new one
-                                if (frameBuffer != i420Buffer) {
-                                    i420Buffer.release();
-                                }
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error rendering frame: " + e.getMessage(), e);
-                            initialize(); // Try to reinitialize on error
-                        }
-                    }
-                } finally {
-                    // Always release the frame when done
-                    frame.release();
-                }
-            });
-        }
-        
-        private void renderI420Frame(GlRectDrawer drawer, VideoFrame.I420Buffer buffer, int width, int height) {
+    /**
+     * Switch to high performance mode for better detection accuracy
+     */
+    public void enableHighPerformanceMode() {
+        if (videoCapturer != null) {
             try {
-                // Create our own identity matrix instead of using RendererCommon.identityMatrix()
-                float[] samplingMatrix = new float[] {
-                    1.0f, 0.0f, 0.0f, 0.0f,
-                    0.0f, 1.0f, 0.0f, 0.0f,
-                    0.0f, 0.0f, 1.0f, 0.0f,
-                    0.0f, 0.0f, 0.0f, 1.0f
-                };
-                
-                // Clear the surface first
-                GLES20.glClearColor(0, 0, 0, 1);
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-
-                // Try the method signature used in your WebRTC version
-                try {
-                    // Get the YUV texture IDs
-                    int[] yuvTextures = new int[3];
-                    GLES20.glGenTextures(3, yuvTextures, 0);
-                    
-                    // Create, bind, and populate the Y-texture
-                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[0]);
-                    GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
-                        buffer.getWidth(), buffer.getHeight(), 0, 
-                        GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataY());
-                        
-                    // Create, bind, and populate the U-texture
-                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[1]);
-                    GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
-                        buffer.getWidth()/2, buffer.getHeight()/2, 0, 
-                        GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataU());
-                        
-                    // Create, bind, and populate the V-texture
-                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[2]);
-                    GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
-                        buffer.getWidth()/2, buffer.getHeight()/2, 0, 
-                        GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataV());
-                        
-                    // Draw using the method signature from your WebRTC version
-                    drawer.drawYuv(yuvTextures, samplingMatrix, width, height, 0, 0, width, height);
-                    
-                    // Clean up
-                    GLES20.glDeleteTextures(3, yuvTextures, 0);
-                    return;
-                } catch (Exception e) {
-                    Log.d(TAG, "First draw attempt failed: " + e.getMessage());
-                    // Continue to next approach
-                }
-                
-                // Try alternative rendering approach - just clear the view and swap buffers
-                // This will at least prevent crashes and allow recording to continue
-                GLES20.glClearColor(0, 0, 0, 1);
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-                
-            } catch (Exception e) {
-                Log.e(TAG, "Error in renderI420Frame: " + e.getMessage(), e);
-                // Just clear the view as a last resort
-                GLES20.glClearColor(0, 0, 0, 1);
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+                videoCapturer.stopCapture();
+                videoCapturer.startCapture(640, 480, 30); // Higher resolution for better detection
+                Log.d(TAG, "Switched to high performance mode");
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Failed to switch to high performance mode", e);
             }
         }
-        
-        public void release() {
-            // Post release operation to the handler thread
-            if (handler != null) {
-                handler.post(() -> {
-                    synchronized (syncObject) {
-                        initialized = false;
-                        releaseEglContext();
-                    }
-                    
-                    // Quit the handler thread
-                    if (thread != null) {
-                        thread.quitSafely();
-                        thread = null;
-                    }
-                    handler = null;
-                });
+    }
+
+    /**
+     * Switch to power saving mode to reduce CPU/battery usage
+     */
+    public void enablePowerSavingMode() {
+        if (videoCapturer != null) {
+            try {
+                videoCapturer.stopCapture();
+                videoCapturer.startCapture(320, 240, 15); // Lower resolution and frame rate
+                Log.d(TAG, "Switched to power saving mode");
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Failed to switch to power saving mode", e);
             }
         }
     }

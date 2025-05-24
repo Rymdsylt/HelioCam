@@ -292,11 +292,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/detection/SoundDetection.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/detection/SoundDetection.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/detection/PersonDetection.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/detection/PersonDetection.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/CameraActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/CameraActivity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/utils/ImageUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/utils/ImageUtils.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/webrtc_utils/RTCJoiner.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/webrtc_utils/RTCJoiner.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -307,7 +307,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\david\.android\avd\Pixel_6_Pro.avd)]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\david\.android\avd\Pixel_6_Pro.avd), DeviceId(pluginId=PhysicalDevice, isTemplate=false, identifier=serial=R5CRB2GF6DZ)]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$/HelioCam">
       <ProjectState />
@@ -391,37 +391,37 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Android App.DevicesLoginActivity.executor&quot;: &quot;Run&quot;,
-    &quot;Android App.HomeActivity.executor&quot;: &quot;Run&quot;,
-    &quot;Android App.NotifcationActivity.executor&quot;: &quot;Run&quot;,
-    &quot;Android App.NotificationSettingsActivity.executor&quot;: &quot;Run&quot;,
-    &quot;Android App.SessionSettingsActivity.executor&quot;: &quot;Run&quot;,
-    &quot;Android App.StartActivity.executor&quot;: &quot;Run&quot;,
-    &quot;Android App.app.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.Download Sources.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;com.google.services.firebase.aqiPopupShown&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;new-heliocam&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_directory_selection&quot;: &quot;E:/Computer Programming/HelioCam/HelioCam/HelioCam/app/src/main/java&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/david/Desktop/ACADS/3rd Year/HelioCam/HelioCam/HelioCam/app/src/main/res/menu&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Global Libraries&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
-    &quot;settings.build.tools.auto.reload&quot;: &quot;ALL&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Android App.DevicesLoginActivity.executor": "Run",
+    "Android App.HomeActivity.executor": "Run",
+    "Android App.NotifcationActivity.executor": "Run",
+    "Android App.NotificationSettingsActivity.executor": "Run",
+    "Android App.SessionSettingsActivity.executor": "Run",
+    "Android App.StartActivity.executor": "Run",
+    "Android App.app.executor": "Run",
+    "Gradle.Download Sources.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "com.google.services.firebase.aqiPopupShown": "true",
+    "git-widget-placeholder": "Reverting in new-heliocam",
+    "ignore.virus.scanning.warn.message": "true",
+    "kotlin-language-version-configured": "true",
+    "last_directory_selection": "E:/Computer Programming/HelioCam/HelioCam/HelioCam/app/src/main/java",
+    "last_opened_file_path": "C:/Users/david/Desktop/ACADS/3rd Year/HelioCam/HelioCam/HelioCam/app/src/main/res/menu",
+    "project.structure.last.edited": "Global Libraries",
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.2",
+    "run.code.analysis.last.selected.profile": "pProject Default",
+    "settings.build.tools.auto.reload": "ALL",
+    "settings.editor.selected.configurable": "preferences.pluginManager"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="android.template.-1587937413">
       <recent name="com.summersoft.heliocam.ui" />

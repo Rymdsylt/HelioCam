@@ -224,8 +224,9 @@ public class PersonDetection implements VideoSink {
             return;
         }
 
-        // More aggressive frame skipping based on a counter
-        if (frameCounter.incrementAndGet() % 3 != 0) { // Process every 3rd frame
+        // Adaptive frame skipping based on processing load
+        int skipFactor = isProcessingFrame.get() ? 5 : 3; // Skip more frames if already processing
+        if (frameCounter.incrementAndGet() % skipFactor != 0) {
             return;
         }
 

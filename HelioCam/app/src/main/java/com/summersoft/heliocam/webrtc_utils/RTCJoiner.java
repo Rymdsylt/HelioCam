@@ -811,7 +811,10 @@ public class RTCJoiner {
      * @return the EGL base context
      */
     public EglBase.Context getEglContext() {
-        return eglBase != null ? eglBase.getEglBaseContext() : null;
+       if (eglBase != null) {
+            return eglBase.getEglBaseContext();
+        }
+        return null;
     }
 
     /**

@@ -50,6 +50,8 @@ import org.webrtc.VideoSink;
 import org.webrtc.VideoFrame;
 import org.webrtc.SurfaceTextureHelper;
 
+import com.summersoft.heliocam.webrtcfork.MultiSinkVideoRenderer;
+
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
@@ -66,6 +68,8 @@ import java.io.File;
 import java.util.Date;
 import java.util.Locale;
 import java.text.SimpleDateFormat;
+import java.util.List;
+import java.util.ArrayList;
 
 
 public class CameraActivity extends AppCompatActivity {
@@ -100,6 +104,7 @@ public class CameraActivity extends AppCompatActivity {
     private long recordingStartTime = 0;
     private static final int REPLAY_BUFFER_DURATION_MS = 30000; // 30 seconds buffer
     private VideoSink recordingVideoSink;
+    private SurfaceViewRenderer recordingSurfaceRenderer;
 
     // Method to open directory picker
     public void openDirectoryPicker() {
@@ -988,61 +993,102 @@ public class CameraActivity extends AppCompatActivity {
         
         Log.d(TAG, "MediaRecorder configured successfully");
     }    /**
-     * Start direct camera recording (bypassing WebRTC for better performance)
+     * Start direct camera recording by connecting VideoTrack to MediaRecorder surface
      */
     private void startDirectCameraRecording() throws Exception {
         try {
             // Get the MediaRecorder's surface for recording
             android.view.Surface recorderSurface = mediaRecorder.getSurface();
             
-            // Connect the camera video track directly to the MediaRecorder's surface
             if (rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null && recorderSurface != null) {
                 // Get EGL context from RTCJoiner
                 org.webrtc.EglBase.Context eglContext = rtcJoiner.getEglContext();
                 if (eglContext != null) {
-                    // Create a SurfaceViewRenderer specifically for the MediaRecorder surface
-                    SurfaceViewRenderer recordingSurfaceRenderer = new SurfaceViewRenderer(this);
-                    recordingSurfaceRenderer.init(eglContext, null);
                     
-                    // Create a VideoSink that captures frames and passes them to both the UI and MediaRecorder
-                    recordingVideoSink = new VideoSink() {
+                    // Create a VideoSink that renders frames to the MediaRecorder surface
+                    recordingVideoSink = new org.webrtc.VideoSink() {
+                        private org.webrtc.VideoFrame lastFrame;
+                        private android.graphics.Canvas canvas;
+                        
                         @Override
-                        public void onFrame(VideoFrame frame) {
-                            if (isRecording) {
-                                try {
-                                    // Log frame for debugging
-                                    Log.v(TAG, "Recording frame: " + frame.getTimestampNs());
-                                    
-                                    // Note: The actual rendering to MediaRecorder surface is complex
-                                    // and typically requires native code or specialized rendering.
-                                    // For now, we're setting up the framework for the connection.
-                                    // The MediaRecorder should still get audio from the configured audio source.
-                                } catch (Exception e) {
-                                    Log.w(TAG, "Error processing frame for recording: " + e.getMessage());
+                        public void onFrame(org.webrtc.VideoFrame frame) {
+                            try {
+                                // Convert VideoFrame to bitmap and draw to surface
+                                this.lastFrame = frame;
+                                
+                                // Lock the canvas for drawing
+                                if (recorderSurface != null && recorderSurface.isValid()) {
+                                    canvas = recorderSurface.lockCanvas(null);
+                                    if (canvas != null) {
+                                        // Convert VideoFrame to Bitmap and draw
+                                        org.webrtc.VideoFrame.I420Buffer i420Buffer = frame.getBuffer().toI420();
+                                        
+                                        // Create bitmap from I420 buffer
+                                        int width = i420Buffer.getWidth();
+                                        int height = i420Buffer.getHeight();
+                                        
+                                        // Create YUV420 byte array
+                                        byte[] yuvData = new byte[width * height * 3 / 2];
+                                        i420Buffer.getDataY().get(yuvData, 0, width * height);
+                                        i420Buffer.getDataU().get(yuvData, width * height, width * height / 4);
+                                        i420Buffer.getDataV().get(yuvData, width * height * 5 / 4, width * height / 4);
+                                        
+                                        // Convert YUV to RGB bitmap
+                                        android.graphics.YuvImage yuvImage = new android.graphics.YuvImage(
+                                            yuvData, android.graphics.ImageFormat.NV21, width, height, null);
+                                        
+                                        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                                        yuvImage.compressToJpeg(new android.graphics.Rect(0, 0, width, height), 100, out);
+                                        
+                                        byte[] imageBytes = out.toByteArray();
+                                        android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+                                        
+                                        if (bitmap != null) {
+                                            // Scale bitmap to fit canvas
+                                            android.graphics.Bitmap scaledBitmap = android.graphics.Bitmap.createScaledBitmap(
+                                                bitmap, canvas.getWidth(), canvas.getHeight(), false);
+                                            
+                                            // Draw bitmap to canvas
+                                            canvas.drawBitmap(scaledBitmap, 0, 0, null);
+                                            
+                                            bitmap.recycle();
+                                            scaledBitmap.recycle();
+                                        }
+                                        
+                                        // Unlock and post the canvas
+                                        recorderSurface.unlockCanvasAndPost(canvas);
+                                        
+                                        out.close();
+                                        i420Buffer.release();
+                                    }
+                                }
+                            } catch (Exception e) {
+                                Log.w(TAG, "Error rendering frame to recording surface: " + e.getMessage());
+                                if (canvas != null) {
+                                    try {
+                                        recorderSurface.unlockCanvasAndPost(canvas);
+                                    } catch (Exception ignored) {}
                                 }
                             }
                         }
                     };
                     
-                    // Add the VideoSink to the video track
+                    // Add the video sink to capture frames
                     rtcJoiner.getLocalVideoTrack().addSink(recordingVideoSink);
                     
-                    Log.d(TAG, "Added recording VideoSink to video track");
-                    Log.i(TAG, "Note: Video frames are being captured. For full video recording, " +
-                               "native surface rendering implementation may be required.");
+                    Log.d(TAG, "Connected video track to MediaRecorder surface via custom VideoSink");
                 } else {
                     throw new Exception("EGL context not available from RTCJoiner");
                 }
             } else {
-                Log.e(TAG, "Missing components for video recording - rtcJoiner: " + 
-                     (rtcJoiner != null) + ", videoTrack: " + 
-                     (rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null) + 
+                Log.e(TAG, "Missing components - rtcJoiner: " + (rtcJoiner != null) + 
+                     ", videoTrack: " + (rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null) + 
                      ", surface: " + (recorderSurface != null));
-                throw new Exception("Cannot connect video track to MediaRecorder surface");
+                throw new Exception("Cannot connect video track to MediaRecorder surface - missing components");
             }
             
             // Start the media recorder
-            Log.d(TAG, "Starting direct camera recording...");
+            Log.d(TAG, "Starting MediaRecorder...");
             mediaRecorder.start();
             
             // Mark the recording start time
@@ -1052,14 +1098,10 @@ public class CameraActivity extends AppCompatActivity {
             isRecording = true;
             
             Log.d(TAG, "Direct camera recording started successfully at path: " + recordingPath);
-            Log.i(TAG, "Recording will capture audio. Video recording may require additional native implementation.");
             
         } catch (Exception e) {
             Log.e(TAG, "Failed to start direct camera recording: " + e.getMessage(), e);
-            
-            // Clean up on error
             cleanupRecordingResources();
-            
             isRecording = false;
             throw e;
         }
@@ -1174,18 +1216,38 @@ public class CameraActivity extends AppCompatActivity {
         isRecording = false;
         recordingPath = null;
     }    /**
-     * Clean up recording resources including VideoSink
+     * Clean up recording resources including VideoSink and SurfaceRenderer
      */
     private void cleanupRecordingResources() {
-        // Remove VideoSink from video track
+        // Remove VideoSink from video track if it exists
         if (recordingVideoSink != null && rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null) {
             try {
                 rtcJoiner.getLocalVideoTrack().removeSink(recordingVideoSink);
-                Log.d(TAG, "Removed VideoSink from video track");
+                Log.d(TAG, "Removed recording VideoSink from video track");
             } catch (Exception e) {
                 Log.e(TAG, "Error removing VideoSink: " + e.getMessage());
             }
             recordingVideoSink = null;
+        }
+        
+        // Clean up recording surface renderer
+        if (recordingSurfaceRenderer != null && rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null) {
+            try {
+                rtcJoiner.getLocalVideoTrack().removeSink(recordingSurfaceRenderer);
+                Log.d(TAG, "Removed recording SurfaceViewRenderer from video track");
+            } catch (Exception e) {
+                Log.e(TAG, "Error removing SurfaceViewRenderer from video track: " + e.getMessage());
+            }
+        }
+        
+        if (recordingSurfaceRenderer != null) {
+            try {
+                recordingSurfaceRenderer.release();
+                Log.d(TAG, "Released recording SurfaceViewRenderer");
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing SurfaceViewRenderer: " + e.getMessage());
+            }
+            recordingSurfaceRenderer = null;
         }
         
         // Release MediaRecorder

@@ -294,12 +294,10 @@ public class SoundDetection {
      */
     public int getSoundThreshold() {
         return soundThreshold;
-    }
-
-    /**
+    }    /**
      * Get the current detection latency.
      *
-     * @return the latency in milliseconds
+     * @return the latency in seconds
      */
     public long getDetectionLatency() {
         return detectionLatency/1000;

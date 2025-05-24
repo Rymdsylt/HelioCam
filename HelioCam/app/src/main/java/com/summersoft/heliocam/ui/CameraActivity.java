@@ -409,21 +409,19 @@ public class CameraActivity extends AppCompatActivity {
         }
 
 
-    }
-
-    @Override
+    }    @Override
     public boolean onContextItemSelected(@NonNull MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.option_1: // Sound Detection Threshold
-                showThresholdDialog();
+            case R.id.option_1: // Detection Settings (Combined)
+                showDetectionSettingsDialog();
                 return true;
-            case R.id.option_2: // Sound Detection Notification Latency
+            case R.id.option_2: // Sound Detection Notification Latency (Legacy)
                 showLatencyDialog();
                 return true;
             case R.id.option_3: // Start/Stop Recording
                 showRecordDialog();
                 return true;
-            case R.id.option_5: // Person Detection Latency
+            case R.id.option_5: // Person Detection Latency (Legacy)
                 showPersonLatencyDialog();
                 return true;
             default:
@@ -691,34 +689,51 @@ public class CameraActivity extends AppCompatActivity {
 
         builder.create().show();
     }
-
-
     private void showLatencyDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Adjust Detection Latency (in Seconds)");
+        builder.setTitle("Sound Detection Settings");
 
         // Inflate custom layout
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_latency, null);
-        EditText latencyInput = view.findViewById(R.id.latencyInput);
+        com.google.android.material.textfield.TextInputEditText latencyInput = view.findViewById(R.id.latencyInput);
 
-        // Initialize with current latency
-        latencyInput.setText(String.valueOf(soundDetection.getDetectionLatency()));
+        // Initialize with current latency (convert from milliseconds to seconds)
+        int currentLatencySeconds = soundDetection.getDetectionLatency() / 1000;
+        latencyInput.setText(String.valueOf(currentLatencySeconds));
 
         builder.setView(view);
 
         builder.setPositiveButton("Save", (dialog, which) -> {
             try {
-                int latency = Integer.parseInt(latencyInput.getText().toString());
-                soundDetection.setDetectionLatency(latency * 1000);
-                Toast.makeText(this, "Latency updated to " + latency, Toast.LENGTH_SHORT).show();
+                String input = latencyInput.getText().toString().trim();
+                if (input.isEmpty()) {
+                    Toast.makeText(this, "Please enter a value", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                
+                int latencySeconds = Integer.parseInt(input);
+                if (latencySeconds < 1 || latencySeconds > 300) {
+                    Toast.makeText(this, "Please enter a value between 1 and 300 seconds", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                
+                soundDetection.setDetectionLatency(latencySeconds * 1000);
+                Toast.makeText(this, "Sound detection cooldown updated to " + latencySeconds + " seconds", Toast.LENGTH_SHORT).show();
             } catch (NumberFormatException e) {
-                Toast.makeText(this, "Invalid input", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Please enter a valid number", Toast.LENGTH_SHORT).show();
             }
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
 
-        builder.create().show();
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        // Focus on the input field and show keyboard
+        if (latencyInput != null) {
+            latencyInput.requestFocus();
+            latencyInput.setSelection(latencyInput.getText().length());
+        }
     }
 
     // Add this new method to your CameraActivity class
@@ -1354,4 +1369,110 @@ public class CameraActivity extends AppCompatActivity {
                     });
         }
     }
+
+    // Add this new method to your CameraActivity class
+    private void showDetectionSettingsDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        
+        // Inflate the custom layout
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_detection_settings, null);
+        
+        // Get references to all the UI elements
+        SeekBar soundThresholdSeekBar = view.findViewById(R.id.soundThresholdSeekBar);
+        TextView soundThresholdValue = view.findViewById(R.id.soundThresholdValue);
+        com.google.android.material.textfield.TextInputEditText soundLatencyInput = view.findViewById(R.id.soundLatencyInput);
+        com.google.android.material.textfield.TextInputEditText personLatencyInput = view.findViewById(R.id.personLatencyInput);
+        
+        // Initialize with current values
+        if (soundDetection != null) {
+            int currentThreshold = soundDetection.getSoundThreshold();
+            soundThresholdSeekBar.setProgress(currentThreshold);
+            soundThresholdValue.setText(String.valueOf(currentThreshold));
+            
+            int currentSoundLatency = (int) (soundDetection.getDetectionLatency());
+            soundLatencyInput.setText(String.valueOf(currentSoundLatency));
+        }
+        
+        if (personDetection != null) {
+            int currentPersonLatency = personDetection.getDetectionLatency() / 1000;
+            personLatencyInput.setText(String.valueOf(currentPersonLatency));
+        }
+        
+        // Set up SeekBar listener for sound threshold
+        soundThresholdSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                soundThresholdValue.setText(String.valueOf(progress));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+        
+        // Create the dialog
+        AlertDialog dialog = builder.setView(view)
+                .setCancelable(true)
+                .create();
+        
+        // Set up button listeners
+        com.google.android.material.button.MaterialButton btnSave = view.findViewById(R.id.btnSave);
+        com.google.android.material.button.MaterialButton btnCancel = view.findViewById(R.id.btnCancel);
+        
+        btnSave.setOnClickListener(v -> {
+            try {
+                // Save sound threshold
+                int newThreshold = soundThresholdSeekBar.getProgress();
+                if (soundDetection != null) {
+                    soundDetection.setSoundThreshold(newThreshold);
+                }
+                
+                // Save sound latency
+                String soundLatencyStr = soundLatencyInput.getText().toString().trim();
+                if (!soundLatencyStr.isEmpty()) {
+                    int soundLatencySeconds = Integer.parseInt(soundLatencyStr);
+                    if (soundLatencySeconds >= 1 && soundLatencySeconds <= 300) {
+                        if (soundDetection != null) {
+                            soundDetection.setDetectionLatency(soundLatencySeconds * 1000);
+                        }
+                    } else {
+                        Toast.makeText(this, "Sound latency must be between 1 and 300 seconds", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                }
+                
+                // Save person latency
+                String personLatencyStr = personLatencyInput.getText().toString().trim();
+                if (!personLatencyStr.isEmpty()) {
+                    int personLatencySeconds = Integer.parseInt(personLatencyStr);
+                    if (personLatencySeconds >= 1 && personLatencySeconds <= 300) {
+                        if (personDetection != null) {
+                            personDetection.setDetectionLatency(personLatencySeconds * 1000);
+                        }
+                    } else {
+                        Toast.makeText(this, "Person latency must be between 1 and 300 seconds", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                }
+                
+                Toast.makeText(this, "Detection settings updated successfully!", Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+                
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Please enter valid numbers for latency values", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "Error saving settings: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Error saving detection settings", e);
+            }
+        });
+        
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        
+        // Show the dialog
+        dialog.show();
+    }
+
+    // ...existing code...
 }

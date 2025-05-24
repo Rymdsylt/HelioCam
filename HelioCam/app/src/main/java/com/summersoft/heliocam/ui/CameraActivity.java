@@ -31,8 +31,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.app.AlertDialog;
 import android.os.StatFs;
+import android.os.Handler;
 
-
+import java.util.Iterator;
 
 
 import androidx.annotation.NonNull;
@@ -94,9 +95,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private DetectionDirectoryManager directoryManager;
 
-    private boolean isMicOn = true;
-
-    // Add these fields to CameraActivity
+    private boolean isMicOn = true;    // Add these fields to CameraActivity
     private boolean isRecording = false;
     private boolean isReplayBufferRunning = false;
     private TextView recordingStatus;    // New fields for direct camera recording
@@ -106,6 +105,10 @@ public class CameraActivity extends AppCompatActivity {
     private static final int REPLAY_BUFFER_DURATION_MS = 30000; // 30 seconds buffer
     private VideoSink recordingVideoSink;
     private SurfaceViewRenderer recordingSurfaceRenderer;
+      // Replay buffer specific fields
+    private MediaRecorder replayBufferRecorder;
+    private String replayBufferPath;
+    private long replayBufferStartTime;    private VideoSink replayBufferVideoSink;
 
     // Method to open directory picker
     public void openDirectoryPicker() {
@@ -698,7 +701,7 @@ public class CameraActivity extends AppCompatActivity {
         com.google.android.material.textfield.TextInputEditText latencyInput = view.findViewById(R.id.latencyInput);
 
         // Initialize with current latency (convert from milliseconds to seconds)
-        int currentLatencySeconds = soundDetection.getDetectionLatency() / 1000;
+        int currentLatencySeconds = (int) (soundDetection.getDetectionLatency() / 1000);
         latencyInput.setText(String.valueOf(currentLatencySeconds));
 
         builder.setView(view);
@@ -1309,16 +1312,189 @@ public class CameraActivity extends AppCompatActivity {
 
             mediaRecorder = null;
         }
+    }    /**
+     * Start replay buffer (continuous recording buffer)
+     */
+    private void startReplayBuffer() {
+        if (isReplayBufferRunning) {
+            Log.w(TAG, "Replay buffer is already running");
+            return;
+        }
+
+        // Do a final permission check before starting
+        if (!canStartRecording()) {
+            Log.e(TAG, "Cannot start replay buffer - permission check failed");
+            Toast.makeText(this, "Cannot start replay buffer", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            // Generate a filename with timestamp
+            String fileName = "replay_buffer_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + ".mp4";
+
+            // Try to use the user-selected directory first
+            File recordingDir;
+
+            if (directoryManager != null && directoryManager.hasValidDirectory()) {
+                DocumentFile videoClipsDir = directoryManager.getVideoClipsDirectory();
+                if (videoClipsDir != null) {
+                    // Use content resolver to create a new file
+                    DocumentFile newFile = videoClipsDir.createFile("video/mp4", fileName);
+                    if (newFile != null) {
+                        ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(newFile.getUri(), "w");
+                        if (pfd != null) {
+                            // Initialize MediaRecorder for replay buffer
+                            replayBufferRecorder = new MediaRecorder();
+                            replayBufferRecorder.setOutputFile(pfd.getFileDescriptor());
+                            configureMediaRecorder(replayBufferRecorder);
+
+                            // Connect to camera surface for direct recording
+                            startDirectReplayBufferRecording();
+                            replayBufferPath = newFile.getUri().toString();
+                            
+                            isReplayBufferRunning = true;
+                            Log.d(TAG, "Replay buffer started successfully");
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Fall back to app-specific directory or public directory
+            recordingDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "HelioCam");
+            if (!recordingDir.exists()) {
+                if (!recordingDir.mkdirs()) {
+                    Log.e(TAG, "Failed to create recording directory");
+                    recordingDir = directoryManager.getAppStorageDirectory("Video_Clips");
+                }
+            }
+
+            // Fall back to app-specific directory if public directory fails
+            if (!recordingDir.exists() || !recordingDir.canWrite()) {
+                Log.w(TAG, "Failed to use public directory, falling back to app-specific storage");
+                recordingDir = new File(getExternalFilesDir(Environment.DIRECTORY_MOVIES), "HelioCam");
+                if (!recordingDir.exists()) {
+                    recordingDir.mkdirs();
+                }
+            }
+
+            // Create file for replay buffer
+            File videoFile = new File(recordingDir, fileName);
+            replayBufferPath = videoFile.getAbsolutePath();
+
+            // Initialize MediaRecorder for replay buffer
+            replayBufferRecorder = new MediaRecorder();
+            replayBufferRecorder.setOutputFile(replayBufferPath);
+            configureMediaRecorder(replayBufferRecorder);
+            startDirectReplayBufferRecording();
+            
+            isReplayBufferRunning = true;
+            Log.d(TAG, "Replay buffer started successfully");
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start replay buffer", e);
+            Toast.makeText(this, "Failed to start replay buffer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            releaseReplayBufferRecorder();
+            isReplayBufferRunning = false;
+        }
     }
 
     /**
-     * Start replay buffer (circular recording buffer)
+     * Start direct replay buffer recording by connecting VideoTrack to MediaRecorder surface
      */
-    private void startReplayBuffer() {
-        // Similar implementation as startRecording, but with circular buffer setup
-        // For now we'll just use the regular recording as this requires more complex implementation
-        startRecording();
-        isReplayBufferRunning = true;
+    private void startDirectReplayBufferRecording() throws Exception {
+        try {
+            // Get the MediaRecorder's surface for recording
+            android.view.Surface recorderSurface = replayBufferRecorder.getSurface();
+
+            if (rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null && recorderSurface != null) {
+                // Get EGL context from RTCJoiner
+                org.webrtc.EglBase.Context eglContext = rtcJoiner.getEglContext();
+                if (eglContext != null) {
+
+                    // Create a VideoSink that renders frames to the MediaRecorder surface
+                    replayBufferVideoSink = new org.webrtc.VideoSink() {
+                        private org.webrtc.VideoFrame lastFrame;
+                        private android.graphics.Canvas canvas;
+
+                        @Override
+                        public void onFrame(org.webrtc.VideoFrame frame) {
+                            try {
+                                // Convert VideoFrame to bitmap and draw to surface
+                                this.lastFrame = frame;
+
+                                // Lock the canvas for drawing
+                                if (recorderSurface != null && recorderSurface.isValid()) {
+                                    canvas = recorderSurface.lockCanvas(null);
+                                    if (canvas != null) {
+                                        // Convert VideoFrame to Bitmap using proper I420 to RGB conversion
+                                        org.webrtc.VideoFrame.I420Buffer i420Buffer = frame.getBuffer().toI420();
+
+                                        // Get dimensions
+                                        int width = i420Buffer.getWidth();
+                                        int height = i420Buffer.getHeight();
+
+                                        // Use the direct conversion method for better color accuracy
+                                        android.graphics.Bitmap bitmap = convertI420ToBitmapDirect(i420Buffer, width, height);
+
+                                        if (bitmap != null) {
+                                            // Scale bitmap to fit canvas
+                                            android.graphics.Bitmap scaledBitmap = android.graphics.Bitmap.createScaledBitmap(
+                                                    bitmap, canvas.getWidth(), canvas.getHeight(), false);
+
+                                            // Draw bitmap to canvas
+                                            canvas.drawBitmap(scaledBitmap, 0, 0, null);
+
+                                            bitmap.recycle();
+                                            scaledBitmap.recycle();
+                                        }
+
+                                        // Unlock and post the canvas
+                                        recorderSurface.unlockCanvasAndPost(canvas);
+
+                                        i420Buffer.release();
+                                    }
+                                }
+                            } catch (Exception e) {
+                                Log.w(TAG, "Error rendering frame to replay buffer surface: " + e.getMessage());
+                                if (canvas != null) {
+                                    try {
+                                        recorderSurface.unlockCanvasAndPost(canvas);
+                                    } catch (Exception ignored) {
+                                    }
+                                }
+                            }
+                        }
+                    };
+
+                    // Add the video sink to capture frames
+                    rtcJoiner.getLocalVideoTrack().addSink(replayBufferVideoSink);
+
+                    Log.d(TAG, "Connected video track to replay buffer MediaRecorder surface via custom VideoSink");
+                } else {
+                    throw new Exception("EGL context not available from RTCJoiner");
+                }
+            } else {
+                Log.e(TAG, "Missing components - rtcJoiner: " + (rtcJoiner != null) +
+                        ", videoTrack: " + (rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null) +
+                        ", surface: " + (recorderSurface != null));
+                throw new Exception("Cannot connect video track to replay buffer MediaRecorder surface - missing components");
+            }
+
+            // Start the media recorder
+            Log.d(TAG, "Starting replay buffer MediaRecorder...");
+            replayBufferRecorder.start();
+
+            // Mark the recording start time
+            replayBufferStartTime = System.currentTimeMillis();
+
+            Log.d(TAG, "Direct replay buffer recording started successfully at path: " + replayBufferPath);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start direct replay buffer recording: " + e.getMessage(), e);
+            cleanupReplayBufferResources();
+            throw e;
+        }
     }
 
     /**
@@ -1330,149 +1506,199 @@ public class CameraActivity extends AppCompatActivity {
             return;
         }
 
-        // For now, just stop the regular recording
-        stopRecording();
+        // Store path for later
+        String storedPath = replayBufferPath;
+
+        Log.d(TAG, "Attempting to stop replay buffer at path: " + storedPath);
+
+        // First ensure we've recorded for at least 1 second
+        long recordingDuration = System.currentTimeMillis() - replayBufferStartTime;
+        if (recordingDuration < 1200) { // Give extra buffer time
+            try {
+                long waitTime = 1200 - recordingDuration;
+                Log.d(TAG, "Replay buffer too short (" + recordingDuration + "ms), waiting " + waitTime + "ms");
+                Thread.sleep(waitTime);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Sleep interrupted", e);
+            }
+        }
+
+        // Now stop the recording
+        boolean recordingStopped = false;
+
+        try {
+            // Try to stop the MediaRecorder
+            if (replayBufferRecorder != null) {
+                try {
+                    replayBufferRecorder.stop();
+                    recordingStopped = true;
+                    Log.d(TAG, "Replay buffer MediaRecorder stopped successfully");
+                } catch (RuntimeException e) {
+                    Log.e(TAG, "Error stopping replay buffer MediaRecorder: " + e.getMessage());
+                    // Fall through and try to save anyway
+                }
+            }
+        } finally {
+            // Clean up resources including VideoSink
+            cleanupReplayBufferResources();
+        }
+
+        // Try to save the recording if we have a path
+        if (storedPath != null) {
+            // For content URIs, the file is already saved via the SAF system
+            if (storedPath.startsWith("content://")) {
+                Toast.makeText(this, "Replay buffer saved to custom location", Toast.LENGTH_SHORT).show();
+            } else {
+                // Scan file to make it visible in gallery
+                File file = new File(storedPath);
+                if (file.exists() && file.length() > 0) {
+                    MediaScannerConnection.scanFile(
+                            this,
+                            new String[]{file.getAbsolutePath()},
+                            new String[]{"video/mp4"},
+                            null
+                    );
+                    Toast.makeText(this, "Replay buffer saved to " + file.getAbsolutePath(), Toast.LENGTH_SHORT).show();
+                } else {
+                    Log.e(TAG, "Replay buffer file does not exist or is empty: " + storedPath);
+                    Toast.makeText(this, "Replay buffer may not have been saved properly", Toast.LENGTH_SHORT).show();
+                }
+            }
+        } else {
+            Toast.makeText(this, "Replay buffer path was not available", Toast.LENGTH_SHORT).show();
+        }
+
+        // Always reset state
         isReplayBufferRunning = false;
+        replayBufferPath = null;
     }
 
-    // Add this method for debugging
-    private void debugFirebaseNotifications() {
-        if (rtcJoiner == null) return;
+    /**
+     * Clean up replay buffer resources including VideoSink
+     */
+    private void cleanupReplayBufferResources() {
+        // Remove VideoSink from video track if it exists
+        if (replayBufferVideoSink != null && rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null) {
+            try {
+                rtcJoiner.getLocalVideoTrack().removeSink(replayBufferVideoSink);
+                Log.d(TAG, "Removed replay buffer VideoSink from video track");
+            } catch (Exception e) {
+                Log.e(TAG, "Error removing replay buffer VideoSink: " + e.getMessage());
+            }
+            replayBufferVideoSink = null;
+        }
 
-        Log.d(TAG, "=== DEBUGGING FIREBASE NOTIFICATIONS ===");
-        Log.d(TAG, "Session ID: " + getSessionId());
-        Log.d(TAG, "Host Email: " + (rtcJoiner.hostEmail != null ? rtcJoiner.hostEmail : "null"));
+        // Release MediaRecorder
+        releaseReplayBufferRecorder();
+    }
 
-        // You can call this method after a detection to verify the data is being saved
-        String sessionId = getSessionId();
-        if (sessionId != null && rtcJoiner.hostEmail != null) {
-            String formattedHostEmail = rtcJoiner.hostEmail.replace(".", "_");
+    /**
+     * Release replay buffer MediaRecorder resources
+     */
+    private void releaseReplayBufferRecorder() {
+        if (replayBufferRecorder != null) {
+            try {
+                replayBufferRecorder.reset();
+            } catch (Exception e) {
+                Log.e(TAG, "Error resetting replay buffer MediaRecorder", e);
+            }
 
-            FirebaseDatabase.getInstance()
-                    .getReference("users")
-                    .child(formattedHostEmail)
-                    .child("sessions")
-                    .child(sessionId)
-                    .child("detection_events")
-                    .get()
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            DataSnapshot snapshot = task.getResult();
-                            Log.d(TAG, "Detection events found: " + snapshot.exists());
-                            Log.d(TAG, "Event count: " + snapshot.getChildrenCount());
-                            for (DataSnapshot event : snapshot.getChildren()) {
-                                Log.d(TAG, "Event: " + event.getKey() + " = " + event.getValue());
-                            }
-                        } else {
-                            Log.e(TAG, "Failed to fetch detection events", task.getException());
-                        }
-                    });
+            try {
+                replayBufferRecorder.release();
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing replay buffer MediaRecorder", e);
+            }
+
+            replayBufferRecorder = null;
         }
     }
 
     // Add this new method to your CameraActivity class
     private void showDetectionSettingsDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        
-        // Inflate the custom layout
+        builder.setTitle("Detection Settings");
+
+        // Inflate custom layout
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_detection_settings, null);
         
-        // Get references to all the UI elements
+        // Get references to views - you'll need to create this layout file
         SeekBar soundThresholdSeekBar = view.findViewById(R.id.soundThresholdSeekBar);
         TextView soundThresholdValue = view.findViewById(R.id.soundThresholdValue);
         com.google.android.material.textfield.TextInputEditText soundLatencyInput = view.findViewById(R.id.soundLatencyInput);
         com.google.android.material.textfield.TextInputEditText personLatencyInput = view.findViewById(R.id.personLatencyInput);
-        
-        // Initialize with current values
-        if (soundDetection != null) {
-            int currentThreshold = soundDetection.getSoundThreshold();
-            soundThresholdSeekBar.setProgress(currentThreshold);
-            soundThresholdValue.setText(String.valueOf(currentThreshold));
-            
-            int currentSoundLatency = (int) (soundDetection.getDetectionLatency());
-            soundLatencyInput.setText(String.valueOf(currentSoundLatency));
-        }
-        
-        if (personDetection != null) {
-            int currentPersonLatency = personDetection.getDetectionLatency() / 1000;
-            personLatencyInput.setText(String.valueOf(currentPersonLatency));
-        }
-        
-        // Set up SeekBar listener for sound threshold
-        soundThresholdSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                soundThresholdValue.setText(String.valueOf(progress));
-            }
 
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
+        // Initialize sound threshold
+        if (soundThresholdSeekBar != null && soundThresholdValue != null) {
+            soundThresholdSeekBar.setMax(10000);
+            soundThresholdSeekBar.setProgress(soundDetection.getSoundThreshold());
+            soundThresholdValue.setText(String.valueOf(soundDetection.getSoundThreshold()));
 
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-        
-        // Create the dialog
-        AlertDialog dialog = builder.setView(view)
-                .setCancelable(true)
-                .create();
-        
-        // Set up button listeners
-        com.google.android.material.button.MaterialButton btnSave = view.findViewById(R.id.btnSave);
-        com.google.android.material.button.MaterialButton btnCancel = view.findViewById(R.id.btnCancel);
-        
-        btnSave.setOnClickListener(v -> {
+            soundThresholdSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    soundThresholdValue.setText(String.valueOf(progress));
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {}
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
+        }
+
+        // Initialize latency inputs
+        if (soundLatencyInput != null) {
+            int currentSoundLatencySeconds = (int) (soundDetection.getDetectionLatency() / 1000);
+            soundLatencyInput.setText(String.valueOf(currentSoundLatencySeconds));
+        }
+
+        if (personLatencyInput != null) {
+            int currentPersonLatencySeconds = personDetection.getDetectionLatency() / 1000;
+            personLatencyInput.setText(String.valueOf(currentPersonLatencySeconds));
+        }
+
+        builder.setView(view);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
             try {
                 // Save sound threshold
-                int newThreshold = soundThresholdSeekBar.getProgress();
-                if (soundDetection != null) {
-                    soundDetection.setSoundThreshold(newThreshold);
+                if (soundThresholdSeekBar != null) {
+                    int threshold = soundThresholdSeekBar.getProgress();
+                    soundDetection.setSoundThreshold(threshold);
                 }
-                
+
                 // Save sound latency
-                String soundLatencyStr = soundLatencyInput.getText().toString().trim();
-                if (!soundLatencyStr.isEmpty()) {
-                    int soundLatencySeconds = Integer.parseInt(soundLatencyStr);
-                    if (soundLatencySeconds >= 1 && soundLatencySeconds <= 300) {
-                        if (soundDetection != null) {
-                            soundDetection.setDetectionLatency(soundLatencySeconds * 1000);
+                if (soundLatencyInput != null) {
+                    String input = soundLatencyInput.getText().toString().trim();
+                    if (!input.isEmpty()) {
+                        int latencySeconds = Integer.parseInt(input);
+                        if (latencySeconds >= 1 && latencySeconds <= 300) {
+                            soundDetection.setDetectionLatency(latencySeconds * 1000);
                         }
-                    } else {
-                        Toast.makeText(this, "Sound latency must be between 1 and 300 seconds", Toast.LENGTH_SHORT).show();
-                        return;
                     }
                 }
-                
+
                 // Save person latency
-                String personLatencyStr = personLatencyInput.getText().toString().trim();
-                if (!personLatencyStr.isEmpty()) {
-                    int personLatencySeconds = Integer.parseInt(personLatencyStr);
-                    if (personLatencySeconds >= 1 && personLatencySeconds <= 300) {
-                        if (personDetection != null) {
-                            personDetection.setDetectionLatency(personLatencySeconds * 1000);
+                if (personLatencyInput != null) {
+                    String input = personLatencyInput.getText().toString().trim();
+                    if (!input.isEmpty()) {
+                        int latencySeconds = Integer.parseInt(input);
+                        if (latencySeconds >= 1 && latencySeconds <= 300) {
+                            personDetection.setDetectionLatency(latencySeconds * 1000);
                         }
-                    } else {
-                        Toast.makeText(this, "Person latency must be between 1 and 300 seconds", Toast.LENGTH_SHORT).show();
-                        return;
                     }
                 }
-                
-                Toast.makeText(this, "Detection settings updated successfully!", Toast.LENGTH_SHORT).show();
-                dialog.dismiss();
-                
+
+                Toast.makeText(this, "Detection settings updated", Toast.LENGTH_SHORT).show();
             } catch (NumberFormatException e) {
-                Toast.makeText(this, "Please enter valid numbers for latency values", Toast.LENGTH_SHORT).show();
-            } catch (Exception e) {
-                Toast.makeText(this, "Error saving settings: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Error saving detection settings", e);
+                Toast.makeText(this, "Please enter valid numbers", Toast.LENGTH_SHORT).show();
             }
         });
-        
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
-        
-        // Show the dialog
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        AlertDialog dialog = builder.create();
         dialog.show();
     }
-
-    // ...existing code...
 }

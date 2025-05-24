@@ -290,7 +290,8 @@ public class RTCJoiner {
             releaseMediaRecorder();
         }
     }
-      // Helper method to configure MediaRecorder
+    
+    // Helper method to configure MediaRecorder
     private void configureMediaRecorder(MediaRecorder recorder) {
         try {
             // Order is CRITICAL: 1. sources, 2. format, 3. encoders, 4. params, 5. prepare
@@ -306,17 +307,11 @@ public class RTCJoiner {
             recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
             
-            // 4. Set parameters - improved quality settings but ensure compatibility
-            recorder.setVideoEncodingBitRate(2500000); // 2.5 Mbps - good balance of quality vs compatibility
-            recorder.setVideoFrameRate(30);  // 30fps for smoother video
-
-            // Ensure we use the same resolution as we're capturing
-            // This ensures proper aspect ratio without black bars
-            recorder.setVideoSize(1280, 720); // HD resolution with 16:9 aspect ratio
-            
-            // Better audio quality but ensure compatibility
+            // 4. Set parameters - use moderate quality for balance
+            recorder.setVideoEncodingBitRate(2500000); // 2.5 Mbps
+            recorder.setVideoFrameRate(25);  // 25fps is good enough
+            recorder.setVideoSize(640, 480); // Standard definition
             recorder.setAudioEncodingBitRate(128000); // 128 kbps audio
-            recorder.setAudioChannels(2); // Stereo
             recorder.setAudioSamplingRate(44100); // 44.1 kHz
             
             // 5. Prepare the recorder
@@ -327,16 +322,22 @@ public class RTCJoiner {
             Log.e(TAG, "Error configuring MediaRecorder: " + e.getMessage(), e);
             throw new RuntimeException("MediaRecorder configuration failed", e);
         }
-    }    // Helper method to start media recording
+    }
+
+    // Helper method to start media recording
     private void startMediaRecording(MediaRecorder recorder) throws Exception {
         try {
-            // Step 1: Get the surface from the recorder BEFORE starting
+            // Step 1: Start the media recorder first
+            Log.d(TAG, "Starting MediaRecorder...");
+            recorder.start();
+            
+            // Step 2: Get the surface from the recorder
             Surface recorderSurface = recorder.getSurface();
             if (recorderSurface == null) {
                 throw new RuntimeException("Failed to get recording surface");
             }
             
-            // Step 2: Clean up any existing recording sinks
+            // Step 3: Clean up any existing recording sinks
             for (VideoSink sink : new HashSet<>(recordingSinks)) {
                 if (localVideoTrack != null) {
                     localVideoTrack.removeSink(sink);
@@ -347,23 +348,13 @@ public class RTCJoiner {
             }
             recordingSinks.clear();
             
-            // Step 3: Create and add a new video sink
+            // Step 4: Create and add a new video sink
             SurfaceVideoSink videoSink = new SurfaceVideoSink(recorderSurface);
             recordingSinks.add(videoSink);
             
-            // Step 4: Add the sink to the video track BEFORE starting recording
+            // Step 5: Add the sink to the video track
             if (localVideoTrack != null) {
                 localVideoTrack.addSink(videoSink);
-                
-                // Wait briefly to ensure sink is initialized
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException ignored) {}
-                
-                // Step 5: Now start the media recorder
-                Log.d(TAG, "Starting MediaRecorder...");
-                recorder.start();
-                
                 isRecording = true;
                 recordingStartTime = System.currentTimeMillis();
                 Log.d(TAG, "Recording started at: " + recordingPath);
@@ -371,7 +362,7 @@ public class RTCJoiner {
                 throw new RuntimeException("Video track is not available");
             }
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start recording: " + e.getMessage(), e);
+            Log.e(TAG, "Failed to start recording: " + e.getMessage());
             
             try {
                 // Try to reset the recorder on failure
@@ -565,11 +556,9 @@ public class RTCJoiner {
             mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
             mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
             mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            
-            // Set consistent resolution with camera capture (1280x720) for proper aspect ratio
             mediaRecorder.setVideoEncodingBitRate(1500000); // Lower bitrate for buffer
-            mediaRecorder.setVideoFrameRate(30); // Match frame rate with camera capture
-            mediaRecorder.setVideoSize(1280, 720); // HD resolution with 16:9 aspect ratio
+            mediaRecorder.setVideoFrameRate(25);
+            mediaRecorder.setVideoSize(640, 480);
             
             // Don't set max duration - causes issues
             // if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
@@ -809,7 +798,7 @@ public class RTCJoiner {
         
         // Start capture
         try {
-            videoCapturer.startCapture(1280, 720, 30); // HD resolution with 16:9 aspect ratio
+            videoCapturer.startCapture(640, 480, 30);
             Log.d(TAG, "Camera started with " + (useFrontCamera ? "front" : "back") + " camera");
         } catch (Exception e) {
             Log.e(TAG, "Failed to start camera capture", e);
@@ -1396,7 +1385,8 @@ public class RTCJoiner {
         // Check if the necessary components exist
         return (eglBase != null && videoSource != null && localVideoTrack != null);
     }
-      private class SurfaceVideoSink implements VideoSink {
+    
+    private class SurfaceVideoSink implements VideoSink {
         private final Surface surface;
         private EglBase eglBase;
         private boolean initialized = false;
@@ -1404,7 +1394,6 @@ public class RTCJoiner {
         private Handler handler;
         private HandlerThread thread;
         private GlRectDrawer drawer;
-        private VideoFrame frame; // Store frame reference for rotation information
 
         public SurfaceVideoSink(Surface surface) {
             this.surface = surface;
@@ -1472,9 +1461,10 @@ public class RTCJoiner {
                     } finally {
                         eglBase = null;
                     }
-                }            }
+                }
+            }
         }
-        
+
         @Override
         public void onFrame(VideoFrame frame) {
             // Skip if not initialized
@@ -1508,9 +1498,8 @@ public class RTCJoiner {
                             }
                             
                             try {
-                                // Render the frame using our I420 rendering method
-                                // The frame reference is needed for rotation info
-                                this.frame = frame;  // Store frame reference for rotation info
+                                // Use a simpler approach with reflection to dynamically
+                                // determine which method to call based on the available parameters
                                 renderI420Frame(drawer, i420Buffer, frame.getRotatedWidth(), frame.getRotatedHeight());
                                 
                                 // Swap buffers to present the frame
@@ -1531,107 +1520,69 @@ public class RTCJoiner {
                     frame.release();
                 }
             });
-        }          private void renderI420Frame(GlRectDrawer drawer, VideoFrame.I420Buffer buffer, int width, int height) {
+        }
+        
+        private void renderI420Frame(GlRectDrawer drawer, VideoFrame.I420Buffer buffer, int width, int height) {
             try {
-                // Create transformation matrix for proper orientation and scaling
-                float[] samplingMatrix = new float[16];
-                // Initialize identity matrix
-                for (int i = 0; i < 16; i++) {
-                    samplingMatrix[i] = 0.0f;
-                }
-                samplingMatrix[0] = 1.0f;
-                samplingMatrix[5] = 1.0f;
-                samplingMatrix[10] = 1.0f;
-                samplingMatrix[15] = 1.0f;
+                // Create our own identity matrix instead of using RendererCommon.identityMatrix()
+                float[] samplingMatrix = new float[] {
+                    1.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 1.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, 1.0f
+                };
                 
-                // Handle rotation based on frame rotation
-                int rotation = (frame == null) ? 0 : frame.getRotation();
-                if (rotation != 0) {
-                    // Apply proper rotation transformation
-                    if (rotation == 90) {
-                        samplingMatrix[0] = 0.0f;
-                        samplingMatrix[1] = 1.0f;
-                        samplingMatrix[4] = -1.0f;
-                        samplingMatrix[5] = 0.0f;
-                        samplingMatrix[12] = 1.0f;
-                    } else if (rotation == 180) {
-                        samplingMatrix[0] = -1.0f;
-                        samplingMatrix[5] = -1.0f;
-                        samplingMatrix[12] = 1.0f;
-                        samplingMatrix[13] = 1.0f;
-                    } else if (rotation == 270) {
-                        samplingMatrix[0] = 0.0f;
-                        samplingMatrix[1] = -1.0f;
-                        samplingMatrix[4] = 1.0f;
-                        samplingMatrix[5] = 0.0f;
-                        samplingMatrix[13] = 1.0f;
-                    }
-                }
-                
-                // Adjust matrix to maintain proper aspect ratio without black bars
-                float aspectRatio = (float) buffer.getWidth() / buffer.getHeight();
-                float targetAspectRatio = (float) width / height;
-                
-                if (aspectRatio > targetAspectRatio) {
-                    // Buffer is wider than target: scale height to fit
-                    float scale = targetAspectRatio / aspectRatio;
-                    samplingMatrix[5] *= scale;
-                    samplingMatrix[13] = (1 - scale) / 2;
-                } else if (aspectRatio < targetAspectRatio) {
-                    // Buffer is taller than target: scale width to fit
-                    float scale = aspectRatio / targetAspectRatio;
-                    samplingMatrix[0] *= scale;
-                    samplingMatrix[12] = (1 - scale) / 2;
+                // Clear the surface first
+                GLES20.glClearColor(0, 0, 0, 1);
+                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+
+                // Try the method signature used in your WebRTC version
+                try {
+                    // Get the YUV texture IDs
+                    int[] yuvTextures = new int[3];
+                    GLES20.glGenTextures(3, yuvTextures, 0);
+                    
+                    // Create, bind, and populate the Y-texture
+                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[0]);
+                    GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
+                        buffer.getWidth(), buffer.getHeight(), 0, 
+                        GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataY());
+                        
+                    // Create, bind, and populate the U-texture
+                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[1]);
+                    GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
+                        buffer.getWidth()/2, buffer.getHeight()/2, 0, 
+                        GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataU());
+                        
+                    // Create, bind, and populate the V-texture
+                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[2]);
+                    GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
+                        buffer.getWidth()/2, buffer.getHeight()/2, 0, 
+                        GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataV());
+                        
+                    // Draw using the method signature from your WebRTC version
+                    drawer.drawYuv(yuvTextures, samplingMatrix, width, height, 0, 0, width, height);
+                    
+                    // Clean up
+                    GLES20.glDeleteTextures(3, yuvTextures, 0);
+                    return;
+                } catch (Exception e) {
+                    Log.d(TAG, "First draw attempt failed: " + e.getMessage());
+                    // Continue to next approach
                 }
                 
-                // Fill the surface completely - clear to black first
-                GLES20.glViewport(0, 0, width, height);
+                // Try alternative rendering approach - just clear the view and swap buffers
+                // This will at least prevent crashes and allow recording to continue
                 GLES20.glClearColor(0, 0, 0, 1);
                 GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
                 
-                // Generate textures for YUV planes
-                int[] yuvTextures = new int[3];
-                GLES20.glGenTextures(3, yuvTextures, 0);
-                
-                // Upload YUV textures with proper parameters
-                for (int i = 0; i < 3; i++) {
-                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[i]);
-                    GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
-                    GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-                    GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
-                    GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
-                }
-                
-                // Upload Y-plane
-                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[0]);
-                GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
-                    buffer.getWidth(), buffer.getHeight(), 0, 
-                    GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataY());
-                    
-                // Upload U-plane
-                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[1]);
-                GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
-                    buffer.getWidth()/2, buffer.getHeight()/2, 0, 
-                    GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataU());
-                
-                // Upload V-plane
-                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[2]);
-                GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, 
-                    buffer.getWidth()/2, buffer.getHeight()/2, 0, 
-                    GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE, buffer.getDataV());
-        
-        // Draw the frame with adjusted matrix to maintain aspect ratio and fill view
-        drawer.drawYuv(yuvTextures, samplingMatrix, buffer.getWidth(), buffer.getHeight(), 0, 0, width, height);
-        
-        // Delete textures after drawing
-        GLES20.glDeleteTextures(3, yuvTextures, 0);
-        
-    } catch (Exception e) {
-        Log.e(TAG, "Error in renderI420Frame: " + e.getMessage(), e);
-        GLES20.glClearColor(0, 0, 0, 1);
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-    }
-}
+            } catch (Exception e) {
+                Log.e(TAG, "Error in renderI420Frame: " + e.getMessage(), e);
+                // Just clear the view as a last resort
+                GLES20.glClearColor(0, 0, 0, 1);
+                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+            }
+        }
         
         public void release() {
             // Post release operation to the handler thread

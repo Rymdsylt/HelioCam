@@ -149,9 +149,7 @@ public class CameraActivity extends AppCompatActivity {
     // You might also want to add a button or menu option to allow users to change the directory later
     public void selectOutputDirectory() {
         openDirectoryPicker();
-    }
-
-    @Override
+    }    @Override
     protected void onDestroy() {
         super.onDestroy();
         String sessionId = getSessionId();
@@ -168,10 +166,9 @@ public class CameraActivity extends AppCompatActivity {
                         }
                     });
         }
-        if (personDetection != null) {
-            personDetection.stop();
-        }
-        rtcJoiner.dispose();
+        
+        // Make sure to properly dispose all resources
+        disposeResources();
     }
 
     @Override
@@ -204,9 +201,7 @@ public class CameraActivity extends AppCompatActivity {
                 .setCancelable(true)
                 .create()
                 .show();
-    }
-
-    // Dispose resources properly
+    }    // Dispose resources properly
     private void disposeResources() {
         if (videoCapturer != null) {
             try {
@@ -222,8 +217,17 @@ public class CameraActivity extends AppCompatActivity {
         if (rootEglBase != null) {
             rootEglBase.release();
         }
+          // Ensure proper bitmap cleanup
+        if (personDetection != null) {
+            personDetection.shutdown();
+        } else {
+            // If personDetection is null but we still need to clean up bitmap resources
+            com.summersoft.heliocam.utils.ImageUtils.clearBitmapPool();
+            com.summersoft.heliocam.utils.ImageUtils.clearDetectionBitmapPool();
+        }
+        
         Log.d("CameraActivity", "Resources disposed successfully.");
-    }    @Override
+    }@Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
@@ -405,13 +409,13 @@ public class CameraActivity extends AppCompatActivity {
         
         // Update detection modules with directory manager
         if (personDetection != null) {
-            personDetection.setDirectoryUri(directoryManager.hasValidDirectory() ? 
-                directoryManager.baseDirectoryUri : null);
+            personDetection.setDirectoryUri(directoryManager.hasValidDirectory() ?
+                    directoryManager.getBaseDirectoryUri() : null);
         }
         
         if (soundDetection != null) {
-            soundDetection.setDirectoryUri(directoryManager.hasValidDirectory() ? 
-                directoryManager.baseDirectoryUri : null);
+            soundDetection.setDirectoryUri(directoryManager.hasValidDirectory() ?
+                    directoryManager.getBaseDirectoryUri() : null);
         }
     }// Add this method to initialize camera-related components
 
@@ -528,7 +532,7 @@ public class CameraActivity extends AppCompatActivity {
                 return true;            case R.id.option_4: // Replay Buffer
                 try {
                     if (!isReplayBufferRunning) {
-                        startDirectReplayBufferRecording();
+                        startReplayBuffer();
                         Toast.makeText(this, "Replay buffer started", Toast.LENGTH_SHORT).show();
                     } else {
                         stopDirectReplayBufferRecording();
@@ -965,16 +969,25 @@ public class CameraActivity extends AppCompatActivity {
     }
     public String getSessionId() {
         return getIntent().getStringExtra("session_id");
-    }
+    }    
 
     /**
      * Start recording from person detection - public method for PersonDetection class
      * @return true if recording started successfully, false otherwise
      */
     public boolean startRecordingFromDetection() {
+        return startRecordingFromDetection("Person_Detected");
+    }
+
+    /**
+     * Start recording from person detection with custom filename prefix
+     * @param filenamePrefix Custom prefix for the filename (e.g., "Person_Detected")
+     * @return true if recording started successfully, false otherwise
+     */
+    public boolean startRecordingFromDetection(String filenamePrefix) {
         try {
             if (canStartRecording()) {
-                startRecording();
+                startRecording(filenamePrefix);
                 return isRecording;
             }
             return false;
@@ -1050,12 +1063,18 @@ public class CameraActivity extends AppCompatActivity {
         }
 
         return true;
-    }
-
-    /**
+    }    /**
      * Start recording the camera feed directly (bypassing RTCJoiner for better performance)
      */
     private void startRecording() {
+        startRecording(null);
+    }
+
+    /**
+     * Start recording the camera feed with custom filename prefix
+     * @param filenamePrefix Optional prefix for the filename (null for default naming)
+     */
+    private void startRecording(String filenamePrefix) {
         if (isRecording) {
             Log.w(TAG, "Recording is already in progress");
             return;
@@ -1069,8 +1088,14 @@ public class CameraActivity extends AppCompatActivity {
         }
 
         try {
-            // Generate a filename with timestamp
-            String fileName = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + ".mp4";
+            // Generate a filename with timestamp and optional prefix
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+            String fileName;
+            if (filenamePrefix != null && !filenamePrefix.trim().isEmpty()) {
+                fileName = filenamePrefix + "_" + timestamp + ".mp4";
+            } else {
+                fileName = timestamp + ".mp4";
+            }
 
             // Try to use the user-selected directory first
             File recordingDir;
@@ -1646,6 +1671,13 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     /**
+     * Stop direct replay buffer recording - wrapper for stopReplayBuffer
+     */
+    private void stopDirectReplayBufferRecording() {
+        stopReplayBuffer();
+    }
+
+    /**
      * Stop replay buffer and save the recording
      */
     private void stopReplayBuffer() {
@@ -1970,5 +2002,30 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
-    // ...existing code...
+    @Override
+    protected void onPause() {
+        super.onPause();
+        
+        // If we're pausing the activity, we should clean up some resources to avoid memory leaks
+        if (isFinishing()) {
+            // Only do full cleanup if we're actually finishing
+            disposeResources();
+        } else {
+            // For temporary pause, we might need lighter cleanup
+            if (personDetection != null) {
+                personDetection.stop(); // Stop detection but don't fully shut down
+            }
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        
+        // Similar to onPause, but we might want different behavior
+        if (isFinishing()) {
+            // Only do full cleanup if we're actually finishing
+            disposeResources();
+        }
+    }
 }

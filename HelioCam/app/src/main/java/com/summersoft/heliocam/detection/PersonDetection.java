@@ -11,7 +11,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
-import android.media.MediaScannerConnection;
 
 import androidx.documentfile.provider.DocumentFile;
 
@@ -52,10 +51,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class PersonDetection implements VideoSink {
     private static final String TAG = "PersonDetection";
     private static final String MODEL_FILE = "yolov8n.tflite";
-    private static final String LABEL_FILE = "labels.txt";
-    private static final float CONFIDENCE_THRESHOLD = 0.6f;
-    private static final int INPUT_WIDTH = 320;
-    private static final int INPUT_HEIGHT = 320;
+    private static final String LABEL_FILE = "labels.txt";    private static final float CONFIDENCE_THRESHOLD = 0.3f; // Reasonable threshold for person detection
+    private static final int INPUT_WIDTH = 640;
+    private static final int INPUT_HEIGHT = 640;
 
     private static final int REQUEST_DIRECTORY_PICKER = 1001;
     private Uri savedDirectoryUri = null;
@@ -64,36 +62,54 @@ public class PersonDetection implements VideoSink {
     private final Context context;
     private final Handler handler;
     private final Executor executor;
-    private final RTCJoiner webRTCClient;
-    private Interpreter tflite;
+    private final RTCJoiner webRTCClient;    private Interpreter tflite;
     private List<String> labels;
-
-    // Use AtomicBoolean for thread-safe state management
+    
+    // Cache model input/output dimensions for performance
+    private int modelInputWidth = INPUT_WIDTH;
+    private int modelInputHeight = INPUT_HEIGHT;
+    private int[] cachedInputShape;
+    private int[] cachedOutputShape;    // Use AtomicBoolean for thread-safe state management
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private final AtomicBoolean isInLatencyPeriod = new AtomicBoolean(false);
     private final AtomicBoolean isModelLoaded = new AtomicBoolean(false);
     private final AtomicBoolean isProcessingFrame = new AtomicBoolean(false);
     private final AtomicInteger frameCounter = new AtomicInteger(0);
-    private DetectionDirectoryManager directoryManager;
-
-
+    private DetectionDirectoryManager directoryManager;    // Enhanced performance tracking and optimization
+    private long lastFrameProcessTime = 0;
+    private long averageInferenceTime = 50; // Start with reasonable estimate
+    private int processedFrameCount = 0;
+    
+    // Frame tracking for debugging
+    private final AtomicInteger totalFramesReceived = new AtomicInteger(0);
+    private final AtomicInteger framesProcessedCount = new AtomicInteger(0);
+    private long lastDebugLogTime = 0;
+    private static final long DEBUG_LOG_INTERVAL = 5000; // Log every 5 seconds
+    
+    // Optimized frame skipping with adaptive behavior
+    private int dynamicSkipFactor = 4; // Start with power-of-2 value
+    private long lastSkipFactorUpdate = 0;
+    private static final long SKIP_FACTOR_UPDATE_INTERVAL = 2000; // Update every 2 seconds
 
     private boolean hasPromptedForDirectory = false;
 
     private long lastDetectionTime = 0;
+    private int lastDetectedPersonCount = 0; // Track the number of people detected in the last detection
     private DetectionListener detectionListener;
     private YuvConverter yuvConverter = new YuvConverter();
     private final Paint boxPaint;    // Detection latency variables
-    private int detectionLatency = 5000; // Default 5 seconds (in milliseconds)
+    private int detectionLatency = 2000; // Reduced to 2 seconds for faster testing
     private final Handler latencyHandler = new Handler(Looper.getMainLooper());
     private final Runnable resumeDetectionRunnable = new Runnable() {
         @Override
         public void run() {
             if (isInLatencyPeriod.compareAndSet(true, false)) {
-                Log.d(TAG, "Detection latency period ended. Resuming detection.");
+                Log.i(TAG, "Detection latency period ended. Resuming detection.");
                 if (detectionListener != null) {
                     detectionListener.onDetectionStatusChanged(false);
                 }
+            } else {
+                Log.w(TAG, "Attempted to end latency period but was not in latency period");
             }
         }
     };
@@ -103,9 +119,7 @@ public class PersonDetection implements VideoSink {
     private boolean autoRecordingEnabled = true; // Toggle for automatic recording on detection
     private final AtomicBoolean isRecordingVideo = new AtomicBoolean(false);
     private final Handler recordingHandler = new Handler(Looper.getMainLooper());
-    private Runnable stopRecordingRunnable;
-
-    private void run() {
+    private Runnable stopRecordingRunnable;    private void run() {
         try {
             // Check if model files exist before loading
             try {
@@ -119,32 +133,46 @@ public class PersonDetection implements VideoSink {
 
             // Load model and labels using FileUtils
             MappedByteBuffer model = FileUtils.loadModelFile(context, MODEL_FILE);
-            labels = FileUtils.readLabels(context, LABEL_FILE);
-
-            // More aggressive optimization for the interpreter
+            labels = FileUtils.readLabels(context, LABEL_FILE);            // Ultra-optimized interpreter settings for maximum performance
             Interpreter.Options options = new Interpreter.Options();
             options.setUseXNNPACK(true);
-            options.setNumThreads(2);  // Use fewer threads to avoid contention
+            options.setNumThreads(Math.min(2, Runtime.getRuntime().availableProcessors())); // Reduced threads for lower latency
+            
+            // Aggressive performance optimizations
+            options.setAllowFp16PrecisionForFp32(true); // Allow reduced precision for speed
+            options.setAllowBufferHandleOutput(true);   // Enable buffer handle output
+            options.setUseNNAPI(false); // Disable NNAPI for consistent performance
+            
+            // Additional optimizations for detection workload
+            options.setCancellable(false); // Disable cancellation for better performance
+              // Experimental: Enable CPU backend optimizations
+            // Note: Using CPU backend by default (no GPU delegate added)
+            // This ensures consistent performance across different devices
 
             tflite = new Interpreter(model, options);
             
-            // Verify model input/output shapes
-            int[] inputShape = tflite.getInputTensor(0).shape();
-            int[] outputShape = tflite.getOutputTensor(0).shape();
+            // Cache model input/output shapes for ultra-fast access
+            cachedInputShape = tflite.getInputTensor(0).shape();
+            cachedOutputShape = tflite.getOutputTensor(0).shape();
             
-            Log.d(TAG, "Model input shape: " + Arrays.toString(inputShape));
-            Log.d(TAG, "Model output shape: " + Arrays.toString(outputShape));
+            // Update cached dimensions for optimal performance
+            if (cachedInputShape.length >= 3) {
+                modelInputWidth = cachedInputShape[2];
+                modelInputHeight = cachedInputShape[1];
+            }
             
-            Log.d(TAG, "Model loaded successfully with optimized settings");
+            Log.d(TAG, "Model loaded with ultra-optimized settings:");
+            Log.d(TAG, "  Input shape: " + Arrays.toString(cachedInputShape) + 
+                  " -> " + modelInputWidth + "x" + modelInputHeight);
+            Log.d(TAG, "  Output shape: " + Arrays.toString(cachedOutputShape));
+            Log.d(TAG, "  Threads: " + Math.min(3, Runtime.getRuntime().availableProcessors()));
+            
             isModelLoaded.set(true);
         } catch (IOException e) {
             Log.e(TAG, "Error loading model", e);
             handler.post(() -> Toast.makeText(context, "Failed to load detection model: " + e.getMessage(), Toast.LENGTH_LONG).show());
         }
-    }
-
-    public interface DetectionListener {
-        void onPersonDetected(Bitmap detectionBitmap);
+    }public interface DetectionListener {
         void onDetectionStatusChanged(boolean isDetecting);
     }
 
@@ -177,13 +205,18 @@ public class PersonDetection implements VideoSink {
         } catch (Exception e) {
             Log.e(TAG, "Error checking model files: " + e.getMessage());
         }
-    }
-
-    public PersonDetection(Context context, RTCJoiner webRTCClient) {
+    }    public PersonDetection(Context context, RTCJoiner webRTCClient) {
         this.context = context;
         this.webRTCClient = webRTCClient;
         this.handler = new Handler(Looper.getMainLooper());
-        this.executor = Executors.newSingleThreadExecutor();
+        
+        // Create high-priority executor for detection processing
+        this.executor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "PersonDetection-Worker");
+            t.setPriority(Thread.MAX_PRIORITY); // Highest priority for smooth detection
+            return t;
+        });
+        
         this.boxPaint = new Paint();
         this.boxPaint.setColor(Color.RED);
         this.boxPaint.setStyle(Paint.Style.STROKE);
@@ -198,16 +231,26 @@ public class PersonDetection implements VideoSink {
 
     public void setDetectionListener(DetectionListener listener) {
         this.detectionListener = listener;
-    }
-
-    public void start() {
+    }    public void start() {
         if (isRunning.compareAndSet(false, true)) {
-            Log.d(TAG, "Person detection started");
-            // Reset the latency period when starting
-            isInLatencyPeriod.set(false);
+            Log.i(TAG, "Person detection started - Model loaded: " + isModelLoaded.get());
+            // Force reset the latency period when starting
+            if (isInLatencyPeriod.compareAndSet(true, false)) {
+                Log.i(TAG, "Forced reset of latency period on start");
+                latencyHandler.removeCallbacks(resumeDetectionRunnable);
+            }
+            
+            // Reset frame counters for fresh debug session
+            totalFramesReceived.set(0);
+            framesProcessedCount.set(0);
+            lastDebugLogTime = System.currentTimeMillis();
+            
+            // Ensure we're not stuck in latency period
             latencyHandler.removeCallbacks(resumeDetectionRunnable);
+        } else {
+            Log.d(TAG, "Detection already running");
         }
-    }    public void stop() {
+    }public void stop() {
         if (isRunning.compareAndSet(true, false)) {
             Log.d(TAG, "Person detection stopped");
             isInLatencyPeriod.set(false);
@@ -221,9 +264,7 @@ public class PersonDetection implements VideoSink {
             // Don't close the interpreter here to avoid reloading it
             // Just stop the detection process
         }
-    }
-
-    public void shutdown() {
+    }    public void shutdown() {
         stop();
         
         // Clean up video recording resources
@@ -231,6 +272,10 @@ public class PersonDetection implements VideoSink {
             recordingHandler.removeCallbacks(stopRecordingRunnable);
             stopRecordingRunnable = null;
         }
+        
+        // Clean up the bitmap pools to prevent memory leaks
+        ImageUtils.clearBitmapPool();
+        ImageUtils.clearDetectionBitmapPool();
         
         if (tflite != null) {
             tflite.close();
@@ -270,15 +315,16 @@ public class PersonDetection implements VideoSink {
      * Force exit from latency period and resume detection immediately
      */
     public void forceResumeDetection() {
-        if (isInLatencyPeriod.get()) {
+        if (isInLatencyPeriod.compareAndSet(true, false)) {
             latencyHandler.removeCallbacks(resumeDetectionRunnable);
-            isInLatencyPeriod.set(false);
-            Log.d(TAG, "Detection resumed forcefully");
+            Log.w(TAG, "Detection resumed forcefully");
             if (detectionListener != null) {
                 detectionListener.onDetectionStatusChanged(false);
             }
+        } else {
+            Log.d(TAG, "Force resume called but not in latency period");
         }
-    }    /**
+    }/**
      * Set the video recording duration in milliseconds.
      * This defines how long to record video when a person is detected.
      * Duration is constrained between 3-30 seconds for optimal performance.
@@ -321,10 +367,8 @@ public class PersonDetection implements VideoSink {
     public void setAutoRecordingEnabled(boolean enabled) {
         this.autoRecordingEnabled = enabled;
         Log.d(TAG, "Auto recording " + (enabled ? "enabled" : "disabled"));
-    }
-
-    /**
-     * Get whether automatic recording is enabled for person detection.
+    }    /**
+     * Check whether automatic recording is enabled for person detection.
      *
      * @return true if auto recording is enabled, false otherwise
      */
@@ -333,9 +377,53 @@ public class PersonDetection implements VideoSink {
     }
 
     /**
-     * Start video recording for the configured duration when person is detected
+     * Test the detection system by forcing a mock detection
+     * Useful for debugging latency period issues
      */
-    private void startTimedVideoRecording() {
+    public void testDetection() {
+        Log.i(TAG, "Testing detection system...");
+        Log.i(TAG, "Current state - Running: " + isRunning.get() + ", Model loaded: " + isModelLoaded.get() + 
+                  ", In latency: " + isInLatencyPeriod.get());
+        
+        if (!isRunning.get()) {
+            Log.w(TAG, "Detection not running - cannot test");
+            return;
+        }
+        
+        if (isInLatencyPeriod.get()) {
+            Log.w(TAG, "Currently in latency period - forcing resume for test");
+            forceResumeDetection();
+        }
+        
+        // Simulate a person detection to test the latency mechanism
+        lastDetectionTime = System.currentTimeMillis();
+        lastDetectedPersonCount = 1;
+        
+        if (isInLatencyPeriod.compareAndSet(false, true)) {
+            Log.i(TAG, "TEST: Entering latency period for " + detectionLatency + "ms");
+            
+            handler.post(() -> {
+                Toast.makeText(context, "TEST: Person detected!", Toast.LENGTH_SHORT).show();
+                if (detectionListener != null) {
+                    detectionListener.onDetectionStatusChanged(true);
+                }
+            });
+
+            // Schedule resumption
+            try {
+                latencyHandler.removeCallbacks(resumeDetectionRunnable);
+                boolean scheduled = latencyHandler.postDelayed(resumeDetectionRunnable, detectionLatency);
+                Log.i(TAG, "TEST: Latency resumption scheduled: " + scheduled);
+            } catch (Exception e) {
+                Log.e(TAG, "TEST: Failed to schedule resumption: " + e.getMessage());
+                isInLatencyPeriod.set(false);
+            }
+        }
+    }
+
+    /**
+     * Start video recording for the configured duration when person is detected
+     */    private void startTimedVideoRecording() {
         if (isRecordingVideo.compareAndSet(false, true)) {
             try {
                 // Cast context to CameraActivity to access recording methods
@@ -344,7 +432,7 @@ public class PersonDetection implements VideoSink {
                 Log.d(TAG, "Starting timed video recording for " + videoRecordingDuration + "ms");
                 
                 // Start recording using existing CameraActivity method
-                if (cameraActivity.startRecordingFromDetection()) {
+                if (cameraActivity.startRecordingFromDetection("Person_Detected")) {
                     // Schedule automatic stop after configured duration
                     stopRecordingRunnable = new Runnable() {
                         @Override
@@ -355,7 +443,7 @@ public class PersonDetection implements VideoSink {
                     recordingHandler.postDelayed(stopRecordingRunnable, videoRecordingDuration);
                     
                     uiHandler.post(() -> Toast.makeText(context, 
-                            "Recording video for " + (videoRecordingDuration / 1000) + " seconds...", 
+                            "Person detected - Recording for " + (videoRecordingDuration / 1000) + " seconds", 
                             Toast.LENGTH_SHORT).show());
                 } else {
                     // Failed to start recording, reset state
@@ -408,58 +496,217 @@ public class PersonDetection implements VideoSink {
 
     private void loadModel() {
         executor.execute(this::run);
-    }
-
-    @Override
+    }    @Override
     public void onFrame(VideoFrame frame) {
-        // Skip processing entirely if we're not ready
-        if (!isRunning.get() || !isModelLoaded.get() || isInLatencyPeriod.get()) {
-            return;
-        }
-
-        // Adaptive frame skipping based on processing load
-        int skipFactor = isProcessingFrame.get() ? 6 : 3; // Reduced for better detection
-        if (frameCounter.incrementAndGet() % skipFactor != 0) {
-            return;
-        }
-
-        // Don't process if already processing a frame
-        if (!isProcessingFrame.compareAndSet(false, true)) {
-            return;
-        }
-
-        // Retain the frame before passing to background thread
-        frame.retain();
-
-        // Process frame on executor thread
-        executor.execute(() -> {
-            try {
-                // Convert frame to bitmap with better error handling
-                Bitmap bitmap = ImageUtils.videoFrameToBitmap(frame);
-                if (bitmap != null && !bitmap.isRecycled()) {
-                    detectPerson(bitmap);
-                    // Don't recycle here - let detectPerson handle it
-                } else {
-                    Log.w(TAG, "Failed to convert frame to bitmap or bitmap is recycled");
+        // Track all frames received
+        int totalFrames = totalFramesReceived.incrementAndGet();
+          // Periodic debug logging
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastDebugLogTime > DEBUG_LOG_INTERVAL) {
+            int processed = framesProcessedCount.get();
+            Log.i(TAG, "Frame Stats - Received: " + totalFrames + ", Processed: " + processed + 
+                      ", Model loaded: " + isModelLoaded.get() + ", Running: " + isRunning.get() + 
+                      ", In latency: " + isInLatencyPeriod.get());
+            
+            // Additional debugging for latency period
+            if (isInLatencyPeriod.get()) {
+                Log.w(TAG, "STUCK IN LATENCY PERIOD - Last detection: " + (currentTime - lastDetectionTime) + "ms ago");
+                // Auto-recovery mechanism: if stuck for too long, force reset
+                if (currentTime - lastDetectionTime > detectionLatency * 3) { // 3x the latency period
+                    Log.w(TAG, "FORCING LATENCY PERIOD RESET due to timeout");
+                    forceResumeDetection();
                 }
+            }
+            
+            lastDebugLogTime = currentTime;
+        }
+        
+        // Ultra-fast early exit checks with single atomic read
+        if (!isRunning.get()) {
+            Log.v(TAG, "Frame dropped - not running");
+            return;
+        }
+        
+        if (!isModelLoaded.get()) {
+            Log.v(TAG, "Frame dropped - model not loaded");
+            return;
+        }
+        
+        if (isInLatencyPeriod.get()) {
+            Log.v(TAG, "Frame dropped - in latency period");
+            return;
+        }
+
+        // Highly optimized frame skipping - avoid expensive operations
+        int currentFrame = frameCounter.getAndIncrement();
+        if ((currentFrame & (getDynamicSkipFactor() - 1)) != 0) { // Use bitwise AND for power-of-2 skip factors
+            return;
+        }
+
+        // Lock-free processing check - exit immediately if busy
+        if (!isProcessingFrame.compareAndSet(false, true)) {
+            Log.v(TAG, "Frame dropped - processing busy");
+            return;
+        }
+
+        Log.d(TAG, "Processing frame " + totalFrames);
+
+        // Don't retain frame - work with it immediately to reduce memory pressure
+        
+        // Process frame on dedicated high-priority executor
+        executor.execute(() -> {
+            Bitmap bitmap = null;
+            
+            try {
+                framesProcessedCount.incrementAndGet();
+                
+                // Single ultra-fast conversion with early exit on failure
+                bitmap = ImageUtils.videoFrameToBitmapUltraFast(frame);
+                if (bitmap == null) {
+                    Log.w(TAG, "Failed to convert frame to bitmap");
+                    return;
+                }
+                
+                Log.d(TAG, "Frame converted to bitmap: " + bitmap.getWidth() + "x" + bitmap.getHeight());
+                  
+                // Use optimized person detection
+                detectPersonOptimized(bitmap, System.currentTimeMillis());
+                
             } catch (Exception e) {
-                Log.e(TAG, "Error processing frame: " + e.getMessage(), e);
+                Log.w(TAG, "Frame processing error: " + e.getMessage());
             } finally {
-                // Always release the frame and reset processing flag
-                try {
-                    frame.release();
-                } catch (Exception e) {
-                    Log.w(TAG, "Error releasing frame: " + e.getMessage());
+                // Immediate cleanup
+                if (bitmap != null) {
+                    ImageUtils.safeRecycleBitmap(bitmap);
                 }
                 isProcessingFrame.set(false);
             }
         });
     }
+      /**
+     * Get dynamic skip factor optimized for bitwise operations (power of 2)
+     * Uses simplified performance-based adjustment
+     */
+    private int getDynamicSkipFactor() {
+        long currentTime = System.currentTimeMillis();
+        
+        // Update skip factor every 2 seconds based on performance
+        if (currentTime - lastSkipFactorUpdate > SKIP_FACTOR_UPDATE_INTERVAL) {
+            lastSkipFactorUpdate = currentTime;
+            
+            if (averageInferenceTime > 100) {
+                // Slow inference - increase skip factor (must be power of 2)
+                dynamicSkipFactor = Math.min(16, Integer.highestOneBit(dynamicSkipFactor) << 1);
+            } else if (averageInferenceTime < 30) {
+                // Fast inference - decrease skip factor (must be power of 2)
+                dynamicSkipFactor = Math.max(2, Integer.highestOneBit(dynamicSkipFactor) >> 1);
+            }
+            // Keep current skip factor if performance is acceptable (30-100ms)
+        }
+        
+        // Ensure skip factor is always a power of 2 for efficient bitwise operations
+        return Integer.highestOneBit(dynamicSkipFactor);
+    }
+    
+    /**
+     * Optimized person detection method with enhanced performance tracking
+     */
+    private void detectPersonOptimized(Bitmap bitmap, long frameStartTime) {
+        if (!isRunning.get() || isInLatencyPeriod.get() || bitmap == null || bitmap.isRecycled()) {
+            ImageUtils.safeRecycleBitmap(bitmap);
+            return;
+        }
 
-    private void detectPerson(Bitmap bitmap) {
+        try {
+            // Verify model availability
+            if (tflite == null) {
+                Log.e(TAG, "TensorFlow Lite interpreter is null");
+                ImageUtils.safeRecycleBitmap(bitmap);
+                return;
+            }
+
+            // Use cached model dimensions for maximum efficiency
+            int inputWidth = modelInputWidth;
+            int inputHeight = modelInputHeight;            // Optimized input preparation - use CHW format for YOLOv8
+            ByteBuffer inputBuffer = ImageUtils.bitmapToByteBufferCHW(bitmap, inputWidth, inputHeight, 0f, 1f);
+            if (inputBuffer == null) {
+                ImageUtils.safeRecycleBitmap(bitmap);
+                return;
+            }
+
+            // Pre-allocated output tensor using cached shape
+            float[][][] output = createOutputTensor();
+            if (output == null) {
+                ImageUtils.safeRecycleBitmap(bitmap);
+                return;
+            }            // Run inference with performance tracking
+            long inferenceStartTime = System.currentTimeMillis();
+            Log.d(TAG, "Running inference on " + inputWidth + "x" + inputHeight + " input");
+            try {
+                tflite.run(inputBuffer, output);
+                Log.d(TAG, "Inference successful");
+            } catch (Exception e) {
+                Log.e(TAG, "Inference error: " + e.getMessage(), e);
+                ImageUtils.safeRecycleBitmap(bitmap);
+                return;
+            }
+            
+            long inferenceDuration = System.currentTimeMillis() - inferenceStartTime;
+            Log.d(TAG, "Inference completed in " + inferenceDuration + "ms");
+            updatePerformanceMetrics(inferenceDuration);
+
+            // Process results efficiently
+            Log.d(TAG, "Processing detection results...");
+            processDetectionResultsOptimized(output, bitmap, inputWidth, inputHeight);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Detection error: " + e.getMessage(), e);
+            if (bitmap != null && !bitmap.isRecycled()) {
+                ImageUtils.safeRecycleBitmap(bitmap);
+            }
+        }
+    }
+    
+    /**
+     * Create pre-allocated output tensor for best performance
+     */
+    private float[][][] createOutputTensor() {
+        try {
+            if (cachedOutputShape != null && cachedOutputShape.length == 3) {
+                if (cachedOutputShape[1] == 84) {
+                    return new float[cachedOutputShape[0]][cachedOutputShape[1]][cachedOutputShape[2]]; // [1, 84, 8400]
+                } else {
+                    return new float[cachedOutputShape[0]][cachedOutputShape[2]][cachedOutputShape[1]]; // [1, 8400, 84] -> transpose
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating output tensor: " + e.getMessage());
+        }
+        return null;
+    }
+      /**
+     * Lightweight performance metrics update
+     */
+    private void updatePerformanceMetrics(long inferenceDuration) {
+        // Simple rolling average without array allocation
+        if (processedFrameCount < 10) {
+            averageInferenceTime = (averageInferenceTime * processedFrameCount + inferenceDuration) / (processedFrameCount + 1);
+        } else {
+            // Weighted average favoring recent measurements
+            averageInferenceTime = (averageInferenceTime * 9 + inferenceDuration) / 10;
+        }
+        
+        processedFrameCount++;
+        
+        // Log slow inference for debugging (less frequently)
+        if (inferenceDuration > 200 && processedFrameCount % 10 == 0) {
+            Log.d(TAG, "Slow inference: " + inferenceDuration + "ms (avg: " + averageInferenceTime + "ms)");
+        }
+    }private void detectPerson(Bitmap bitmap) {
         if (!isRunning.get() || isInLatencyPeriod.get() || bitmap == null || bitmap.isRecycled()) {
             if (bitmap != null && !bitmap.isRecycled()) {
-                bitmap.recycle();
+                // Return bitmap to pool instead of recycling
+                ImageUtils.safeRecycleBitmap(bitmap);
             }
             return;
         }
@@ -468,154 +715,270 @@ public class PersonDetection implements VideoSink {
             // Verify model is still loaded
             if (tflite == null) {
                 Log.e(TAG, "TensorFlow Lite interpreter is null");
-                bitmap.recycle();
+                ImageUtils.safeRecycleBitmap(bitmap);
                 return;
             }
 
-            // Get model input shape
-            int[] inputShape = tflite.getInputTensor(0).shape();
-            if (inputShape.length != 4) {
-                Log.e(TAG, "Invalid input shape: " + Arrays.toString(inputShape));
-                bitmap.recycle();
-                return;
-            }
-            
-            int inputWidth = inputShape[2];  // Width is typically at index 2
-            int inputHeight = inputShape[1]; // Height is typically at index 1
-
-            // Prepare input tensor with proper error handling
+            // Use cached model input shape if available for better performance
+            int inputWidth = modelInputWidth;
+            int inputHeight = modelInputHeight;            // Prepare input tensor with proper error handling
             ByteBuffer inputBuffer;
             try {
-                inputBuffer = ImageUtils.bitmapToByteBuffer(bitmap, inputWidth, inputHeight, 0f, 1f);
+                // Use CHW format conversion for YOLOv8 compatibility
+                inputBuffer = ImageUtils.bitmapToByteBufferCHW(bitmap, inputWidth, inputHeight, 0f, 1f);
+                if (inputBuffer == null) {
+                    Log.e(TAG, "Failed to convert bitmap to ByteBuffer");
+                    ImageUtils.safeRecycleBitmap(bitmap);
+                    return;
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Error converting bitmap to ByteBuffer: " + e.getMessage());
-                bitmap.recycle();
+                ImageUtils.safeRecycleBitmap(bitmap);
                 return;
             }
 
-            // Get output shape and create output buffer
-            int[] outputShape = tflite.getOutputTensor(0).shape();
-            Log.d(TAG, "Output shape: " + Arrays.toString(outputShape));
-            
+            // Use cached output shape information if available
             // For YOLOv8, output shape is typically [1, 84, 8400] or [1, 8400, 84]
             float[][][] output;
-            if (outputShape.length == 3) {
-                if (outputShape[1] == 84) {
-                    output = new float[outputShape[0]][outputShape[1]][outputShape[2]]; // [1, 84, 8400]
+            try {
+                if (cachedOutputShape.length == 3) {
+                    if (cachedOutputShape[1] == 84) {
+                        output = new float[cachedOutputShape[0]][cachedOutputShape[1]][cachedOutputShape[2]]; // [1, 84, 8400]
+                    } else {
+                        output = new float[cachedOutputShape[0]][cachedOutputShape[2]][cachedOutputShape[1]]; // [1, 8400, 84] -> transpose
+                    }
                 } else {
-                    output = new float[outputShape[0]][outputShape[2]][outputShape[1]]; // [1, 8400, 84] -> transpose
+                    Log.e(TAG, "Unexpected cached output shape: " + Arrays.toString(cachedOutputShape));
+                    ImageUtils.safeRecycleBitmap(bitmap);
+                    return;
                 }
-            } else {
-                Log.e(TAG, "Unexpected output shape: " + Arrays.toString(outputShape));
-                bitmap.recycle();
+            } catch (Exception e) {
+                Log.e(TAG, "Error preparing output tensor: " + e.getMessage());
+                ImageUtils.safeRecycleBitmap(bitmap);
                 return;
             }
 
-            // Run inference
+            // Run inference with timing for performance monitoring
+            long inferenceStartTime = System.currentTimeMillis();
             try {
-                long startTime = System.currentTimeMillis();
                 tflite.run(inputBuffer, output);
-                long endTime = System.currentTimeMillis();
-                Log.d(TAG, "Inference time: " + (endTime - startTime) + "ms");
             } catch (Exception e) {
                 Log.e(TAG, "Error during model inference: " + e.getMessage());
-                bitmap.recycle();
+                ImageUtils.safeRecycleBitmap(bitmap);
                 return;
             }
-
-            // Process results
-            processDetectionResults(output, bitmap, inputWidth, inputHeight);
+            long inferenceDuration = System.currentTimeMillis() - inferenceStartTime;
+            if (inferenceDuration > 100) {
+                Log.d(TAG, "Slow inference: " + inferenceDuration + "ms");
+            }            // Process results
+            processDetectionResultsOptimized(output, bitmap, inputWidth, inputHeight);
 
         } catch (Exception e) {
             Log.e(TAG, "Detection error: " + e.getMessage(), e);
             if (bitmap != null && !bitmap.isRecycled()) {
-                bitmap.recycle();
+                ImageUtils.safeRecycleBitmap(bitmap);
             }
         }
-    }
-
-    private void processDetectionResults(float[][][] output, Bitmap bitmap, int inputWidth, int inputHeight) {
+    }    /**
+     * Highly optimized detection result processing
+     */
+    private void processDetectionResultsOptimized(float[][][] output, Bitmap bitmap, int inputWidth, int inputHeight) {
         try {
-            List<Detection> detections = new ArrayList<>();
             boolean personDetected = false;
+            int detectionCount = 0;
 
-            // YOLOv8 format: first 4 values are box coords, remaining 80 are class scores
-            int numClasses = 80;
-            int numDetections = output[0][0].length; // Should be 8400 for YOLOv8
-
-            Log.d(TAG, "Processing " + numDetections + " detections");
-
-            for (int i = 0; i < numDetections; i++) {
-                // Find max confidence and class index among the class scores
-                float maxConfidence = 0;
-                int detectedClass = -1;
-
-                for (int c = 0; c < numClasses; c++) {
-                    float confidence = output[0][c + 4][i]; // Class scores start at index 4
-                    if (confidence > maxConfidence) {
-                        maxConfidence = confidence;
-                        detectedClass = c;
-                    }
+            // Log output shape for debugging
+            Log.d(TAG, "Output shape: [" + output.length + ", " + output[0].length + ", " + output[0][0].length + "]");
+            
+            // Determine the correct output format based on shape
+            int numDetections;
+            boolean isTransposed = false;
+            
+            if (output[0].length == 84 && output[0][0].length > 1000) {
+                // Format: [1, 84, 8400] - coordinates are in rows
+                numDetections = output[0][0].length; // 8400 detections
+                isTransposed = false;
+                Log.d(TAG, "Using format [1, 84, 8400] with " + numDetections + " detections");
+            } else if (output[0].length > 1000 && output[0][0].length == 84) {
+                // Format: [1, 8400, 84] - coordinates are in columns
+                numDetections = output[0].length; // 8400 detections
+                isTransposed = true;
+                Log.d(TAG, "Using format [1, 8400, 84] with " + numDetections + " detections");
+            } else {
+                Log.e(TAG, "Unexpected output format: [" + output.length + ", " + output[0].length + ", " + output[0][0].length + "]");
+                ImageUtils.safeRecycleBitmap(bitmap);
+                return;
+            }
+            
+            // Pre-calculate scaling factors
+            float xScale = (float) bitmap.getWidth() / inputWidth;
+            float yScale = (float) bitmap.getHeight() / inputHeight;
+            
+            // Optimized detection loop with minimal object creation
+            int maxLoggedDetections = Math.min(20, numDetections); // Log first 20 for debugging
+            float maxPersonConfidence = 0f;
+            
+            for (int i = 0; i < numDetections && detectionCount < 10; i++) { // Limit to first 10 detections for performance
+                float x, y, w, h, personConfidence;
+                
+                if (isTransposed) {
+                    // Format: [1, 8400, 84] - each detection is a row
+                    x = output[0][i][0]; // center x
+                    y = output[0][i][1]; // center y
+                    w = output[0][i][2]; // width
+                    h = output[0][i][3]; // height
+                    personConfidence = output[0][i][4]; // Person class confidence (index 0 in COCO + 4 coordinates)
+                } else {
+                    // Format: [1, 84, 8400] - coordinates are in separate rows
+                    x = output[0][0][i]; // center x
+                    y = output[0][1][i]; // center y
+                    w = output[0][2][i]; // width
+                    h = output[0][3][i]; // height
+                    personConfidence = output[0][4][i]; // Person class confidence
                 }
-
-                // Check if it's a person with sufficient confidence
-                if (maxConfidence > CONFIDENCE_THRESHOLD &&
-                        detectedClass >= 0 && detectedClass < labels.size() &&
-                        labels.get(detectedClass).equals("person")) {
-
+                
+                // Track max confidence for debugging
+                if (personConfidence > maxPersonConfidence) {
+                    maxPersonConfidence = personConfidence;
+                }
+                
+                // Log first few detections for debugging
+                if (i < maxLoggedDetections) {
+                    Log.v(TAG, "Detection " + i + ": conf=" + personConfidence + ", bbox=[" + x + "," + y + "," + w + "," + h + "]");
+                }
+                
+                if (personConfidence > CONFIDENCE_THRESHOLD) {
                     personDetected = true;
+                    detectionCount++;
+                    
+                    Log.d(TAG, "Person detected with confidence: " + personConfidence + " at [" + x + "," + y + "," + w + "," + h + "]");
 
-                    // Get bounding box coordinates (xywh format in YOLOv8)
-                    float x = output[0][0][i]; // center x
-                    float y = output[0][1][i]; // center y
-                    float w = output[0][2][i]; // width
-                    float h = output[0][3][i]; // height
-
-                    // Convert to corner format (left, top, right, bottom)
-                    float xScale = (float) bitmap.getWidth() / inputWidth;
-                    float yScale = (float) bitmap.getHeight() / inputHeight;
-
+                    // Minimal bounding box calculation (no object creation for performance)
+                    // Convert from normalized coordinates to pixel coordinates
                     float left = (x - w/2) * xScale;
                     float top = (y - h/2) * yScale;
                     float right = (x + w/2) * xScale;
                     float bottom = (y + h/2) * yScale;
 
-                    RectF boundingBox = new RectF(left, top, right, bottom);
-                    detections.add(new Detection("person", maxConfidence, boundingBox));
-
-                    Log.d(TAG, "Person detected with confidence: " + maxConfidence);
+                    // Basic sanity check for valid bounding box
+                    if (left >= 0 && top >= 0 && right <= bitmap.getWidth() && bottom <= bitmap.getHeight()) {
+                        Log.d(TAG, "Valid person detection: confidence=" + personConfidence + 
+                             ", bbox=[" + left + "," + top + "," + right + "," + bottom + "]");
+                    } else {
+                        Log.w(TAG, "Invalid bounding box detected");
+                        detectionCount--; // Don't count invalid detections
+                    }
                 }
+            }            Log.d(TAG, "Detection results - Person detected: " + personDetected + ", Count: " + detectionCount + 
+                      ", Max person confidence: " + maxPersonConfidence + ", Threshold: " + CONFIDENCE_THRESHOLD);
+
+            // Additional debugging - check if we're getting any meaningful values
+            if (maxPersonConfidence < 0.01f) {
+                Log.w(TAG, "Very low confidence values detected - possible model input/preprocessing issue");
+                // Log first few raw values for debugging
+                for (int i = 0; i < Math.min(5, numDetections); i++) {
+                    if (isTransposed) {
+                        Log.d(TAG, "Raw detection " + i + ": [" + output[0][i][0] + ", " + output[0][i][1] + 
+                              ", " + output[0][i][2] + ", " + output[0][i][3] + ", " + output[0][i][4] + "]");
+                    } else {
+                        Log.d(TAG, "Raw detection " + i + ": [" + output[0][0][i] + ", " + output[0][1][i] + 
+                              ", " + output[0][2][i] + ", " + output[0][3][i] + ", " + output[0][4][i] + "]");
+                    }
+                }
+            } else if (maxPersonConfidence > 0.01f && !personDetected) {
+                Log.i(TAG, "Model is working (max confidence: " + maxPersonConfidence + ") but below threshold (" + CONFIDENCE_THRESHOLD + ")");
             }
 
-            if (personDetected) {
-                handlePersonDetection(detections, bitmap);
+            if (personDetected && detectionCount > 0) {
+                Log.i(TAG, "Handling person detection with count: " + detectionCount);
+                handlePersonDetectionOptimized(detectionCount, bitmap);
             } else {
-                // No person detected, recycle bitmap
-                bitmap.recycle();
+                Log.d(TAG, "No valid person detections found (max conf: " + maxPersonConfidence + ")");
+                // Return bitmap to pool immediately
+                ImageUtils.safeRecycleBitmap(bitmap);
             }
 
         } catch (Exception e) {
-            Log.e(TAG, "Error processing detection results: " + e.getMessage(), e);
-            if (bitmap != null && !bitmap.isRecycled()) {
-                bitmap.recycle();
+            Log.e(TAG, "Error processing detection results: " + e.getMessage());
+            ImageUtils.safeRecycleBitmap(bitmap);
+        }
+    }    /**
+     * Optimized person detection handler with minimal overhead
+     */
+    private void handlePersonDetectionOptimized(int personCount, Bitmap bitmap) {
+        lastDetectionTime = System.currentTimeMillis();
+        lastDetectedPersonCount = personCount;
+        
+        // Quick WebRTC reporting
+        if (webRTCClient != null) {
+            try {
+                Map<String, Object> detectionData = new HashMap<>();
+                detectionData.put("personCount", personCount);
+                detectionData.put("confidence", "high");
+                detectionData.put("timestamp", lastDetectionTime);
+                webRTCClient.reportDetectionEvent("person", detectionData);
+            } catch (Exception e) {
+                Log.e(TAG, "Error reporting detection: " + e.getMessage());
             }
         }
-    }
 
-    private void handlePersonDetection(List<Detection> detections, Bitmap bitmap) {
-        lastDetectionTime = System.currentTimeMillis();
+        // Set latency period immediately to prevent multiple detections
+        if (isInLatencyPeriod.compareAndSet(false, true)) {
+            Log.d(TAG, "Person detected - entering latency period for " + detectionLatency + "ms");
+            
+            // Handle UI updates on main thread
+            handler.post(() -> {
+                // Quick toast notification
+                Toast.makeText(context, "Person detected! (" + personCount + ")", Toast.LENGTH_SHORT).show();
+                
+                // Trigger additional actions
+                triggerPersonDetectedOptimized();
 
-        // Create a copy of the bitmap to draw bounding boxes
-        Bitmap finalBitmap = bitmap.copy(bitmap.getConfig(), true);
-        Canvas canvas = new Canvas(finalBitmap);
-
-        // Draw bounding boxes
-        for (Detection detection : detections) {
-            canvas.drawRect(detection.boundingBox, boxPaint);
+                // Notify detection listener
+                if (detectionListener != null) {
+                    detectionListener.onDetectionStatusChanged(true);
+                }
+            });            // Schedule resumption on latency handler (ensure it's properly scheduled)
+            try {
+                latencyHandler.removeCallbacks(resumeDetectionRunnable);
+                boolean scheduled = latencyHandler.postDelayed(resumeDetectionRunnable, detectionLatency);
+                Log.i(TAG, "Latency resumption scheduled: " + scheduled + " (delay: " + detectionLatency + "ms)");
+                
+                if (!scheduled) {
+                    Log.e(TAG, "Failed to schedule latency resumption - forcing immediate reset");
+                    isInLatencyPeriod.set(false);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to schedule latency resumption: " + e.getMessage());
+                // Fallback: reset latency period immediately if scheduling fails
+                isInLatencyPeriod.set(false);
+            }
+        } else {
+            Log.d(TAG, "Already in latency period, skipping duplicate detection");
         }
 
-        // Count the number of persons detected
+        // Return bitmap to pool
+        ImageUtils.safeRecycleBitmap(bitmap);
+    }
+
+    /**
+     * Optimized person detection trigger with minimal overhead
+     */
+    private void triggerPersonDetectedOptimized() {
+        try {
+            // Start video recording only if auto recording is enabled
+            if (autoRecordingEnabled) {
+                startTimedVideoRecording();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in optimized person detection trigger: " + e.getMessage());
+        }
+    }private void handlePersonDetection(List<Detection> detections, Bitmap bitmap) {
+        lastDetectionTime = System.currentTimeMillis();
+
+        // Count the number of persons detected and update the tracker
         int personCount = detections.size();
+        lastDetectedPersonCount = personCount; // Update the tracker
         
         // Call the method to report the detection to the host
         onPersonDetected(personCount);
@@ -626,11 +989,10 @@ public class PersonDetection implements VideoSink {
                 // Show toast immediately
                 Toast.makeText(context, "Person detected! (" + personCount + " person" + (personCount > 1 ? "s" : "") + ")", Toast.LENGTH_SHORT).show();
                 
-                // Trigger person detected notification
-                triggerPersonDetected(finalBitmap);
+                // Trigger person detected notification (recording only, no image capture)
+                triggerPersonDetected();
 
                 if (detectionListener != null) {
-                    detectionListener.onPersonDetected(finalBitmap);
                     detectionListener.onDetectionStatusChanged(true);
                 }
 
@@ -640,12 +1002,12 @@ public class PersonDetection implements VideoSink {
                 latencyHandler.removeCallbacks(resumeDetectionRunnable);
                 latencyHandler.postDelayed(resumeDetectionRunnable, detectionLatency);
             }
-        });        // Recycle the original bitmap
-        bitmap.recycle();
-    }
+        });
 
-    // In PersonDetection.java, modify triggerPersonDetected() method:
-    private void triggerPersonDetected(Bitmap bitmap) {
+        // Return bitmap to pool instead of directly recycling
+        ImageUtils.safeRecycleBitmap(bitmap);
+    }// In PersonDetection.java, modify triggerPersonDetected() method:
+    private void triggerPersonDetected() {
         try {
             // Always show toast
             uiHandler.post(() -> Toast.makeText(context, "Person detected!", Toast.LENGTH_SHORT).show());
@@ -653,7 +1015,7 @@ public class PersonDetection implements VideoSink {
             // Always report detection to WebRTC host first (for live monitoring)
             if (webRTCClient != null) {
                 // Count how many people were detected (could be multiple in one frame)
-                int personCount = countDetectedPeople(bitmap);
+                int personCount = lastDetectedPersonCount > 0 ? lastDetectedPersonCount : 1;
                 
                 Log.d(TAG, "Reporting person detection to host: " + personCount + " person(s)");
                 
@@ -662,8 +1024,6 @@ public class PersonDetection implements VideoSink {
                 detectionData.put("personCount", personCount);
                 detectionData.put("confidence", "high");
                 detectionData.put("detectionMethod", "yolov8");
-                detectionData.put("imageWidth", bitmap.getWidth());
-                detectionData.put("imageHeight", bitmap.getHeight());
                 detectionData.put("processingTime", System.currentTimeMillis()); // For performance tracking
                 detectionData.put("recordingDuration", videoRecordingDuration); // Include video duration info
                 
@@ -679,112 +1039,23 @@ public class PersonDetection implements VideoSink {
                 Log.d(TAG, "Auto recording enabled - starting video recording");
             } else {
                 Log.d(TAG, "Auto recording disabled - skipping video recording");
-            }            // Check if notification should be created (this only affects local notifications, not live reporting)
+            }
+            
+            // Check if notification should be created (this only affects local notifications, not live reporting)
             if (!NotificationSettings.isPersonNotificationsEnabled(context)) {
                 Log.d(TAG, "Person notifications disabled, skipping notification creation");
                 NotificationSettings.debugCurrentSettings(context); // Debug the settings
-                // Still save image locally for reference but focus on video recording
-                String sessionId = ((CameraActivity) context).getSessionId();
-                if (sessionId != null) {
-                    saveDetectionImage(bitmap, sessionId);
-                }
                 return;
-            }
-
-            // Save image locally for reference
-            String sessionId = ((CameraActivity) context).getSessionId();
-            if (sessionId != null) {
-                saveDetectionImage(bitmap, sessionId);
             }
         } catch (Exception e) {
             Log.e(TAG, "Error handling person detection", e);
         }
-    }
-
-    // Helper method to count detected people (implementation depends on your detection logic)
+    }// Helper method to count detected people (implementation depends on your detection logic)
     private int countDetectedPeople(Bitmap bitmap) {
-        // This is just a placeholder - use your actual detection count logic
-        return 1; // Default to 1 if you don't track the count
+        // This should track the actual count from the last detection
+        // For now, return the last known person count from detection results
+        return lastDetectedPersonCount > 0 ? lastDetectedPersonCount : 1;
     }
-
-    private void saveDetectionImage(Bitmap bitmap, String sessionId) {
-        // Don't block processing with image saving
-        executor.execute(() -> {
-            try {
-                // Save a scaled-down version of the image for better performance
-                Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, bitmap.getWidth()/2, bitmap.getHeight()/2, true);
-
-                // Generate filename
-                String fileName = directoryManager.generateTimestampedFilename("Person_Detected", ".jpg");
-
-                // Try to save to the person detection directory
-                DocumentFile personDir = directoryManager.getPersonDetectionDirectory();                if (personDir != null) {
-                    // Save to user-selected directory
-                    DocumentFile newFile = personDir.createFile("image/jpeg", fileName);
-                    if (newFile != null) {
-                        OutputStream out = context.getContentResolver().openOutputStream(newFile.getUri());
-                        if (out != null) {
-                            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out);
-                            out.close();
-
-                            uiHandler.post(() -> Toast.makeText(context,
-                                    "Person detected - Image saved",
-                                    Toast.LENGTH_SHORT).show());
-
-                            Log.d(TAG, "Detection image saved to: " + newFile.getUri());
-                            scaledBitmap.recycle();
-                            return;
-                        }
-                    }
-                }else {
-                    // Only prompt once for directory selection during app session
-                    if (!hasPromptedForDirectory && directoryManager.shouldPromptForDirectory()) {
-                        hasPromptedForDirectory = true;
-                        directoryManager.setPromptedForDirectory(true);
-                        uiHandler.post(() -> {
-                            Toast.makeText(context, "Please select a folder to save detection data", Toast.LENGTH_SHORT).show();
-                            if (context instanceof CameraActivity) {
-                                ((CameraActivity) context).openDirectoryPicker();
-                            }
-                        });
-                    }
-                }
-
-                // Fallback to app storage
-                saveToAppStorage(scaledBitmap, sessionId);
-                scaledBitmap.recycle();
-
-            } catch (Exception e) {
-                Log.e(TAG, "Error saving detection image", e);
-            }
-        });
-    }
-
-
-    private void saveToAppStorage(Bitmap bitmap, String sessionId) {
-        try {
-            File detectionDir = directoryManager.getAppStorageDirectory("Person_Detections");
-            String fileName = directoryManager.generateTimestampedFilename("Person_Detected", ".jpg");
-            File imageFile = new File(detectionDir, fileName);
-
-            FileOutputStream fos = new FileOutputStream(imageFile);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, fos);
-            fos.close();
-
-            Log.d(TAG, "Detection image saved to app storage: " + imageFile.getAbsolutePath());
-            uiHandler.post(() -> Toast.makeText(context,
-                    "Person detected - Image saved to app storage",
-                    Toast.LENGTH_SHORT).show());
-
-            // Add to media scanner
-            MediaScannerConnection.scanFile(context,
-                    new String[]{imageFile.getAbsolutePath()},
-                    new String[]{"image/jpeg"}, null);
-        } catch (IOException e) {
-            Log.e(TAG, "Error saving to app storage", e);
-        }
-    }
-
     // Method to set the directory URI after user selection
     // Replace setDirectoryUri method
     public void setDirectoryUri(Uri uri) {

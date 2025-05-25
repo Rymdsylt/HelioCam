@@ -36,14 +36,29 @@ public class StartActivity extends AppCompatActivity {
         appName = findViewById(R.id.app_name);
         
         // Start animations
-        startSplashAnimations();
-
-        // Delay to show splash screen
+        startSplashAnimations();        // Delay to show splash screen
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             boolean isLoggedIn = checkUserLoginStatus();
             
-            Intent intent = new Intent(StartActivity.this,
-                    isLoggedIn ? HomeActivity.class : LoginActivity.class);
+            Intent intent;
+            if (isLoggedIn) {
+                // User is logged in, check if they have a saved role
+                String savedRole = UserRoleSelectionActivity.getUserRole(this);
+                if (savedRole != null && !savedRole.isEmpty()) {
+                    // User has a saved role, navigate directly to appropriate home activity
+                    if (UserRoleSelectionActivity.ROLE_HOST.equals(savedRole)) {
+                        intent = new Intent(StartActivity.this, HomeActivity.class);
+                    } else {
+                        intent = new Intent(StartActivity.this, JoinerHomeActivity.class);
+                    }
+                } else {
+                    // No saved role, go to role selection
+                    intent = new Intent(StartActivity.this, UserRoleSelectionActivity.class);
+                }
+            } else {
+                // User is not logged in, go to login
+                intent = new Intent(StartActivity.this, LoginActivity.class);
+            }
                     
             // Create animation bundle for smooth transition
             ActivityOptionsCompat options = ActivityOptionsCompat.makeSceneTransitionAnimation(

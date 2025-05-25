@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
 import android.widget.Toast;
@@ -142,27 +143,31 @@ public class SoundDetection {
             sum += Math.abs(buffer[i]);
         }
         return sum / length;
-    }
-
-    // In SoundDetection.java, modify triggerSoundDetected() method:
+    }    // In SoundDetection.java, modify triggerSoundDetected() method:
     private void triggerSoundDetected() {
         handler.post(() -> {
             // Always show toast regardless of notification settings
             Toast.makeText(context, "Sound Detected!", Toast.LENGTH_SHORT).show();
 
-            // Check if notification should be created
-            if (!NotificationSettings.isSoundNotificationsEnabled(context)) {
-                return;  // Skip notification creation
-            }
-
-            // Don't use Firebase Database directly - use the RTCJoiner to report detection
+            // Always report detection to host first (for live monitoring)
             if (webRTCClient != null) {
                 try {
-                    // Get amplitude for reporting
-                    double amplitude = calculateAmplitude(new short[1024], 1024); // Just an estimate 
+                    // Get amplitude for reporting (use actual calculated value)
+                    double amplitude = soundThreshold * 1.5; // Estimate based on threshold exceeded
+                    
+                    Log.d("SoundDetection", "Reporting sound detection to host with amplitude: " + amplitude);
 
-                    // Report sound detection to ensure consistent notification format
-                    webRTCClient.reportSoundDetection(amplitude);
+                    // Create enhanced detection data with all details needed for notification card
+                    Map<String, Object> detectionData = new HashMap<>();
+                    detectionData.put("amplitude", amplitude);
+                    detectionData.put("threshold", soundThreshold);
+                    detectionData.put("confidence", "high");
+                    detectionData.put("detectionMethod", "audioRecord");
+                    detectionData.put("sampleRate", SAMPLE_RATE);
+                    detectionData.put("detectionTime", System.currentTimeMillis());
+                    
+                    // Report sound detection with enhanced data
+                    webRTCClient.reportDetectionEvent("sound", detectionData);
                     
                     // Take screenshot if needed (keep this functionality)
                     String sessionId = ((CameraActivity) context).getSessionId();
@@ -174,6 +179,11 @@ public class SoundDetection {
                 }
             } else {
                 Log.w("SoundDetection", "WebRTC client is null, cannot report detection");
+            }            // Check if notification should be created (this only affects local notifications, not live reporting)
+            if (!NotificationSettings.isSoundNotificationsEnabled(context)) {
+                Log.d("SoundDetection", "Sound notifications disabled, skipping notification creation");
+                NotificationSettings.debugCurrentSettings(context); // Debug the settings
+                return;
             }
         });
     }
@@ -204,11 +214,12 @@ public class SoundDetection {
                 }
             } else {
                 Log.w("SoundDetection", "Failed to capture camera view.");
-            }
-        });
+            }        });
     }
-
-    private boolean saveSoundDetectionImage(Bitmap bitmap, String sessionId) {
+    
+    // Track if we've shown the directory prompt during this session
+    private boolean hasPromptedForDirectory = false;
+      private boolean saveSoundDetectionImage(Bitmap bitmap, String sessionId) {
         try {
             // Generate filename
             String fileName = directoryManager.generateTimestampedFilename("Sound_Detected", ".jpg");
@@ -232,6 +243,18 @@ public class SoundDetection {
                         Log.d("SoundDetection", "Detection image saved to: " + newFile.getUri());
                         return true;
                     }
+                }
+            } else {
+                // Only prompt once for directory selection during app session
+                if (!hasPromptedForDirectory && directoryManager.shouldPromptForDirectory()) {
+                    hasPromptedForDirectory = true;
+                    directoryManager.setPromptedForDirectory(true);
+                    handler.post(() -> {
+                        Toast.makeText(context, "Please select a folder to save detection data", Toast.LENGTH_SHORT).show();
+                        if (context instanceof CameraActivity) {
+                            ((CameraActivity) context).openDirectoryPicker();
+                        }
+                    });
                 }
             }
 
@@ -268,26 +291,33 @@ public class SoundDetection {
      */
     public int getSoundThreshold() {
         return soundThreshold;
-    }
-
-    /**
+    }    /**
      * Get the current detection latency.
      *
-     * @return the latency in milliseconds
+     * @return the latency in seconds
      */
     public long getDetectionLatency() {
         return detectionLatency/1000;
     }
 
+    /**
+     * Update the directory URI for saving detection images
+     */
+    public void setDirectoryUri(Uri uri) {
+        if (uri != null) {
+            directoryManager.setBaseDirectory(uri);
+        }
+    }
+
     // When sound is detected
     private void onSoundDetected(double amplitude) {
-        // Your existing sound detection code...
+        Log.d("SoundDetection", "Sound detection callback triggered with amplitude: " + amplitude);
         
-        // Report using the new method in RTCJoiner
+        // Report using the method in RTCJoiner
         if (webRTCClient != null) {
             webRTCClient.reportSoundDetection(amplitude);
+        } else {
+            Log.w("SoundDetection", "Cannot report sound detection - webRTCClient is null");
         }
-        
-        // Rest of your event handling...
     }
 }

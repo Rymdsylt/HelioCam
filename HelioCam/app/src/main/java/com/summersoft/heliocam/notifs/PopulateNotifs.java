@@ -42,19 +42,30 @@ public class PopulateNotifs {
     private static final String PREFS_NAME = "NotificationPrefs";
     private static final String SHOWN_NOTIFICATIONS_KEY = "shown_notifications";
     private static final String DELETED_NOTIFICATIONS_KEY = "deleted_notifs";
-
-    private List<String> sessionKeys = new ArrayList<>();
-    // Keep track of fetched notifications to avoid duplicates
-
+    
+    // Limit the number of notifications to prevent performance issues
+    private static final int MAX_NOTIFICATIONS = 50;    private List<String> sessionKeys = new ArrayList<>();
     private final Map<String, NotificationData> notificationMap = new HashMap<>();
-
     private static PopulateNotifs activeInstance;
-
-    public void startPopulatingNotifs(Context context, ViewGroup notificationContainer) {
+    
+    // Add a flag to prevent multiple simultaneous fetches
+    private volatile boolean isCurrentlyFetching = false;
+    
+    // Add a flag to track if we need to refresh
+    private volatile boolean needsRefresh = false;    public void startPopulatingNotifs(Context context, ViewGroup notificationContainer) {
         // Null check at the beginning
         if (context == null || notificationContainer == null) {
             Log.e(TAG, "Cannot populate notifications with null context or container");
             return;
+        }
+        
+        // Prevent multiple simultaneous fetches with synchronized block
+        synchronized (this) {
+            if (isCurrentlyFetching) {
+                Log.d(TAG, "Already fetching notifications, skipping request");
+                return;
+            }
+            isCurrentlyFetching = true;
         }
         
         // Remove padding from container
@@ -75,11 +86,17 @@ public class PopulateNotifs {
         fetchSessionKeys(new Callback() {
             @Override
             public void onSessionKeysFetched() {
-                if (sessionKeys.isEmpty()) {
-                    // If no sessions found, show empty state
-                    showEmptyState(context, notificationContainer);
-                } else {
-                    fetchNotificationsForSessions(context, notificationContainer);
+                try {
+                    if (sessionKeys.isEmpty()) {
+                        // If no sessions found, show empty state
+                        showEmptyState(context, notificationContainer);
+                    } else {
+                        fetchNotificationsForSessions(context, notificationContainer);
+                    }
+                } finally {
+                    synchronized (PopulateNotifs.this) {
+                        isCurrentlyFetching = false;
+                    }
                 }
             }
         });
@@ -99,9 +116,7 @@ public class PopulateNotifs {
         } else {
             // Hide loading indicator
         }
-    }
-
-    private void showEmptyState(Context context, ViewGroup container) {
+    }    public void showEmptyState(Context context, ViewGroup container) {
         // First clear the container
         container.removeAllViews();
         
@@ -119,6 +134,13 @@ public class PopulateNotifs {
                 clearAllButton.setVisibility(View.GONE);
             }
         }
+    }
+    
+    /**
+     * Clear all notifications from the internal map
+     */
+    public void clearNotifications() {
+        notificationMap.clear();
     }
 
     private void fetchSessionKeys(Callback callback) {
@@ -261,68 +283,84 @@ public class PopulateNotifs {
             }
         });
 
-        // THEN check session-specific notifications using new path
+        // THEN check session-specific notifications
         if (!sessionKeys.isEmpty()) {
             for (String sessionKey : sessionKeys) {
-                // First get session name
+                Log.d(TAG, "Checking session: " + sessionKey);
+                
+                // Get session reference
                 DatabaseReference sessionRef = FirebaseDatabase.getInstance()
                         .getReference("users")
                         .child(formattedEmail)
                         .child("sessions")
                         .child(sessionKey);
 
-                sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
+                sessionRef.addListenerForSingleValueEvent(new ValueEventListener() {                    @Override
                     public void onDataChange(DataSnapshot sessionSnapshot) {
-                        // Get session name for context
-                        String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
-                        if (sessionName == null) sessionName = "Unknown Session";
-
-                        // New: Check both paths for notifications
-                        // 1. First check the old path for backward compatibility
-                        DataSnapshot oldNotifications = sessionSnapshot.child("notifications");
-                        if (oldNotifications.exists()) {
-                            processNotifications(oldNotifications, sessionName, deletedNotifs);
+                        if (!sessionSnapshot.exists()) {
+                            Log.d(TAG, "Session not found in sessions node, checking logininfo for session: " + sessionKey);
+                            // Try to find session name in login info nodes as fallback
+                            findSessionNameInLoginInfo(formattedEmail, sessionKey, (fallbackSessionName) -> {
+                                String finalSessionName = fallbackSessionName != null ? fallbackSessionName : "Unknown Session";
+                                if (fallbackSessionName == null) {
+                                    Log.w(TAG, "Session name not found in any location for session: " + sessionKey + ", using fallback: " + finalSessionName);
+                                } else {
+                                    Log.d(TAG, "Fallback session name found: " + finalSessionName + " for session: " + sessionKey);
+                                }
+                                processSessionNotificationsWithName(sessionSnapshot, sessionKey, finalSessionName, formattedEmail, deletedNotifs, pendingRequests, context, notificationContainer);
+                            });
+                            return;
                         }
 
-                        // 2. Then check the new path matching the web app
-                        DatabaseReference eventsRef = FirebaseDatabase.getInstance()
-                                .getReference("users")
-                                .child(formattedEmail)
-                                .child("sessions")
-                                .child(sessionKey)
-                                .child("detection_events");
-
-                        String finalSessionName = sessionName;
-                        eventsRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                            @Override
-                            public void onDataChange(DataSnapshot eventsSnapshot) {
-                                if (eventsSnapshot.exists()) {
-                                    for (DataSnapshot eventSnapshot : eventsSnapshot.getChildren()) {
-                                        String eventId = eventSnapshot.getKey();
-                                        if (eventId != null && !deletedNotifs.contains(eventId)) {
-                                            // Replace this comment with the actual call to process the event
-                                            processDetectionEvent(eventId, eventSnapshot, finalSessionName);
-                                        }
-                                    }
+                        String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
+                        if (sessionName == null) {
+                            Log.d(TAG, "Session name is null in sessions node, checking logininfo for session: " + sessionKey);
+                            // Try to find session name in login info nodes as fallback
+                            findSessionNameInLoginInfo(formattedEmail, sessionKey, (fallbackSessionName) -> {
+                                String finalSessionName = fallbackSessionName != null ? fallbackSessionName : "Unknown Session";
+                                if (fallbackSessionName == null) {
+                                    Log.w(TAG, "Session name not found in any location for session: " + sessionKey + ", using fallback: " + finalSessionName);
+                                } else {
+                                    Log.d(TAG, "Fallback session name found: " + finalSessionName + " for session: " + sessionKey);
                                 }
+                                processSessionNotificationsWithName(sessionSnapshot, sessionKey, finalSessionName, formattedEmail, deletedNotifs, pendingRequests, context, notificationContainer);
+                            });
+                            return;
+                        }
 
-                                // Final countdown for this session
-                                pendingRequests[0]--;
-                                if (pendingRequests[0] == 0) {
-                                    displayNotifications(context, notificationContainer);
-                                }
-                            }
-
-                            @Override
-                            public void onCancelled(DatabaseError databaseError) {
-                                Log.e(TAG, "Error fetching detection events: " + databaseError.getMessage());
-                                pendingRequests[0]--;
-                                if (pendingRequests[0] == 0) {
-                                    displayNotifications(context, notificationContainer);
+                        Log.d(TAG, "Using session name found in primary location: " + sessionName + " for session: " + sessionKey);                        // ONLY check the notifications path that web app uses
+                        DataSnapshot notifications = sessionSnapshot.child("notifications");
+                        if (notifications.exists()) {
+                            Log.d(TAG, "Found notifications for session: " + sessionName + ", count: " + notifications.getChildrenCount());
+                            
+                            for (DataSnapshot notificationSnapshot : notifications.getChildren()) {
+                                String notificationId = notificationSnapshot.getKey();
+                                if (notificationId != null && !deletedNotifs.contains(notificationId)) {
+                                    // Process these as enhanced notifications
+                                    processSessionNotification(notificationId, notificationSnapshot, sessionName);
                                 }
                             }
-                        });
+                        } else {
+                            Log.d(TAG, "No notifications found for session: " + sessionName);
+                        }
+
+                        // Also check detection_events path
+                        DataSnapshot detectionEvents = sessionSnapshot.child("detection_events");
+                        if (detectionEvents.exists()) {
+                            Log.d(TAG, "Found detection events for session: " + sessionName + ", count: " + detectionEvents.getChildrenCount());
+                            
+                            for (DataSnapshot eventSnapshot : detectionEvents.getChildren()) {
+                                String eventId = eventSnapshot.getKey();
+                                if (eventId != null && !deletedNotifs.contains(eventId)) {
+                                    processDetectionEvent(eventId, eventSnapshot, sessionName);
+                                }
+                            }
+                        }
+
+                        pendingRequests[0]--;
+                        if (pendingRequests[0] == 0) {
+                            displayNotifications(context, notificationContainer);
+                        }
                     }
 
                     @Override
@@ -338,8 +376,7 @@ public class PopulateNotifs {
         } else {
             Log.d(TAG, "No sessions found, but still checking universal notifications");
         }
-    }
-
+    }    // Enhanced displayNotifications method with performance optimizations
     private void displayNotifications(Context context, ViewGroup notificationContainer) {
         showLoadingState(context, notificationContainer, false);
         notificationContainer.removeAllViews();
@@ -349,147 +386,91 @@ public class PopulateNotifs {
             return;
         }
 
-        // Sort notifications by id (newest first since they're timestamp-based)
+        // Sort notifications by id (newest first since they're timestamp-based) and limit to MAX_NOTIFICATIONS
         List<NotificationData> sortedNotifications = new ArrayList<>(notificationMap.values());
         sortedNotifications.sort((n1, n2) -> n2.id.compareTo(n1.id));
+        
+        // Limit notifications to prevent performance issues
+        if (sortedNotifications.size() > MAX_NOTIFICATIONS) {
+            Log.d(TAG, "Limiting notifications from " + sortedNotifications.size() + " to " + MAX_NOTIFICATIONS);
+            sortedNotifications = sortedNotifications.subList(0, MAX_NOTIFICATIONS);
+        }
 
         LayoutInflater inflater = LayoutInflater.from(context);
 
         for (NotificationData notification : sortedNotifications) {
-            // Inflate the layout
-            View notificationCard = inflater.inflate(R.layout.notifications_card, notificationContainer, false);
+            try {
+                // Inflate the layout
+                View notificationCard = inflater.inflate(R.layout.notifications_card, notificationContainer, false);
 
-            // Get the inner LinearLayout that has the proper styling
-            LinearLayout innerLayout = (LinearLayout) ((ViewGroup) notificationCard).getChildAt(0);
+                // Get the inner LinearLayout that has the proper styling
+                LinearLayout innerLayout = (LinearLayout) ((ViewGroup) notificationCard).getChildAt(0);
 
-            // Remove it from the CardView parent
-            ((ViewGroup) notificationCard).removeView(innerLayout);
+                // Remove it from the CardView parent
+                ((ViewGroup) notificationCard).removeView(innerLayout);
 
-            // Set margins for the inner layout
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-            params.setMargins(8, 8, 8, 8);
-            innerLayout.setLayoutParams(params);
+                // Set margins for the inner layout
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+                params.setMargins(8, 8, 8, 8);
+                innerLayout.setLayoutParams(params);
 
-            // Access views within the inner layout
-            TextView titleView = innerLayout.findViewById(R.id.notification_title);
-            TextView dateView = innerLayout.findViewById(R.id.notification_date);
-            TextView timeView = innerLayout.findViewById(R.id.notification_time);
-            ImageView deleteButton = innerLayout.findViewById(R.id.delete_button);
-            ImageView notificationIcon = innerLayout.findViewById(R.id.notification_icon);
-            
-            // Set icon based on notification type
-            if (notification.metadata != null && notification.metadata.containsKey("detectionType")) {
-                String type = (String) notification.metadata.get("detectionType");
-                if ("sound".equals(type)) {
-                    notificationIcon.setImageResource(R.drawable.ic_sound); // Use your sound icon
-                } else if ("person".equals(type)) {
-                    notificationIcon.setImageResource(R.drawable.ic_person); // Use your person icon
-                }
-            }
-
-            // Set the basic data
-            titleView.setText(notification.title);
-            dateView.setText("Date: " + notification.date);
-            timeView.setText("Time: " + notification.time);
-
-            // Check if we have metadata to display
-            if (notification.metadata != null && !notification.metadata.isEmpty()) {
-                // Show the metadata container
-                View metadataContainer = innerLayout.findViewById(R.id.metadata_container);
-                metadataContainer.setVisibility(View.VISIBLE);
+                // Access views within the inner layout with null checks
+                TextView titleView = innerLayout.findViewById(R.id.notification_title);
+                TextView dateView = innerLayout.findViewById(R.id.notification_date);
+                TextView timeView = innerLayout.findViewById(R.id.notification_time);
+                ImageView notificationIcon = innerLayout.findViewById(R.id.notification_icon);
+                View deleteButton = innerLayout.findViewById(R.id.delete_button);
                 
-                // Set session name
-                TextView sessionNameView = innerLayout.findViewById(R.id.metadata_session_name);
-                if (notification.metadata.containsKey("sessionName")) {
-                    sessionNameView.setText(notification.metadata.get("sessionName").toString());
-                }
-                
-                // Set camera number
-                TextView cameraNumberView = innerLayout.findViewById(R.id.metadata_camera_number);
-                if (notification.metadata.containsKey("cameraNumber")) {
-                    cameraNumberView.setText(notification.metadata.get("cameraNumber").toString());
-                }
-                
-                // Set device info
-                TextView deviceInfoView = innerLayout.findViewById(R.id.metadata_device_info);
-                if (notification.metadata.containsKey("deviceInfo")) {
-                    deviceInfoView.setText(notification.metadata.get("deviceInfo").toString());
-                }
-                
-                // Set user email
-                TextView userEmailView = innerLayout.findViewById(R.id.metadata_user_email);
-                View emailContainer = innerLayout.findViewById(R.id.metadata_email_container);
-                if (notification.metadata.containsKey("userEmail")) {
-                    userEmailView.setText(notification.metadata.get("userEmail").toString());
-                    emailContainer.setVisibility(View.VISIBLE);
-                } else {
-                    emailContainer.setVisibility(View.GONE);
-                }
-                
-                // Set detection type
-                TextView detectionTypeView = innerLayout.findViewById(R.id.metadata_detection_type);
-                if (notification.metadata.containsKey("detectionType")) {
-                    String type = notification.metadata.get("detectionType").toString();
-                    detectionTypeView.setText(type.substring(0, 1).toUpperCase() + type.substring(1));
-                    
-                    // Set background color based on type
+                // Set icon based on notification type with enhanced detection
+                if (notification.metadata != null && notification.metadata.containsKey("detectionType")) {
+                    String type = (String) notification.metadata.get("detectionType");
                     if ("sound".equals(type)) {
-                        detectionTypeView.setBackgroundResource(R.drawable.rounded_red_background);
-                    } else {
-                        detectionTypeView.setBackgroundResource(R.drawable.rounded_green_background);
+                        if (notificationIcon != null) notificationIcon.setImageResource(R.drawable.ic_sound);
+                    } else if ("person".equals(type)) {
+                        if (notificationIcon != null) notificationIcon.setImageResource(R.drawable.ic_person);
+                    }
+                } else {
+                    // Fallback detection from title text
+                    String title = notification.title.toLowerCase();
+                    if (title.contains("sound")) {
+                        if (notificationIcon != null) notificationIcon.setImageResource(R.drawable.ic_sound);
+                    } else if (title.contains("person")) {
+                        if (notificationIcon != null) notificationIcon.setImageResource(R.drawable.ic_person);
                     }
                 }
-            }
 
-            // Set delete button click listener
-            deleteButton.setOnClickListener(v -> {
-                // Remove notification code (unchanged)
-                notificationContainer.removeView(innerLayout);
+                // Set the basic data - with null checks
+                if (titleView != null) titleView.setText(notification.title);
+                if (dateView != null) dateView.setText(notification.date);
+                if (timeView != null) timeView.setText(notification.time);
 
-                // Add to deleted notifications list
-                SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                Set<String> deletedNotifs = new HashSet<>(prefs.getStringSet(DELETED_NOTIFICATIONS_KEY, new HashSet<>()));
-                deletedNotifs.add(notification.id);
-
-                prefs.edit()
-                        .putStringSet(DELETED_NOTIFICATIONS_KEY, deletedNotifs)
-                        .apply();
-
-                // Remove from our map
-                notificationMap.remove(notification.id);
-
-                // If no more notifications, show empty state
-                if (notificationMap.isEmpty()) {
-                    showEmptyState(context, notificationContainer);
+                // Enhanced metadata display
+                if (notification.metadata != null && !notification.metadata.isEmpty()) {
+                    setupMetadataDisplay(innerLayout, notification);
+                } else {
+                    // Hide metadata container if no metadata available
+                    View metadataContainer = innerLayout.findViewById(R.id.metadata_container);
+                    if (metadataContainer != null) {
+                        metadataContainer.setVisibility(View.GONE);
+                    }
                 }
-            });
 
-            // Set up view details button
-            ImageButton viewDetailsButton = innerLayout.findViewById(R.id.view_details_button);
-            if (viewDetailsButton != null) {
-                NotificationFragment fragment = null;
+                // Set delete button click listener - handles different button types
+                setupDeleteButton(context, notificationContainer, deleteButton, notification, innerLayout);
+
+                // Set up view details button with enhanced functionality
+                setupViewDetailsButton(context, innerLayout);
+
+                // Add the inner layout to the container
+                notificationContainer.addView(innerLayout);
                 
-                // Safer way to find the NotificationFragment
-                if (context instanceof Activity) {
-                    // Try to find fragment from activity's fragment manager
-                    androidx.fragment.app.FragmentManager fragmentManager = 
-                        ((androidx.fragment.app.FragmentActivity) context).getSupportFragmentManager();
-                    fragment = (NotificationFragment) fragmentManager.findFragmentByTag("notification_fragment");
-                } else if (NotificationFragment.activeInstance != null) {
-                    // Use the static reference if available
-                    fragment = NotificationFragment.activeInstance;
-                }
-                
-                if (fragment != null) {
-                    fragment.setUpViewDetailsButton(innerLayout, viewDetailsButton);
-                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error creating notification view for ID: " + notification.id, e);
+                // Continue with next notification instead of crashing
             }
-
-            // Add the inner layout to the container
-            notificationContainer.addView(innerLayout);
         }
     }
 
@@ -620,10 +601,8 @@ public class PopulateNotifs {
         if (NotificationFragment.activeInstance != null) {
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                 if (NotificationFragment.activeInstance.isVisible() &&
-                        NotificationFragment.activeInstance.getView() != null) {
-
-                    ViewGroup container = NotificationFragment.activeInstance.getView()
-                            .findViewById(R.id.notifcation_card_container);
+                        NotificationFragment.activeInstance.getView() != null) {                    ViewGroup container = NotificationFragment.activeInstance.getView()
+                            .findViewById(R.id.notification_card_container);
 
                     if (container != null && NotificationFragment.activeInstance.getContext() != null) {
                         // Force clear and repopulate the entire container
@@ -726,16 +705,37 @@ public class PopulateNotifs {
         }
     }
 
-    // Add helper method to process detection events
+    // Enhanced processDetectionEvent method with better logging and error handling
     private void processDetectionEvent(String eventId, DataSnapshot eventSnapshot, String sessionName) {
         try {
+            Log.d(TAG, "Processing detection event: " + eventId + " for session: " + sessionName);
+            
+            // Log the raw data structure for debugging
+            Log.d(TAG, "Event data: " + eventSnapshot.getValue());
+            
             String type = eventSnapshot.child("type").getValue(String.class);
             Long timestamp = eventSnapshot.child("timestamp").getValue(Long.class);
             Integer cameraNumber = eventSnapshot.child("cameraNumber").getValue(Integer.class);
             String deviceName = eventSnapshot.child("deviceName").getValue(String.class);
             String email = eventSnapshot.child("email").getValue(String.class);
 
-            if (type == null || timestamp == null) return;
+            Log.d(TAG, "Event details - Type: " + type + ", Timestamp: " + timestamp + ", Camera: " + cameraNumber);
+
+            if (type == null || timestamp == null) {
+                Log.w(TAG, "Invalid detection event data for ID: " + eventId + " - missing type or timestamp");
+                return;
+            }
+
+            // Check if notification type is enabled
+            if ("sound".equals(type) && !NotificationSettings.isSoundNotificationsEnabled(requireContext())) {
+                Log.d(TAG, "Sound notifications disabled, skipping event: " + eventId);
+                return;
+            }
+            
+            if ("person".equals(type) && !NotificationSettings.isPersonNotificationsEnabled(requireContext())) {
+                Log.d(TAG, "Person notifications disabled, skipping event: " + eventId);
+                return;
+            }
 
             // Create a formatted date and time string from timestamp
             Date date = new Date(timestamp);
@@ -747,12 +747,17 @@ public class PopulateNotifs {
             // Create detection-type specific title
             String title = type.equals("sound") ? "Sound detected" : "Person detected";
             title += " at " + sessionName;
+            
+            // Add camera info if available
+            if (cameraNumber != null) {
+                title += " (Camera " + cameraNumber + ")";
+            }
 
             // Create metadata map for enhanced display
             Map<String, Object> metadata = new HashMap<>();
             metadata.put("detectionType", type);
             metadata.put("sessionName", sessionName);
-            if (cameraNumber != null) metadata.put("cameraNumber", cameraNumber);
+            if (cameraNumber != null) metadata.put("cameraNumber", "Camera " + cameraNumber);
             if (deviceName != null) metadata.put("deviceInfo", deviceName);
             if (email != null) metadata.put("userEmail", email);
 
@@ -765,9 +770,19 @@ public class PopulateNotifs {
                     metadata
             );
             notificationMap.put(eventId, notification);
+            
+            Log.d(TAG, "Successfully processed detection event: " + type + " at " + sessionName);
         } catch (Exception e) {
-            Log.e(TAG, "Error processing detection event", e);
+            Log.e(TAG, "Error processing detection event: " + eventId, e);
         }
+    }
+
+    // Add this helper method to safely get context
+    private Context requireContext() {
+        // This is a workaround since we're not in a Fragment context
+        // You'll need to pass context to this method or store it as a field
+        return activeInstance != null && NotificationFragment.activeInstance != null ? 
+               NotificationFragment.activeInstance.getContext() : null;
     }
 
     /**
@@ -776,5 +791,552 @@ public class PopulateNotifs {
      */
     public Set<String> getNotificationIds() {
         return new HashSet<>(notificationMap.keySet());
+    }
+
+    public void debugDetectionEvents(Context context) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null || currentUser.getEmail() == null) {
+            Log.e(TAG, "Debug failed: No user logged in");
+            return;
+        }
+
+        String formattedEmail = currentUser.getEmail().replace(".", "_");
+        Log.d(TAG, "===== DEBUGGING DETECTION EVENTS =====");
+        Log.d(TAG, "User email: " + formattedEmail);
+        Log.d(TAG, "Session keys: " + sessionKeys.toString());
+
+        // Check each session for detection events
+        for (String sessionKey : sessionKeys) {
+            Log.d(TAG, "Checking session: " + sessionKey);
+            
+            FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(formattedEmail)
+                    .child("sessions")
+                    .child(sessionKey)
+                    .get()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            DataSnapshot sessionSnapshot = task.getResult();
+                            Log.d(TAG, "Session " + sessionKey + " exists: " + sessionSnapshot.exists());
+                            
+                            if (sessionSnapshot.exists()) {
+                                String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
+                                Log.d(TAG, "Session name: " + sessionName);
+                                
+                                DataSnapshot detectionEvents = sessionSnapshot.child("detection_events");
+                                Log.d(TAG, "Detection events exist: " + detectionEvents.exists());
+                                Log.d(TAG, "Detection events count: " + detectionEvents.getChildrenCount());
+                                
+                                for (DataSnapshot event : detectionEvents.getChildren()) {
+                                    Log.d(TAG, "Event: " + event.getKey() + " = " + event.getValue());
+                                }
+                            }
+                        } else {
+                            Log.e(TAG, "Failed to fetch session: " + sessionKey, task.getException());
+                        }
+                    });
+        }
+    }    // Helper method to find session name in all possible locations
+    private void findSessionNameInLoginInfo(String formattedEmail, String sessionKey, SessionNameCallback callback) {
+        Log.d(TAG, "Looking for session name for session: " + sessionKey);
+        DatabaseReference userRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedEmail);
+                
+        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot userSnapshot) {
+                String foundSessionName = null;
+                
+                // FIRST: Check direct sessions node (most common location)
+                DataSnapshot directSessionsNode = userSnapshot.child("sessions");
+                if (directSessionsNode.hasChild(sessionKey)) {
+                    String sessionName = directSessionsNode.child(sessionKey).child("session_name").getValue(String.class);
+                    if (sessionName != null) {
+                        Log.d(TAG, "Found session name in direct sessions path: " + sessionName + " for session: " + sessionKey);
+                        foundSessionName = sessionName;
+                    }
+                }
+                
+                // SECOND: Loop through all logininfo nodes if not found in direct path
+                if (foundSessionName == null) {
+                    for (DataSnapshot loginInfo : userSnapshot.getChildren()) {
+                        String key = loginInfo.getKey();
+                        if (key != null && key.startsWith("logininfo_")) {
+                            // Check sessions_added node for this session
+                            DataSnapshot sessionsNode = loginInfo.child("sessions_added");
+                            if (sessionsNode.hasChild(sessionKey)) {
+                                String sessionName = sessionsNode.child(sessionKey).child("session_name").getValue(String.class);
+                                if (sessionName != null) {
+                                    Log.d(TAG, "Found session name in logininfo: " + sessionName + " for session: " + sessionKey);
+                                    foundSessionName = sessionName;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // THIRD: Check joined_sessions as a final fallback
+                if (foundSessionName == null) {
+                    DataSnapshot joinedSessionsNode = userSnapshot.child("joined_sessions");
+                    if (joinedSessionsNode.hasChild(sessionKey)) {
+                        String sessionName = joinedSessionsNode.child(sessionKey).child("session_name").getValue(String.class);
+                        if (sessionName != null) {
+                            Log.d(TAG, "Found session name in joined_sessions: " + sessionName + " for session: " + sessionKey);
+                            foundSessionName = sessionName;
+                        }
+                    }
+                }
+                
+                // If we still don't have a name, check for session_code matching
+                if (foundSessionName == null) {
+                    // Get session code reference
+                    String finalFoundSessionName = foundSessionName;
+                    FirebaseDatabase.getInstance()
+                        .getReference("session_codes")
+                        .addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(DataSnapshot codesSnapshot) {
+                                for (DataSnapshot codeSnapshot : codesSnapshot.getChildren()) {
+                                    if (codeSnapshot.hasChild("session_id") && 
+                                        sessionKey.equals(codeSnapshot.child("session_id").getValue(String.class))) {
+                                        // Found matching session code, now fetch the name from host
+                                        String hostEmail = codeSnapshot.child("host_email").getValue(String.class);
+                                        if (hostEmail != null) {
+                                            String formattedHostEmail = hostEmail.replace(".", "_");
+                                            FirebaseDatabase.getInstance()
+                                                .getReference("users")
+                                                .child(formattedHostEmail)
+                                                .child("sessions")
+                                                .child(sessionKey)
+                                                .child("session_name")
+                                                .addListenerForSingleValueEvent(new ValueEventListener() {
+                                                    @Override
+                                                    public void onDataChange(DataSnapshot nameSnapshot) {
+                                                        String hostSessionName = nameSnapshot.getValue(String.class);
+                                                        if (hostSessionName != null) {
+                                                            Log.d(TAG, "Found session name via session_code lookup: " + hostSessionName);
+                                                            callback.onSessionNameFound(hostSessionName);
+                                                        } else {
+                                                            callback.onSessionNameFound(null);
+                                                        }
+                                                    }
+
+                                                    @Override
+                                                    public void onCancelled(DatabaseError error) {
+                                                        Log.e(TAG, "Error finding session name via host lookup: " + error.getMessage());
+                                                        callback.onSessionNameFound(null);
+                                                    }
+                                                });
+                                            return; // Exit early since we're handling callback in nested listener
+                                        }
+                                    }
+                                }
+                                // If we get here, we couldn't find a matching session code
+                                callback.onSessionNameFound(finalFoundSessionName);
+                            }
+
+                            @Override
+                            public void onCancelled(DatabaseError error) {
+                                Log.e(TAG, "Error searching session codes: " + error.getMessage());
+                                callback.onSessionNameFound(finalFoundSessionName);
+                            }
+                        });
+                    return; // Exit early since we're handling callback in nested listener
+                }
+                
+                // Return the found session name (may still be null)
+                callback.onSessionNameFound(foundSessionName);
+            }
+            
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e(TAG, "Error finding session name: " + error.getMessage());
+                callback.onSessionNameFound(null);
+            }
+        });
+    }
+    
+    // Process session notifications with the provided session name
+    private void processSessionNotificationsWithName(DataSnapshot sessionSnapshot, String sessionKey, String sessionName, 
+                                                    String formattedEmail, Set<String> deletedNotifs, 
+                                                    int[] pendingRequests, Context context, ViewGroup notificationContainer) {
+        Log.d(TAG, "Processing notifications for session: " + sessionName + " with key: " + sessionKey);
+        
+        // Check the notifications path
+        DataSnapshot notifications = sessionSnapshot.child("notifications");
+        if (notifications.exists()) {
+            Log.d(TAG, "Found notifications for session: " + sessionName + ", count: " + notifications.getChildrenCount());
+            
+            for (DataSnapshot notificationSnapshot : notifications.getChildren()) {
+                String notificationId = notificationSnapshot.getKey();
+                if (notificationId != null && !deletedNotifs.contains(notificationId)) {
+                    // Process these as enhanced notifications
+                    processSessionNotification(notificationId, notificationSnapshot, sessionName);
+                }
+            }
+        } else {
+            Log.d(TAG, "No notifications found for session: " + sessionName);
+        }
+        
+        // Also check detection_events path
+        DataSnapshot detectionEvents = sessionSnapshot.child("detection_events");
+        if (detectionEvents.exists()) {
+            Log.d(TAG, "Found detection events for session: " + sessionName + ", count: " + detectionEvents.getChildrenCount());
+            
+            for (DataSnapshot eventSnapshot : detectionEvents.getChildren()) {
+                String eventId = eventSnapshot.getKey();
+                if (eventId != null && !deletedNotifs.contains(eventId)) {
+                    processDetectionEvent(eventId, eventSnapshot, sessionName);
+                }
+            }
+        }
+        
+        pendingRequests[0]--;
+        if (pendingRequests[0] == 0) {
+            displayNotifications(context, notificationContainer);
+        }
+    }
+    
+    // Callback interface for finding session name
+    interface SessionNameCallback {
+        void onSessionNameFound(String sessionName);
+    }
+    
+    // Add this new method to process session notifications with enhanced metadata
+    private void processSessionNotification(String notificationId, DataSnapshot notificationSnapshot, String sessionName) {
+        try {
+            String reason = notificationSnapshot.child("reason").getValue(String.class);
+            String date = notificationSnapshot.child("date").getValue(String.class);
+            String time = notificationSnapshot.child("time").getValue(String.class);
+            Integer cameraNumber = notificationSnapshot.child("cameraNumber").getValue(Integer.class);
+            String deviceInfo = notificationSnapshot.child("deviceInfo").getValue(String.class);
+            
+            // Get metadata if it exists (new format)
+            DataSnapshot metadataSnapshot = notificationSnapshot.child("metadata");
+            Map<String, Object> metadata = new HashMap<>();
+            
+            if (metadataSnapshot.exists()) {
+                // Extract metadata from the notification
+                for (DataSnapshot metaChild : metadataSnapshot.getChildren()) {
+                    String key = metaChild.getKey();
+                    Object value = metaChild.getValue();
+                    if (key != null && value != null) {
+                        metadata.put(key, value);
+                    }
+                }
+            } else {
+                // Create metadata from individual fields (legacy support)
+                if (reason != null) {
+                    if (reason.toLowerCase().contains("sound")) {
+                        metadata.put("detectionType", "sound");
+                    } else if (reason.toLowerCase().contains("person")) {
+                        metadata.put("detectionType", "person");
+                    }
+                }
+                metadata.put("sessionName", sessionName);
+                if (cameraNumber != null) {
+                    metadata.put("cameraNumber", "Camera " + cameraNumber);
+                }
+                if (deviceInfo != null) {
+                    metadata.put("deviceInfo", deviceInfo);
+                }
+            }
+            
+            if (reason == null || date == null || time == null) {
+                Log.w(TAG, "Invalid notification data for ID: " + notificationId);
+                return;
+            }
+            
+            // Determine detection type from metadata or reason
+            String detectionType = "unknown";
+            if (metadata.containsKey("detectionType")) {
+                detectionType = (String) metadata.get("detectionType");
+            } else if (reason.toLowerCase().contains("sound")) {
+                detectionType = "sound";
+            } else if (reason.toLowerCase().contains("person") || reason.toLowerCase().contains("detected")) {
+                detectionType = "person";
+            }
+            
+            // Check if notification type is enabled
+            Context context = getContext();
+            if (context != null) {
+                if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(context)) {
+                    Log.d(TAG, "Sound notifications disabled, skipping notification: " + notificationId);
+                    return;
+                }
+                
+                if ("person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(context)) {
+                    Log.d(TAG, "Person notifications disabled, skipping notification: " + notificationId);
+                    return;
+                }
+            }
+            
+            // Create enhanced title matching web app format
+            String title = reason;
+            if (!reason.toLowerCase().contains(sessionName.toLowerCase())) {
+                title += " at " + sessionName;
+            }
+            
+            // Ensure we have the session name in metadata
+            metadata.put("sessionName", sessionName);
+            
+            // Create notification with enhanced metadata
+            NotificationData notification = new NotificationData(
+                    notificationId,
+                    title,
+                    date,
+                    time,
+                    metadata
+            );
+            notificationMap.put(notificationId, notification);
+            
+            Log.d(TAG, "Successfully processed enhanced session notification: " + detectionType + " at " + sessionName);
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing session notification: " + notificationId, e);
+        }
+    }
+
+    // Enhanced universal notifications processing
+    private void handleUniversalNotifications(DataSnapshot universalSnapshot) {
+        if (!universalSnapshot.exists()) return;
+        
+        SharedPreferences prefs = getContext() != null ? 
+            getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) : null;
+        Set<String> deletedNotifs = prefs != null ? 
+            prefs.getStringSet(DELETED_NOTIFICATIONS_KEY, new HashSet<>()) : new HashSet<>();
+        
+        for (DataSnapshot notificationSnapshot : universalSnapshot.getChildren()) {
+            String notificationId = notificationSnapshot.getKey();
+            if (notificationId != null && !deletedNotifs.contains(notificationId)) {
+                String reason = notificationSnapshot.child("reason").getValue(String.class);
+                String time = notificationSnapshot.child("time").getValue(String.class);
+                String date = notificationSnapshot.child("date").getValue(String.class);
+                
+                // Get metadata if it exists (enhanced format)
+                DataSnapshot metadataSnapshot = notificationSnapshot.child("metadata");
+                Map<String, Object> metadata = new HashMap<>();
+                
+                if (metadataSnapshot.exists()) {
+                    for (DataSnapshot metaChild : metadataSnapshot.getChildren()) {
+                        String key = metaChild.getKey();
+                        Object value = metaChild.getValue();
+                        if (key != null && value != null) {
+                            metadata.put(key, value);
+                        }
+                    }
+                }
+
+                if (reason != null && time != null && date != null) {
+                    // Determine detection type for filtering
+                    String detectionType = "unknown";
+                    if (metadata.containsKey("detectionType")) {
+                        detectionType = (String) metadata.get("detectionType");
+                    } else if (reason.toLowerCase().contains("sound")) {
+                        detectionType = "sound";
+                    } else if (reason.toLowerCase().contains("person")) {
+                        detectionType = "person";
+                    }
+                    
+                    // Check if notifications of this type are enabled
+                    Context context = getContext();
+                    if (context != null) {
+                        if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(context)) {
+                            continue;
+                        }
+                        if ("person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(context)) {
+                            continue;
+                        }
+                    }
+                    
+                    NotificationData notification = new NotificationData(
+                            notificationId,
+                            reason,
+                            date,
+                            time,
+                            metadata.isEmpty() ? null : metadata
+                    );
+                    notificationMap.put(notificationId, notification);
+                }
+            }
+        }
+    }
+
+    // Helper method to get context safely
+    private Context getContext() {
+        return activeInstance != null && NotificationFragment.activeInstance != null ? 
+               NotificationFragment.activeInstance.getContext() : null;
+    }
+
+    /**
+     * Helper method to setup metadata display for a notification
+     */
+    private void setupMetadataDisplay(LinearLayout innerLayout, NotificationData notification) {
+        // Show the metadata container (now it's a MaterialCardView)
+        View metadataContainer = innerLayout.findViewById(R.id.metadata_container);
+        if (metadataContainer != null) {
+            metadataContainer.setVisibility(View.GONE); // Start hidden, will be shown via Details button
+            
+            // Set session name with enhanced formatting
+            TextView sessionNameView = innerLayout.findViewById(R.id.metadata_session_name);
+            if (sessionNameView != null) {
+                if (notification.metadata.containsKey("sessionName")) {
+                    String sessionName = notification.metadata.get("sessionName").toString();
+                    sessionNameView.setText(sessionName);
+                } else {
+                    sessionNameView.setText("Unknown Session");
+                }
+            }
+            
+            // Set camera number with enhanced formatting
+            TextView cameraNumberView = innerLayout.findViewById(R.id.metadata_camera_number);
+            if (cameraNumberView != null) {
+                if (notification.metadata.containsKey("cameraNumber")) {
+                    String cameraInfo = notification.metadata.get("cameraNumber").toString();
+                    // Add camera icon to text if it doesn't already contain "Camera"
+                    if (!cameraInfo.toLowerCase().contains("camera")) {
+                        cameraInfo = "Camera " + cameraInfo;
+                    }
+                    cameraNumberView.setText(cameraInfo);
+                } else {
+                    cameraNumberView.setText("Unknown Camera");
+                }
+            }
+            
+            // Set device info with better formatting
+            TextView deviceInfoView = innerLayout.findViewById(R.id.metadata_device_info);
+            if (deviceInfoView != null) {
+                if (notification.metadata.containsKey("deviceInfo")) {
+                    String deviceInfo = notification.metadata.get("deviceInfo").toString();
+                    // Truncate very long device names
+                    if (deviceInfo.length() > 25) {
+                        deviceInfo = deviceInfo.substring(0, 22) + "...";
+                    }
+                    deviceInfoView.setText(deviceInfo);
+                } else {
+                    deviceInfoView.setText("Unknown Device");
+                }
+            }
+            
+            // Set user email with proper container handling
+            TextView userEmailView = innerLayout.findViewById(R.id.metadata_user_email);
+            View emailContainer = innerLayout.findViewById(R.id.metadata_email_container);
+            if (userEmailView != null && emailContainer != null) {
+                if (notification.metadata.containsKey("userEmail")) {
+                    String userEmail = notification.metadata.get("userEmail").toString();
+                    userEmailView.setText(userEmail);
+                    emailContainer.setVisibility(View.VISIBLE);
+                } else if (notification.metadata.containsKey("hostEmail")) {
+                    String hostEmail = notification.metadata.get("hostEmail").toString();
+                    userEmailView.setText(hostEmail);
+                    emailContainer.setVisibility(View.VISIBLE);
+                } else {
+                    emailContainer.setVisibility(View.GONE);
+                }
+            }
+            
+            // Set detection type with enhanced styling and additional info
+            TextView detectionTypeView = innerLayout.findViewById(R.id.metadata_detection_type);
+            if (detectionTypeView != null) {
+                if (notification.metadata.containsKey("detectionType")) {
+                    String detectionType = notification.metadata.get("detectionType").toString();
+                    String displayText = detectionType.substring(0, 1).toUpperCase() + detectionType.substring(1);
+                    
+                    // Add count or amplitude info if available
+                    if ("person".equals(detectionType) && notification.metadata.containsKey("personCount")) {
+                        Object count = notification.metadata.get("personCount");
+                        displayText += " (" + count + ")";
+                    } else if ("sound".equals(detectionType) && notification.metadata.containsKey("amplitude")) {
+                        displayText += " (High)";
+                    }
+                    
+                    detectionTypeView.setText(displayText);
+                    
+                    // Set background drawable based on detection type
+                    if ("sound".equals(detectionType)) {
+                        detectionTypeView.setBackgroundResource(R.drawable.rounded_badge_red);
+                    } else if ("person".equals(detectionType)) {
+                        detectionTypeView.setBackgroundResource(R.drawable.rounded_badge_green);
+                    } else {
+                        detectionTypeView.setBackgroundResource(R.drawable.rounded_badge_gray);
+                    }
+                } else {
+                    detectionTypeView.setText("Unknown");
+                    detectionTypeView.setBackgroundResource(R.drawable.rounded_badge_gray);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Helper method to setup delete button functionality
+     */
+    private void setupDeleteButton(Context context, ViewGroup notificationContainer, View deleteButton, NotificationData notification, LinearLayout innerLayout) {
+        if (deleteButton != null) {
+            deleteButton.setOnClickListener(v -> {
+                try {
+                    // Remove notification from UI
+                    notificationContainer.removeView(innerLayout);
+
+                    // Add to deleted notifications list
+                    SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                    Set<String> deletedNotifs = new HashSet<>(prefs.getStringSet(DELETED_NOTIFICATIONS_KEY, new HashSet<>()));
+                    deletedNotifs.add(notification.id);
+
+                    prefs.edit()
+                            .putStringSet(DELETED_NOTIFICATIONS_KEY, deletedNotifs)
+                            .apply();
+
+                    // Remove from our map
+                    notificationMap.remove(notification.id);
+
+                    // If no more notifications, show empty state
+                    if (notificationMap.isEmpty()) {
+                        showEmptyState(context, notificationContainer);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error deleting notification: " + notification.id, e);
+                }
+            });
+        }
+    }
+    
+    /**
+     * Helper method to setup view details button functionality
+     */
+    private void setupViewDetailsButton(Context context, LinearLayout innerLayout) {
+        View viewDetailsButton = innerLayout.findViewById(R.id.view_details_button);
+        if (viewDetailsButton != null) {
+            // Clear any existing click listener first to prevent double triggering
+            viewDetailsButton.setOnClickListener(null);
+            
+            NotificationFragment fragment = null;
+            
+            // Safer way to find the NotificationFragment
+            if (context instanceof Activity) {
+                // Try to find fragment from activity's fragment manager
+                androidx.fragment.app.FragmentManager fragmentManager = 
+                    ((androidx.fragment.app.FragmentActivity) context).getSupportFragmentManager();
+                fragment = (NotificationFragment) fragmentManager.findFragmentByTag("notification_fragment");
+            } else if (NotificationFragment.activeInstance != null) {
+                // Use the static reference if available
+                fragment = NotificationFragment.activeInstance;
+            }
+            
+            if (fragment != null) {
+                fragment.setUpViewDetailsButton(innerLayout, viewDetailsButton);
+            } else {
+                // Fallback: set up a basic click listener if no fragment is found
+                View metadataContainer = innerLayout.findViewById(R.id.metadata_container);
+                if (metadataContainer != null) {
+                    viewDetailsButton.setOnClickListener(v -> {
+                        boolean currentlyVisible = metadataContainer.getVisibility() == View.VISIBLE;
+                        metadataContainer.setVisibility(currentlyVisible ? View.GONE : View.VISIBLE);
+                    });
+                }
+            }
+        }
     }
 }

@@ -15,10 +15,10 @@ import com.summersoft.heliocam.R;
 
 public class PostLoginPreferencesActivity extends AppCompatActivity {
 
-    private static final String PREFS_NAME = "NotificationSettings";
-    private static final String KEY_ALL_NOTIFICATIONS = "all_notifications_enabled";
-    private static final String KEY_SOUND_NOTIFICATIONS = "sound_notifications_enabled";
-    private static final String KEY_PERSON_NOTIFICATIONS = "person_notifications_enabled";
+    private static final String PREFS_NAME = "notification_settings";
+    private static final String KEY_ALL_NOTIFICATIONS = "all_notifications";
+    private static final String KEY_SOUND_NOTIFICATIONS = "sound_notifications";
+    private static final String KEY_PERSON_NOTIFICATIONS = "person_notifications";
 
     private MaterialSwitch allNotificationsSwitch;
     private MaterialSwitch soundNotificationsSwitch;
@@ -81,12 +81,24 @@ public class PostLoginPreferencesActivity extends AppCompatActivity {
         editor.putBoolean(KEY_PERSON_NOTIFICATIONS, personEnabled);
         
         editor.apply();
-    }
-
-    private void navigateToHome() {
-        // Change destination to UserRoleSelectionActivity instead of HomeActivity
-        Intent intent = new Intent(this, UserRoleSelectionActivity.class);
-        startActivity(intent);
+    }    private void navigateToHome() {
+        // Check if user already has a saved role
+        String savedRole = UserRoleSelectionActivity.getUserRole(this);
+        
+        if (savedRole != null && !savedRole.isEmpty()) {
+            // User has a saved role, navigate directly to appropriate home activity
+            Intent intent;
+            if (UserRoleSelectionActivity.ROLE_HOST.equals(savedRole)) {
+                intent = new Intent(this, HomeActivity.class);
+            } else {
+                intent = new Intent(this, JoinerHomeActivity.class);
+            }
+            startActivity(intent);
+        } else {
+            // No saved role, go to role selection for first time setup
+            Intent intent = new Intent(this, UserRoleSelectionActivity.class);
+            startActivity(intent);
+        }
         finish(); // Close this activity so user can't go back to it with back button
     }
 }

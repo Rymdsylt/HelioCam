@@ -4,21 +4,48 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="20dp">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:text="Person Detection Cooldown"
+        android:textSize="18sp"
+        android:textStyle="bold"
         android:layout_marginBottom="8dp"
-        android:text="Set how long to pause detection after a person is detected (in seconds)"
-        android:textSize="14sp" />
+        android:textColor="@android:color/black" />
 
-    <EditText
-        android:id="@+id/personLatencyInput"
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter seconds"
-        android:inputType="number"
-        android:maxLength="3" />
+        android:layout_marginBottom="16dp"
+        android:text="Set how long to pause person detection after a person is detected (in seconds). This prevents multiple rapid detections of the same person."
+        android:textSize="14sp"
+        android:textColor="@android:color/darker_gray" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Cooldown in seconds"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/personLatencyInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:maxLength="3"
+            android:padding="12dp" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Recommended: 5-15 seconds"
+        android:textSize="12sp"
+        android:layout_marginTop="8dp"
+        android:textColor="@android:color/darker_gray"
+        android:textStyle="italic" />
 
 </LinearLayout>

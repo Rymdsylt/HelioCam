@@ -37,16 +37,15 @@ public class UserRoleSelectionActivity extends AppCompatActivity {
 
         // Set up click listeners for the cards
         hostCard.setOnClickListener(v -> selectRole(ROLE_HOST));
-        joinerCard.setOnClickListener(v -> selectRole(ROLE_JOINER));
-
-        // Continue button click listener
+        joinerCard.setOnClickListener(v -> selectRole(ROLE_JOINER));        // Continue button click listener
         continueButton.setOnClickListener(v -> {
             saveUserRole();
             navigateToNextScreen();
         });
 
-        // Set initial selection
-        selectRole(ROLE_HOST);
+        // Check if user already has a saved role and pre-select it
+        String currentRole = getUserRole(this);
+        selectRole(currentRole != null && !currentRole.isEmpty() ? currentRole : ROLE_HOST);
     }
 
     private void selectRole(String role) {
@@ -99,9 +98,7 @@ public class UserRoleSelectionActivity extends AppCompatActivity {
         
         startActivity(intent);
         finish();
-    }
-
-    /**
+    }    /**
      * Utility method to get the user role from anywhere in the app
      */
     public static String getUserRole(Context context) {
@@ -115,5 +112,15 @@ public class UserRoleSelectionActivity extends AppCompatActivity {
      */
     public static boolean isUserHost(Context context) {
         return ROLE_HOST.equals(getUserRole(context));
+    }
+
+    /**
+     * Utility method to clear the saved user role (useful for testing or role reset)
+     */
+    public static void clearUserRole(Context context) {
+        SharedPreferences preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.remove(KEY_USER_ROLE);
+        editor.apply();
     }
 }

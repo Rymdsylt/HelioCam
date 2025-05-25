@@ -168,9 +168,28 @@ public class SoundNotifService extends LifecycleService {
                                 String notificationKey = snapshot.getKey();
                                 String reason = snapshot.child("reason").getValue(String.class);
                                 String time = snapshot.child("time").getValue(String.class);
-                                String date = snapshot.child("date").getValue(String.class);
-
-                                if (notificationKey != null && reason != null && time != null && date != null) {
+                                String date = snapshot.child("date").getValue(String.class);                                if (notificationKey != null && reason != null && time != null && date != null) {
+                                    // Check notification settings before showing notification
+                                    boolean shouldShow = false;
+                                    String reasonLower = reason.toLowerCase();
+                                    
+                                    if (reasonLower.contains("sound")) {
+                                        shouldShow = com.summersoft.heliocam.ui.NotificationSettings.isSoundNotificationsEnabled(SoundNotifService.this);
+                                        Log.d(TAG, "Sound notification - enabled: " + shouldShow);
+                                    } else if (reasonLower.contains("person")) {
+                                        shouldShow = com.summersoft.heliocam.ui.NotificationSettings.isPersonNotificationsEnabled(SoundNotifService.this);
+                                        Log.d(TAG, "Person notification - enabled: " + shouldShow);
+                                    } else {
+                                        // For other types, default to checking all notifications
+                                        shouldShow = com.summersoft.heliocam.ui.NotificationSettings.isNotificationTypeEnabled(SoundNotifService.this, "in_app");
+                                        Log.d(TAG, "Other notification - enabled: " + shouldShow);
+                                    }
+                                    
+                                    if (!shouldShow) {
+                                        Log.d(TAG, "Notification disabled by settings, skipping: " + reason);
+                                        return;
+                                    }
+                                    
                                     // Only show notifications that are not already in old notifications
                                     Set<String> oldNotifKeys = sharedPreferences.getStringSet(PREF_KEY_OLD_NOTIFS, null);
                                     if (oldNotifKeys == null || !oldNotifKeys.contains(notificationKey)) {

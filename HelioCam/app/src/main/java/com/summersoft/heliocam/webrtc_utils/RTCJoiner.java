@@ -5,11 +5,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.media.MediaRecorder;
-import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Environment;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -39,12 +36,11 @@ import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoFrame;
+import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -53,6 +49,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Set;
+
+
 
 public class RTCJoiner {
     private static final String TAG = "RTCJoiner";
@@ -67,62 +66,50 @@ public class RTCJoiner {
     private AudioSource audioSource;
     private CameraVideoCapturer videoCapturer;
     private SurfaceTextureHelper surfaceTextureHelper;
-    
+
     // Connection components
     private Context context;
     private SurfaceViewRenderer localView;
     private String sessionId;
-    private String hostEmail;
+    public String hostEmail;
     private String formattedHostEmail;
     private String joinerId;
-    
+
     // Firebase reference
     private DatabaseReference firebaseDatabase;
-    
+
     // User info
     private String userEmail;
     private String formattedUserEmail;
-    
+
     // Camera state
     private boolean isUsingFrontCamera = true;
-    
     // Audio/video state
     private boolean isAudioEnabled = true;
     private boolean isVideoEnabled = true;
-    
-    // Recording state
-    private boolean isRecording = false;
-    private boolean isReplayBufferRunning = false;
-    private String recordingPath = null;
-    private MediaRecorder mediaRecorder = null;
-    
+
     // WebRTC TURN/STUN server configuration
     private final String stunServer = "stun:stun.relay.metered.ca:80";
-   
-    
-    private final String meteredApiKey = "4611ab82d5ec3882669178686393394a7ca4";
-    
-    // Add these constants
-    private static final int REPLAY_BUFFER_DURATION_MS = 30000; // 30 seconds
 
-    // Add these fields to the top of the class with other field declarations
+
+    private final String meteredApiKey = "4611ab82d5ec3882669178686393394a7ca4";    // Add these fields to the top of the class with other field declarations
     private com.summersoft.heliocam.detection.PersonDetection personDetection;
-    private org.webrtc.VideoSink detectionVideoSink;
-    
+
     // Add to RTCJoiner class fields
     private int assignedCameraNumber = 1; // Default to 1, but will be set by host
-    
+
     /**
      * Constructor for RTCJoiner
-     * @param context Android context
-     * @param localView Surface view for rendering the camera feed
+     *
+     * @param context          Android context
+     * @param localView        Surface view for rendering the camera feed
      * @param firebaseDatabase Firebase database reference
      */
     public RTCJoiner(Context context, SurfaceViewRenderer localView, DatabaseReference firebaseDatabase) {
         this.context = context;
         this.localView = localView;
         this.firebaseDatabase = firebaseDatabase;
-        
+
         // Get user email
         FirebaseAuth auth = FirebaseAuth.getInstance();
         if (auth.getCurrentUser() != null) {
@@ -132,316 +119,78 @@ public class RTCJoiner {
             Log.e(TAG, "User is not authenticated");
             throw new IllegalStateException("User must be authenticated");
         }
-        
+
         // Initialize WebRTC components
         initializeWebRTC();
     }
-    
-    /**
-     * Check if recording can be started
-     */
-    public boolean canStartRecording() {
-        // Check if we already have a recording running
-        if (isRecording || isReplayBufferRunning) {
-            return false;
-        }
-        
-        // Check if we have necessary permissions
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions((Activity) context,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-            return false;
-        }
-        
-        // Check if camera is running
-        return videoCapturer != null && localVideoTrack != null;
-    }
-    
-    /**
-     * Start recording the camera feed
-     */
-    public void startRecording() {
-        if (isRecording) {
-            Log.w(TAG, "Recording is already in progress");
-            return;
-        }
-        
-        try {
-            // Create directory for recordings if it doesn't exist
-            File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
-            File recordingDir = new File(moviesDir, "HelioCam");
-            if (!recordingDir.exists()) {
-                if (!recordingDir.mkdirs()) {
-                    Log.e(TAG, "Failed to create recording directory");
-                    return;
-                }
-            }
-            
-            // Create file for recording with timestamp
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault());
-            String fileName = "HelioCam_" + sdf.format(new Date()) + ".mp4";
-            recordingPath = new File(recordingDir, fileName).getAbsolutePath();
-            
-            // Initialize MediaRecorder
-            mediaRecorder = new MediaRecorder();
-            mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            mediaRecorder.setVideoEncodingBitRate(2000000);
-            mediaRecorder.setVideoFrameRate(30);
-            mediaRecorder.setOutputFile(recordingPath);
-            mediaRecorder.prepare();
-            
-            // Start recording
-            mediaRecorder.start();
-            isRecording = true;
-            
-            Log.d(TAG, "Recording started: " + recordingPath);
-            Toast.makeText(context, "Recording started", Toast.LENGTH_SHORT).show();
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start recording", e);
-            Toast.makeText(context, "Failed to start recording: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            releaseMediaRecorder();
-        }
-    }
-    
-    /**
-     * Stop recording
-     */
-    public void stopRecording() {
-        if (!isRecording) {
-            Log.w(TAG, "No recording in progress to stop");
-            return;
-        }
-        
-        try {
-            if (mediaRecorder != null) {
-                mediaRecorder.stop();
-                releaseMediaRecorder();
-                
-                // Make the video visible in gallery
-                if (recordingPath != null) {
-                    MediaScannerConnection.scanFile(context,
-                            new String[]{recordingPath}, null,
-                            (path, uri) -> Log.d(TAG, "Recording saved: " + uri));
-                    
-                    Toast.makeText(context, "Recording saved to " + recordingPath, Toast.LENGTH_LONG).show();
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error stopping recording", e);
-        } finally {
-            isRecording = false;
-            recordingPath = null;
-        }
-    }
-    
-    /**
-     * Release MediaRecorder resources
-     */
-    private void releaseMediaRecorder() {
-        if (mediaRecorder != null) {
-            try {
-                mediaRecorder.reset();
-                mediaRecorder.release();
-            } catch (Exception e) {
-                Log.e(TAG, "Error releasing MediaRecorder", e);
-            } finally {
-                mediaRecorder = null;
-            }
-        }
-    }
-    
-    /**
-     * Check if replay buffer can be started
-     */
-    public boolean canStartReplayBuffer() {
-        // Similar checks as for regular recording
-        if (isRecording || isReplayBufferRunning) {
-            return false;
-        }
-        
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions((Activity) context,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-            return false;
-        }
-        
-        return videoCapturer != null && localVideoTrack != null;
-    }
-    
-    /**
-     * Start replay buffer (circular recording buffer)
-     */
-    public void startReplayBuffer() {
-        if (isReplayBufferRunning) {
-            Log.w(TAG, "Replay buffer is already running");
-            return;
-        }
-        
-        try {
-            // Create temporary file for buffer
-            File outputDir = context.getCacheDir();
-            File tempFile = File.createTempFile("buffer", ".mp4", outputDir);
-            recordingPath = tempFile.getAbsolutePath();
-            
-            // Initialize MediaRecorder similar to regular recording
-            mediaRecorder = new MediaRecorder();
-            mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            mediaRecorder.setVideoEncodingBitRate(2000000);
-            mediaRecorder.setVideoFrameRate(30);
-            mediaRecorder.setMaxDuration(REPLAY_BUFFER_DURATION_MS); // 30 seconds max
-            mediaRecorder.setOutputFile(recordingPath);
-            mediaRecorder.prepare();
-            
-            // Start recording
-            mediaRecorder.start();
-            isReplayBufferRunning = true;
-            
-            Log.d(TAG, "Replay buffer started");
-            Toast.makeText(context, "Replay buffer started", Toast.LENGTH_SHORT).show();
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start replay buffer", e);
-            Toast.makeText(context, "Failed to start replay buffer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            releaseMediaRecorder();
-        }
-    }
-    
-    /**
-     * Stop replay buffer and save the recording
-     */
-    public void stopReplayBuffer() {
-        if (!isReplayBufferRunning) {
-            Log.w(TAG, "No replay buffer running to stop");
-            return;
-        }
-        
-        try {
-            if (mediaRecorder != null) {
-                mediaRecorder.stop();
-                releaseMediaRecorder();
-                
-                // Copy from temp file to permanent location
-                File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
-                File recordingDir = new File(moviesDir, "HelioCam");
-                if (!recordingDir.exists()) {
-                    recordingDir.mkdirs();
-                }
-                
-                // Create file with timestamp
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault());
-                String fileName = "HelioCam_Buffer_" + sdf.format(new Date()) + ".mp4";
-                File destFile = new File(recordingDir, fileName);
-                
-                // Copy buffer to permanent file
-                FileInputStream fis = new FileInputStream(recordingPath);
-                FileOutputStream fos = new FileOutputStream(destFile);
-                byte[] buffer = new byte[1024];
-                int length;
-                while ((length = fis.read(buffer)) > 0) {
-                    fos.write(buffer, 0, length);
-                }
-                fis.close();
-                fos.close();
-                
-                // Make the video visible in gallery
-                MediaScannerConnection.scanFile(context,
-                        new String[]{destFile.getAbsolutePath()}, null,
-                        (path, uri) -> Log.d(TAG, "Buffer saved: " + uri));
-                
-                Toast.makeText(context, "Replay buffer saved to " + destFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
-                
-                // Delete temp file
-                new File(recordingPath).delete();
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error stopping replay buffer", e);
-        } finally {
-            isReplayBufferRunning = false;
-            recordingPath = null;
-        }
-    }
-    
+
+
     /**
      * Initialize WebRTC components
      */
     private void initializeWebRTC() {
         // Create EGL context
         eglBase = EglBase.create();
-        
+
         // Initialize the local view
         localView.init(eglBase.getEglBaseContext(), null);
         localView.setMirror(true);
-        
+
         // Initialize the PeerConnectionFactory
-        PeerConnectionFactory.InitializationOptions options = 
+        PeerConnectionFactory.InitializationOptions options =
                 PeerConnectionFactory.InitializationOptions.builder(context)
                         .createInitializationOptions();
         PeerConnectionFactory.initialize(options);
-        
-        DefaultVideoEncoderFactory encoderFactory = 
+
+        DefaultVideoEncoderFactory encoderFactory =
                 new DefaultVideoEncoderFactory(eglBase.getEglBaseContext(), true, true);
-        DefaultVideoDecoderFactory decoderFactory = 
+        DefaultVideoDecoderFactory decoderFactory =
                 new DefaultVideoDecoderFactory(eglBase.getEglBaseContext());
-        
+
         PeerConnectionFactory.Options peerOptions = new PeerConnectionFactory.Options();
-        
+
         peerConnectionFactory = PeerConnectionFactory.builder()
                 .setOptions(peerOptions)
                 .setVideoEncoderFactory(encoderFactory)
                 .setVideoDecoderFactory(decoderFactory)
                 .createPeerConnectionFactory();
     }
-    
+
     /**
      * Start camera capture
+     *
      * @param useFrontCamera Whether to use front camera
      */
     public void startCamera(boolean useFrontCamera) {
         this.isUsingFrontCamera = useFrontCamera;
-        
+
         // Check if camera is already running
         if (videoCapturer != null) {
             Log.d(TAG, "Camera is already running");
             return;
         }
-        
+
         // Create camera capturer
         Camera2Enumerator enumerator = new Camera2Enumerator(context);
         videoCapturer = createCameraCapturer(enumerator, useFrontCamera);
-        
+
         if (videoCapturer == null) {
             Log.e(TAG, "Failed to create camera capturer");
             Toast.makeText(context, "Failed to access camera", Toast.LENGTH_SHORT).show();
             return;
         }
-        
+
         // Create surface texture helper
-        surfaceTextureHelper = 
+        surfaceTextureHelper =
                 SurfaceTextureHelper.create("CaptureThread", eglBase.getEglBaseContext());
-        
+
         // Create video source and track
         videoSource = peerConnectionFactory.createVideoSource(videoCapturer.isScreencast());
         videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
         localVideoTrack = peerConnectionFactory.createVideoTrack("video", videoSource);
         localVideoTrack.setEnabled(true);
         localVideoTrack.addSink(localView);
-        // Connect to person detection if available
-        if (personDetection != null) {
-            Log.d(TAG, "Connecting video track to person detection");
-            localVideoTrack.addSink(personDetection);
-        }
-        
+
         // Create audio source and track
         MediaConstraints audioConstraints = new MediaConstraints();
         audioConstraints.mandatory.add(
@@ -452,22 +201,24 @@ public class RTCJoiner {
                 new MediaConstraints.KeyValuePair("googHighpassFilter", "true"));
         audioConstraints.mandatory.add(
                 new MediaConstraints.KeyValuePair("googNoiseSuppression", "true"));
-                
+
         audioSource = peerConnectionFactory.createAudioSource(audioConstraints);
         localAudioTrack = peerConnectionFactory.createAudioTrack("audio", audioSource);
         localAudioTrack.setEnabled(true);
-        
-        // Start capture
+
+        // Start capture with optimized settings for person detection
         try {
-            videoCapturer.startCapture(640, 480, 30);
-            Log.d(TAG, "Camera started with " + (useFrontCamera ? "front" : "back") + " camera");
+            // Use better resolution for detection while maintaining performance
+            videoCapturer.startCapture(640, 480, 20); // Slightly higher resolution for better detection
+            Log.d(TAG, "Camera started with optimized settings for detection: " + (useFrontCamera ? "front" : "back") + " camera");
         } catch (Exception e) {
             Log.e(TAG, "Failed to start camera capture", e);
         }
     }
-    
+
     /**
      * Join a session as a camera
+     *
      * @param hostEmail Email of the host
      * @param sessionId Session ID to join
      */
@@ -476,30 +227,30 @@ public class RTCJoiner {
         this.formattedHostEmail = hostEmail.replace(".", "_");
         this.sessionId = sessionId;
         this.joinerId = UUID.randomUUID().toString();
-        
+
         Log.d(TAG, "Joining session: " + sessionId + " hosted by: " + hostEmail);
-        
+
         // Get unique device identifiers
         String deviceId = android.provider.Settings.Secure.getString(
-                context.getContentResolver(), 
+                context.getContentResolver(),
                 android.provider.Settings.Secure.ANDROID_ID);
-        
+
         String deviceName = Build.MANUFACTURER + " " + Build.MODEL;
-        
+
         // Send join request with device identifiers
         Map<String, Object> joinRequest = new HashMap<>();
         joinRequest.put("email", userEmail);
         joinRequest.put("timestamp", System.currentTimeMillis());
         joinRequest.put("deviceId", deviceId);  // Add unique device ID
         joinRequest.put("deviceName", deviceName);  // Add device name
-        
+
         DatabaseReference joinRequestRef = firebaseDatabase.child("users")
                 .child(formattedHostEmail)
                 .child("sessions")
                 .child(sessionId)
                 .child("join_requests")
                 .child(joinerId);
-                
+
         joinRequestRef.setValue(joinRequest)
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "Join request sent successfully");
@@ -510,7 +261,7 @@ public class RTCJoiner {
                     Toast.makeText(context, "Failed to join session", Toast.LENGTH_SHORT).show();
                 });
     }
-    
+
     /**
      * Listen for SDP offer from host
      */
@@ -520,7 +271,7 @@ public class RTCJoiner {
                 .child("sessions")
                 .child(sessionId)
                 .child("Offer");
-                
+
         offerRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
@@ -528,16 +279,16 @@ public class RTCJoiner {
                     String offerSdp = dataSnapshot.getValue(String.class);
                     if (offerSdp != null) {
                         Log.d(TAG, "Received offer from host");
-                        
+
                         // Initialize peer connection now that we have an offer
                         initializePeerConnection(offerSdp);
-                        
+
                         // Remove this listener after getting the offer
                         offerRef.removeEventListener(this);
                     }
                 }
             }
-            
+
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 Log.e(TAG, "Failed to listen for offer: " + databaseError.getMessage());
@@ -551,7 +302,7 @@ public class RTCJoiner {
                 .child("join_requests")
                 .child(joinerId)
                 .child("assigned_camera");
-                
+
         assignedCameraRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
@@ -562,23 +313,23 @@ public class RTCJoiner {
                     }
                 }
             }
-            
+
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 // Handle error
             }
         });
     }
-    
+
     /**
      * Initialize peer connection with received offer
      */
     private void initializePeerConnection(String offerSdp) {
         // Create RTCConfiguration with ICE servers
-        PeerConnection.RTCConfiguration rtcConfig = 
+        PeerConnection.RTCConfiguration rtcConfig =
                 new PeerConnection.RTCConfiguration(getIceServers());
         rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
-        
+
         // Create peer connection
         peerConnection = peerConnectionFactory.createPeerConnection(
                 rtcConfig,
@@ -588,7 +339,7 @@ public class RTCJoiner {
                         super.onIceCandidate(candidate);
                         sendIceCandidateToHost(candidate);
                     }
-                    
+
                     @Override
                     public void onAddStream(MediaStream stream) {
                         super.onAddStream(stream);
@@ -598,12 +349,12 @@ public class RTCJoiner {
                         }
                     }
                 });
-                
+
         if (peerConnection == null) {
             Log.e(TAG, "Failed to create peer connection");
             return;
         }
-        
+
         // Add local media stream with video and audio
         MediaStream localStream = peerConnectionFactory.createLocalMediaStream("cameraStream");
         if (localVideoTrack != null) {
@@ -613,30 +364,30 @@ public class RTCJoiner {
             localStream.addTrack(localAudioTrack);
         }
         peerConnection.addStream(localStream);
-        
+
         // Set remote description (the host's offer)
         SessionDescription offer = new SessionDescription(
                 SessionDescription.Type.OFFER, offerSdp);
-                
+
         peerConnection.setRemoteDescription(new SdpAdapter("SetRemoteDescription") {
             @Override
             public void onSetSuccess() {
                 super.onSetSuccess();
-                
+
                 // Create answer
                 createAnswer();
             }
-            
+
             @Override
             public void onSetFailure(String error) {
                 Log.e(TAG, "Failed to set remote description: " + error);
             }
         }, offer);
-        
+
         // Listen for ICE candidates from host
         listenForHostIceCandidates();
     }
-    
+
     /**
      * Create SDP answer
      */
@@ -644,26 +395,26 @@ public class RTCJoiner {
         MediaConstraints constraints = new MediaConstraints();
         constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
         constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"));
-        
+
         peerConnection.createAnswer(new SdpAdapter("CreateAnswer") {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
                 super.onCreateSuccess(sessionDescription);
-                
+
                 peerConnection.setLocalDescription(
                         new SdpAdapter("SetLocalDescription"), sessionDescription);
-                
+
                 // Send answer to host
                 sendAnswerToHost(sessionDescription);
             }
-            
+
             @Override
             public void onCreateFailure(String error) {
                 Log.e(TAG, "Failed to create answer: " + error);
             }
         }, constraints);
     }
-    
+
     /**
      * Send SDP answer to host
      */
@@ -673,7 +424,7 @@ public class RTCJoiner {
                 .child("sessions")
                 .child(sessionId)
                 .child("Answer");
-                
+
         answerRef.setValue(answer.description)
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "Answer sent to host successfully");
@@ -682,7 +433,7 @@ public class RTCJoiner {
                     Log.e(TAG, "Failed to send answer to host", e);
                 });
     }
-    
+
     /**
      * Send ICE candidate to host
      */
@@ -692,20 +443,20 @@ public class RTCJoiner {
                 .child("sessions")
                 .child(sessionId)
                 .child("ice_candidates");
-                
+
         String candidateId = "camera_candidate_" + UUID.randomUUID().toString().substring(0, 8);
-        
+
         Map<String, Object> candidateData = new HashMap<>();
         candidateData.put("candidate", candidate.sdp);
         candidateData.put("sdpMid", candidate.sdpMid);
         candidateData.put("sdpMLineIndex", candidate.sdpMLineIndex);
-        
+
         iceCandidatesRef.child(candidateId).setValue(candidateData)
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to send ICE candidate to host", e);
                 });
     }
-    
+
     /**
      * Listen for ICE candidates from host
      */
@@ -715,17 +466,17 @@ public class RTCJoiner {
                 .child("sessions")
                 .child(sessionId)
                 .child("host_candidates");
-                
+
         hostCandidatesRef.addChildEventListener(new ChildEventListener() {
             @Override
             public void onChildAdded(DataSnapshot dataSnapshot, String previousChildName) {
                 String sdp = dataSnapshot.child("sdp").getValue(String.class);
                 String sdpMid = dataSnapshot.child("sdpMid").getValue(String.class);
                 Integer sdpMLineIndex = dataSnapshot.child("sdpMLineIndex").getValue(Integer.class);
-                
+
                 if (sdp != null && sdpMid != null && sdpMLineIndex != null) {
                     IceCandidate iceCandidate = new IceCandidate(sdpMid, sdpMLineIndex, sdp);
-                    
+
                     if (peerConnection != null) {
                         peerConnection.addIceCandidate(iceCandidate);
                         Log.d(TAG, "Added ICE candidate from host");
@@ -734,13 +485,16 @@ public class RTCJoiner {
             }
 
             @Override
-            public void onChildChanged(DataSnapshot dataSnapshot, String previousChildName) {}
+            public void onChildChanged(DataSnapshot dataSnapshot, String previousChildName) {
+            }
 
             @Override
-            public void onChildRemoved(DataSnapshot dataSnapshot) {}
+            public void onChildRemoved(DataSnapshot dataSnapshot) {
+            }
 
             @Override
-            public void onChildMoved(DataSnapshot dataSnapshot, String previousChildName) {}
+            public void onChildMoved(DataSnapshot dataSnapshot, String previousChildName) {
+            }
 
             @Override
             public void onCancelled(DatabaseError databaseError) {
@@ -748,12 +502,12 @@ public class RTCJoiner {
             }
         });
     }
-    
+
     /**
      * Create camera capturer
      */
-    private CameraVideoCapturer createCameraCapturer(Camera2Enumerator enumerator, 
-                                                    boolean useFrontCamera) {
+    private CameraVideoCapturer createCameraCapturer(Camera2Enumerator enumerator,
+                                                     boolean useFrontCamera) {
         for (String deviceName : enumerator.getDeviceNames()) {
             if (useFrontCamera && enumerator.isFrontFacing(deviceName)) {
                 return enumerator.createCapturer(deviceName, null);
@@ -761,15 +515,15 @@ public class RTCJoiner {
                 return enumerator.createCapturer(deviceName, null);
             }
         }
-        
+
         // If specific camera not found, try any camera
         for (String deviceName : enumerator.getDeviceNames()) {
             return enumerator.createCapturer(deviceName, null);
         }
-        
+
         return null;
     }
-    
+
     /**
      * Switch between front and back camera
      */
@@ -780,7 +534,7 @@ public class RTCJoiner {
             localView.setMirror(isUsingFrontCamera);
         }
     }
-    
+
     /**
      * Toggle video on/off
      */
@@ -792,7 +546,7 @@ public class RTCJoiner {
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
         }
     }
-    
+
     /**
      * Mute microphone
      */
@@ -802,7 +556,7 @@ public class RTCJoiner {
             localAudioTrack.setEnabled(false);
         }
     }
-    
+
     /**
      * Unmute microphone
      */
@@ -812,43 +566,36 @@ public class RTCJoiner {
             localAudioTrack.setEnabled(true);
         }
     }
-    
+
     /**
      * Get ICE servers list
      */
     private List<PeerConnection.IceServer> getIceServers() {
         return Arrays.asList(
-            PeerConnection.IceServer.builder("stun:stun.relay.metered.ca:80").createIceServer(),
-            PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:80")
-                .setUsername("08a10b202c595304495012c2")
-                .setPassword("JnsH2+jc2q3/uGon")
-                .createIceServer(),
-            PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:80?transport=tcp")
-                .setUsername("08a10b202c595304495012c2")
-                .setPassword("JnsH2+jc2q3/uGon")
-                .createIceServer(),
-            PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:443")
-                .setUsername("08a10b202c595304495012c2")
-                .setPassword("JnsH2+jc2q3/uGon")
-                .createIceServer(),
-            PeerConnection.IceServer.builder("turns:asia.relay.metered.ca:443?transport=tcp")
-                .setUsername("08a10b202c595304495012c2")
-                .setPassword("JnsH2+jc2q3/uGon")
-                .createIceServer()
+                PeerConnection.IceServer.builder("stun:stun.relay.metered.ca:80").createIceServer(),
+                PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:80")
+                        .setUsername("08a10b202c595304495012c2")
+                        .setPassword("JnsH2+jc2q3/uGon")
+                        .createIceServer(),
+                PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:80?transport=tcp")
+                        .setUsername("08a10b202c595304495012c2")
+                        .setPassword("JnsH2+jc2q3/uGon")
+                        .createIceServer(),
+                PeerConnection.IceServer.builder("turn:asia.relay.metered.ca:443")
+                        .setUsername("08a10b202c595304495012c2")
+                        .setPassword("JnsH2+jc2q3/uGon")
+                        .createIceServer(),
+                PeerConnection.IceServer.builder("turns:asia.relay.metered.ca:443?transport=tcp")
+                        .setUsername("08a10b202c595304495012c2")
+                        .setPassword("JnsH2+jc2q3/uGon")
+                        .createIceServer()
         );
     }
-    
+
     /**
      * Dispose of all resources
      */
     public void dispose() {
-        // Stop recording if active
-        if (isRecording || isReplayBufferRunning) {
-            releaseMediaRecorder();
-            isRecording = false;
-            isReplayBufferRunning = false;
-        }
-        
         // Remove join request from Firebase
         if (joinerId != null && formattedHostEmail != null && sessionId != null) {
             firebaseDatabase.child("users")
@@ -859,7 +606,7 @@ public class RTCJoiner {
                     .child(joinerId)
                     .removeValue();
         }
-        
+
         // Stop camera capture
         if (videoCapturer != null) {
             try {
@@ -870,77 +617,90 @@ public class RTCJoiner {
             videoCapturer.dispose();
             videoCapturer = null;
         }
-        
+
         // Close peer connection
         if (peerConnection != null) {
             peerConnection.close();
             peerConnection = null;
         }
-        
+
         // Dispose of video source
         if (videoSource != null) {
             videoSource.dispose();
             videoSource = null;
         }
-        
+
         // Dispose of audio source
         if (audioSource != null) {
             audioSource.dispose();
             audioSource = null;
         }
-        
+
         // Release surface texture helper
         if (surfaceTextureHelper != null) {
             surfaceTextureHelper.dispose();
             surfaceTextureHelper = null;
         }
-        
+
         // Release local view
         if (localView != null) {
             localView.release();
         }
-        
+
         // Release EGL base
         if (eglBase != null) {
             eglBase.release();
             eglBase = null;
         }
-        
+
         // Dispose of factory
         if (peerConnectionFactory != null) {
             peerConnectionFactory.dispose();
             peerConnectionFactory = null;
         }
     }
-    
+
     /**
      * Set person detection module to receive video frames
+     *
      * @param personDetection The PersonDetection instance
      */
     public void setPersonDetection(com.summersoft.heliocam.detection.PersonDetection personDetection) {
         this.personDetection = personDetection;
-        
+
         // If we have a video track, connect it to the person detection
         if (localVideoTrack != null && personDetection != null) {
             Log.d(TAG, "Connecting video track to person detection");
             localVideoTrack.addSink(personDetection);
+            
+            // Verify the connection
+            Log.d(TAG, "Person detection connected. Video track enabled: " + localVideoTrack.enabled());
+        } else {
+            Log.w(TAG, "Cannot connect person detection - localVideoTrack: " + 
+                  (localVideoTrack != null) + ", personDetection: " + (personDetection != null));
+        
+            // If video track exists but detection doesn't, store it for later connection
+            if (localVideoTrack != null && personDetection == null) {
+                Log.d(TAG, "Video track exists, will connect person detection when available");
+            }
         }
     }
-    
+
     /**
      * Find a session by session code (passkey)
+     *
      * @param sessionCode The 6-digit session code entered by user
      */
     public static void findSessionByCode(String sessionCode, SessionFoundCallback callback) {
         DatabaseReference sessionCodeRef = FirebaseDatabase.getInstance().getReference().child("session_codes").child(sessionCode);
-    
+
         sessionCodeRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
                     String sessionId = dataSnapshot.child("session_id").getValue(String.class);
                     String hostEmail = dataSnapshot.child("host_email").getValue(String.class);
-                    
+
                     if (sessionId != null && hostEmail != null) {
                         callback.onSessionFound(sessionId, hostEmail);
                     } else {
@@ -950,87 +710,489 @@ public class RTCJoiner {
                     callback.onSessionNotFound();
                 }
             }
-            
+
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 callback.onError("Database error", databaseError.toException());
             }
         });
     }
-    
+
     /**
      * Callback interface for session lookup
      */
     public interface SessionFoundCallback {
         void onSessionFound(String sessionId, String hostEmail);
+
         void onSessionNotFound();
+
         void onError(String message, Exception e);
     }
 
     /**
-     * Report a detection event to the host session
+     * Report a person detection event to the host session
+     *
+     * @param personCount Number of people detected
+     */
+    public void reportPersonDetection(int personCount) {
+        if (sessionId == null || hostEmail == null) {
+            Log.w(TAG, "Cannot report person detection - missing session info");
+            return;
+        }
+
+        Map<String, Object> detectionData = new HashMap<>();
+        detectionData.put("type", "person");
+        detectionData.put("personCount", personCount);
+        detectionData.put("confidence", "high");
+        
+        reportDetectionEvent("person", detectionData);
+    }
+
+    /**
+     * Report a sound detection event to the host session
+     *
+     * @param amplitude Sound amplitude detected
+     */
+    public void reportSoundDetection(double amplitude) {
+        if (sessionId == null || hostEmail == null) {
+            Log.w(TAG, "Cannot report sound detection - missing session info");
+            return;
+        }
+
+        Map<String, Object> detectionData = new HashMap<>();
+        detectionData.put("type", "sound");
+        detectionData.put("amplitude", amplitude);
+        detectionData.put("threshold", "exceeded");
+        
+        reportDetectionEvent("sound", detectionData);
+    }
+
+    /**
+     * Report a detection event to the host session - Enhanced to match notification card design
+     *
      * @param detectionType Type of detection (sound, person)
      * @param detectionData Additional data about the detection
      */
     public void reportDetectionEvent(String detectionType, Map<String, Object> detectionData) {
         if (sessionId == null || hostEmail == null) {
-            Log.e(TAG, "Cannot report detection - missing session or host info");
+            Log.w(TAG, "Cannot report detection: session or host info missing");
             return;
         }
 
         // Get the current time for the event ID
         long timestamp = System.currentTimeMillis();
-        
-        // Create detection event data matching the web format
-        Map<String, Object> detectionEvent = new HashMap<>();
-        detectionEvent.put("type", detectionType);
-        detectionEvent.put("timestamp", timestamp);
-        detectionEvent.put("cameraNumber", assignedCameraNumber);
-        detectionEvent.put("deviceName", Build.MANUFACTURER + " " + Build.MODEL);
-        detectionEvent.put("email", userEmail);
-        
-        // Add any additional data
-        if (detectionData != null) {
-            detectionEvent.put("data", detectionData);
-        }
-        
-        // Format email for Firebase path
+        String eventId = String.valueOf(timestamp);
+
+        // Format host email for Firebase path
         String formattedHostEmail = hostEmail.replace(".", "_");
         
-        // Use the detection_events path that matches the web app
-        String detectionPath = "users/" + formattedHostEmail + "/sessions/" + sessionId + 
-                "/detection_events/" + timestamp;
+        // Get current user info
+        String currentUserEmail;
+        String deviceInfo = android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL;
         
-        // Send to Firebase
-        firebaseDatabase.child(detectionPath).setValue(detectionEvent)
-            .addOnSuccessListener(aVoid -> {
-                Log.d(TAG, "Reported " + detectionType + " detection to host");
-            })
-            .addOnFailureListener(e -> {
-                Log.e(TAG, "Error reporting detection", e);
-            });
-    }
+        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+            currentUserEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+        } else {
+            currentUserEmail = "";
+        }
 
-    // Helper methods for specific detection types (no motion detection)
-    public void reportSoundDetection(double amplitude) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("amplitude", amplitude);
-        reportDetectionEvent("sound", data);
+        // Create formatted date/time for notifications
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+        Date eventDate = new Date(timestamp);
+        String dateString = dateFormat.format(eventDate);
+        String timeString = timeFormat.format(eventDate);
+          // First, get the session name to create proper notifications
+        DatabaseReference sessionNameRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedHostEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("session_name");
+                
+        sessionNameRef.get().addOnCompleteListener(task -> {
+            String sessionName = "Unknown Session";
+            
+            // Try primary location first
+            if (task.isSuccessful() && task.getResult().exists()) {
+                String foundName = task.getResult().getValue(String.class);
+                if (foundName != null) {
+                    sessionName = foundName;
+                    Log.d(TAG, "Found session name in main path: " + sessionName);
+                } else {
+                    Log.d(TAG, "Session name is null in main path, will try logininfo nodes");
+                }
+            } else {
+                Log.d(TAG, "Session name not found in main path, will try logininfo nodes");
+            }
+            
+            // If session name is still "Unknown Session", try to find it in logininfo nodes
+            if (sessionName.equals("Unknown Session")) {
+                // Fallback to check logininfo paths
+                findSessionNameInLoginInfo(formattedHostEmail, sessionId, foundSessionName -> {
+                    // Use the found session name if available, otherwise keep "Unknown Session"
+                    String finalSessionName = foundSessionName != null ? foundSessionName : "Unknown Session";
+                    if (foundSessionName == null) {
+                        Log.w(TAG, "Session name not found in any location, using default: " + finalSessionName);
+                    } else {
+                        Log.d(TAG, "Final session name after logininfo check: " + finalSessionName);
+                    }
+                    
+                    // Create notification with the determined session name
+                    createDetectionNotification(
+                        detectionType, detectionData, eventId, formattedHostEmail, 
+                        currentUserEmail, deviceInfo, dateString, timeString, 
+                        finalSessionName, timestamp, assignedCameraNumber
+                    );
+                });
+            } else {
+                // Session name was found in primary location, proceed with it
+                createDetectionNotification(
+                    detectionType, detectionData, eventId, formattedHostEmail, 
+                    currentUserEmail, deviceInfo, dateString, timeString, 
+                    sessionName, timestamp, assignedCameraNumber
+                );
+            }
+        });
     }
+      /**
+     * Helper method to find session name in logininfo nodes
+     */
+    private void findSessionNameInLoginInfo(String formattedHostEmail, String sessionId, SessionNameCallback callback) {
+        DatabaseReference userRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedHostEmail);
+                
+        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot userSnapshot) {
+                String foundSessionName = null;
+                
+                // FIRST: Check direct sessions node (most common location)
+                DataSnapshot directSessionsNode = userSnapshot.child("sessions");
+                if (directSessionsNode.hasChild(sessionId)) {
+                    String sessionName = directSessionsNode.child(sessionId).child("session_name").getValue(String.class);
+                    if (sessionName != null) {
+                        Log.d(TAG, "Found session name in direct sessions path: " + sessionName + " for session: " + sessionId);
+                        foundSessionName = sessionName;
+                    }
+                }
+                
+                // SECOND: Loop through all logininfo nodes if not found in direct path
+                if (foundSessionName == null) {
+                    for (DataSnapshot loginInfo : userSnapshot.getChildren()) {
+                        String key = loginInfo.getKey();
+                        if (key != null && key.startsWith("logininfo_")) {
+                            // Check sessions_added node for this session
+                            DataSnapshot sessionsNode = loginInfo.child("sessions_added");
+                            if (sessionsNode.hasChild(sessionId)) {
+                                String sessionName = sessionsNode.child(sessionId).child("session_name").getValue(String.class);
+                                if (sessionName != null) {
+                                    Log.d(TAG, "Found session name in logininfo: " + sessionName + " for session: " + sessionId);
+                                    foundSessionName = sessionName;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // THIRD: Check joined_sessions as a final fallback
+                if (foundSessionName == null) {
+                    DataSnapshot joinedSessionsNode = userSnapshot.child("joined_sessions");
+                    if (joinedSessionsNode.hasChild(sessionId)) {
+                        String sessionName = joinedSessionsNode.child(sessionId).child("session_name").getValue(String.class);
+                        if (sessionName != null) {
+                            Log.d(TAG, "Found session name in joined_sessions: " + sessionName + " for session: " + sessionId);
+                            foundSessionName = sessionName;
+                        }
+                    }
+                }
+                
+                // If we still don't have a name, check session_code as a last resort
+                if (foundSessionName == null) {
+                    // Get the session code (last 6 characters of session ID)
+                    String possibleSessionCode = sessionId.length() >= 6 ? 
+                                               sessionId.substring(sessionId.length() - 6) : 
+                                               null;
+                    
+                    if (possibleSessionCode != null) {
+                        Log.d(TAG, "Trying to find session via session code: " + possibleSessionCode);
+                        
+                        // We'll check synchronously here
+                        String finalFoundSessionName = foundSessionName;
+                        FirebaseDatabase.getInstance()
+                            .getReference("session_codes")
+                            .child(possibleSessionCode)
+                            .addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot codeSnapshot) {
+                                    if (codeSnapshot.exists()) {
+                                        String matchedSessionId = codeSnapshot.child("session_id").getValue(String.class);
+                                        String hostEmail = codeSnapshot.child("host_email").getValue(String.class);
+                                        
+                                        if (sessionId.equals(matchedSessionId) && hostEmail != null) {
+                                            String formattedCodeHostEmail = hostEmail.replace(".", "_");
+                                            Log.d(TAG, "Found matching session code, checking host: " + formattedCodeHostEmail);
+                                            
+                                            // Check host's session for the name
+                                            FirebaseDatabase.getInstance()
+                                                .getReference("users")
+                                                .child(formattedCodeHostEmail)
+                                                .child("sessions")
+                                                .child(sessionId)
+                                                .child("session_name")
+                                                .addListenerForSingleValueEvent(new ValueEventListener() {
+                                                    @Override
+                                                    public void onDataChange(DataSnapshot nameSnapshot) {
+                                                        String hostSessionName = nameSnapshot.getValue(String.class);
+                                                        if (hostSessionName != null) {
+                                                            Log.d(TAG, "Found session name via session code: " + hostSessionName);
+                                                            callback.onSessionNameFound(hostSessionName);
+                                                        } else {
+                                                            callback.onSessionNameFound(null);
+                                                        }
+                                                    }
+                                                    
+                                                    @Override
+                                                    public void onCancelled(DatabaseError error) {
+                                                        Log.e(TAG, "Error checking host session name: " + error.getMessage());
+                                                        callback.onSessionNameFound(null);
+                                                    }
+                                                });
+                                            return;
+                                        }
+                                    }
+                                    
+                                    // No session code match found
+                                    callback.onSessionNameFound(finalFoundSessionName);
+                                }
+                                
+                                @Override
+                                public void onCancelled(DatabaseError error) {
+                                    Log.e(TAG, "Error checking session code: " + error.getMessage());
+                                    callback.onSessionNameFound(finalFoundSessionName);
+                                }
+                            });
+                        return; // Exit early as we're handling callback in nested listeners
+                    }
+                }
+                
+                callback.onSessionNameFound(foundSessionName);
+            }
+            
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e(TAG, "Error finding session name: " + error.getMessage());
+                callback.onSessionNameFound(null);
+            }
+        });
+    }
+    
+    /**
+     * Callback interface for finding session name
+     */
+    interface SessionNameCallback {
+        void onSessionNameFound(String sessionName);
+    }
+      /**
+     * Helper method to create a notification with the provided session name
+     */
+    private void createDetectionNotification(String detectionType, Map<String, Object> detectionData, 
+                                String eventId, String formattedHostEmail, String currentUserEmail,
+                                String deviceInfo, String dateString, String timeString, 
+                                String sessionName, long timestamp, int cameraNumber) {
+        // Verify that we have a valid session name
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            Log.w(TAG, "Session name is null or empty, using default name");
+            sessionName = "Default Session";  // Use a slightly different default to distinguish from "Unknown Session"
+        }
+        
+        // Verify that we're not using the fallback name if we can get a better one
+        if (sessionName.equals("Unknown Session")) {
+            Log.w(TAG, "Using fallback session name. This may indicate a problem with session data.");
+        }
+        
+        // Create the complete metadata structure that matches notification card expectations
+        Map<String, Object> completeMetadata = new HashMap<>();
+        completeMetadata.put("sessionName", sessionName);
+        completeMetadata.put("cameraNumber", "Camera " + cameraNumber);
+        completeMetadata.put("deviceInfo", deviceInfo);
+        completeMetadata.put("detectionType", detectionType);
+        if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
+            completeMetadata.put("userEmail", currentUserEmail);
+        }
+        
+        // Add any additional detection-specific data
+        if (detectionData != null) {
+            if (detectionData.containsKey("personCount")) {
+                completeMetadata.put("personCount", detectionData.get("personCount"));
+            }
+            if (detectionData.containsKey("amplitude")) {
+                completeMetadata.put("amplitude", detectionData.get("amplitude"));
+            }
+            if (detectionData.containsKey("confidence")) {
+                completeMetadata.put("confidence", detectionData.get("confidence"));
+            }
+        }
 
-    public void reportPersonDetection(int personCount) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("count", personCount);
-        reportDetectionEvent("person", data);
+        // 1. Save to host's session detection_events (new format matching web app)
+        Map<String, Object> eventData = new HashMap<>();
+        eventData.put("type", detectionType);
+        eventData.put("timestamp", timestamp);
+        eventData.put("cameraNumber", cameraNumber);
+        eventData.put("deviceName", deviceInfo);
+        eventData.put("email", currentUserEmail);
+        
+        // Add detection-specific data to event
+        if (detectionData != null) {
+            eventData.putAll(detectionData);
+        }
+
+        DatabaseReference hostEventRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedHostEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("detection_events")
+                .child(eventId);
+
+        hostEventRef.setValue(eventData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Detection event saved successfully to host session");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to save detection event to host session", e);
+                });
+
+        // 2. Save enhanced notification to host's session notifications (matching notification card design)
+        String notificationReason = detectionType.equals("person") ? 
+            "Person detected by Camera " + cameraNumber :
+            "Sound detected by Camera " + cameraNumber;
+            
+        Map<String, Object> enhancedNotificationData = new HashMap<>();
+        enhancedNotificationData.put("reason", notificationReason);
+        enhancedNotificationData.put("date", dateString);
+        enhancedNotificationData.put("time", timeString);
+        enhancedNotificationData.put("cameraNumber", cameraNumber);
+        enhancedNotificationData.put("deviceInfo", deviceInfo);
+        
+        // Add the complete metadata that matches notification card expectations
+        enhancedNotificationData.put("metadata", completeMetadata);
+
+        DatabaseReference hostNotificationRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedHostEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("notifications")
+                .child(eventId);
+
+        hostNotificationRef.setValue(enhancedNotificationData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Enhanced notification saved successfully to host session");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to save enhanced notification to host session", e);
+                });
+
+        // 3. Save to camera user's universal notifications if they have an account
+        if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
+            String formattedCameraEmail = currentUserEmail.replace(".", "_");
+            
+            // Create enhanced universal notification with complete metadata
+            Map<String, Object> universalNotificationData = new HashMap<>();
+            universalNotificationData.put("reason", notificationReason + " at " + sessionName);
+            universalNotificationData.put("date", dateString);
+            universalNotificationData.put("time", timeString);
+            
+            // Add the same complete metadata for universal notifications
+            universalNotificationData.put("metadata", completeMetadata);
+            
+            DatabaseReference universalNotifRef = FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(formattedCameraEmail)
+                    .child("universal_notifications")
+                    .child(eventId);
+                
+            universalNotifRef.setValue(universalNotificationData)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "Enhanced universal notification saved successfully");
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to save enhanced universal notification", e);
+                    });
+        }
+
+        Log.d(TAG, "Enhanced detection event reported: " + detectionType + " at " + timeString + " for session: " + sessionName);
     }
 
     /**
      * Set the camera number assigned by the host
+     *
      * @param cameraNumber The assigned camera number (1-4)
      */
     public void setAssignedCameraNumber(int cameraNumber) {
         this.assignedCameraNumber = cameraNumber;
         Log.d(TAG, "Camera assigned number: " + cameraNumber);
+    }
+
+    /**
+     * Get access to video capturer for camera operations
+     *
+     * @return the camera video capturer
+     */
+    public CameraVideoCapturer getVideoCapturer() {
+        return videoCapturer;
+    }    /**
+     * Get access to local video track
+     *
+     * @return the local video track
+     */
+    public VideoTrack getLocalVideoTrack() {
+        return localVideoTrack;
+    }
+
+    /**
+     * Get access to EGL context for surface operations
+     *
+     * @return the EGL base context
+     */
+    public EglBase.Context getEglContext() {
+       if (eglBase != null) {
+            return eglBase.getEglBaseContext();
+        }
+        return null;
+    }
+
+    /**
+     * Switch to high performance mode for better detection accuracy
+     */
+    public void enableHighPerformanceMode() {
+        if (videoCapturer != null) {
+            try {
+                videoCapturer.stopCapture();
+                videoCapturer.startCapture(640, 480, 30); // Higher resolution for better detection
+                Log.d(TAG, "Switched to high performance mode");
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Failed to switch to high performance mode", e);
+            }
+        }
+    }
+
+    /**
+     * Switch to power saving mode to reduce CPU/battery usage
+     */
+    public void enablePowerSavingMode() {
+        if (videoCapturer != null) {
+            try {
+                videoCapturer.stopCapture();
+                videoCapturer.startCapture(320, 240, 15); // Lower resolution and frame rate
+                Log.d(TAG, "Switched to power saving mode");
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Failed to switch to power saving mode", e);
+            }
+        }
     }
 }
 

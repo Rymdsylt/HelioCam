@@ -221,9 +221,7 @@ public class CameraActivity extends AppCompatActivity {
             rootEglBase.release();
         }
         Log.d("CameraActivity", "Resources disposed successfully.");
-    }
-
-    @Override
+    }    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
@@ -239,32 +237,89 @@ public class CameraActivity extends AppCompatActivity {
         String sessionId = getIntent().getStringExtra("session_id");
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
 
-        // Initialize directoryManager
+        // Initialize directoryManager early
         directoryManager = new DetectionDirectoryManager(this);
 
         // Set up UI elements
         cameraView = findViewById(R.id.camera_view);
-        // ... other UI initialization ...
 
-        // Check for required permissions BEFORE starting camera
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-
-            // Request permissions and return - the rest will happen in onRequestPermissionsResult
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO},
-                    CAMERA_PERMISSION_REQUEST_CODE);
+        // Check for ALL required permissions BEFORE starting anything
+        if (!hasAllRequiredPermissions()) {
+            // Request all permissions and return - the rest will happen in onRequestPermissionsResult
+            requestAllRequiredPermissions();
             return; // ← Important! Don't continue execution
         }
 
-        // Only initialize camera if we already have permissions
-        initializeCamera();
-        initializeWebRTC(sessionId, userEmail);
+        // Initialize everything after permissions are confirmed
+        initializeSession(sessionId, userEmail);
+    }
 
+    /**
+     * Initialize the complete session including camera, WebRTC, and detection modules
+     */
+    private void initializeSession(String sessionId, String userEmail) {
+        // Setup directories first
+        setupDirectoriesAndPermissions();
+        
+        // Initialize camera components
+        initializeCamera();
+        
+        // Initialize WebRTC connection
+        initializeWebRTC(sessionId, userEmail);
+        
+        // Initialize detection modules with proper directory configuration
+        initializeDetectionModules();
+        
+        // Final setup
+        completeSessionSetup();
+    }
+    
+    /**
+     * Initialize detection modules after camera and directories are ready
+     */
+    private void initializeDetectionModules() {
+        try {
+            // Initialize sound detection
+            soundDetection = new SoundDetection(this, rtcJoiner);
+            soundDetection.startDetection();
+            
+            // Initialize person detection
+            personDetection = new PersonDetection(this, rtcJoiner);
+            
+            // Connect person detection to video stream after camera is ready
+            if (rtcJoiner != null) {
+                rtcJoiner.setPersonDetection(personDetection);
+            }
+            
+            personDetection.start();
+            
+            Log.d(TAG, "Detection modules initialized successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing detection modules: " + e.getMessage(), e);
+            Toast.makeText(this, "Failed to initialize detection: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+    
+    /**
+     * Complete the session setup with UI elements
+     */
+    private void completeSessionSetup() {
         // Get reference to the recording status text
         recordingStatus = findViewById(R.id.recording_status);
 
-        // Set up button click listeners - USING VIEW INSTEAD OF IMAGEBUTTON TO AVOID CAST EXCEPTIONS
+        // Set up button click listeners
+        setupButtonListeners();
+        
+        // Fetch and display session information
+        fetchSessionName();
+        
+        Log.d(TAG, "Session setup completed successfully");
+    }
+    
+    /**
+     * Setup all button click listeners
+     */
+    private void setupButtonListeners() {
         View micButton = findViewById(R.id.mic_button);
         micButton.setOnClickListener(v -> toggleMic());
 
@@ -279,16 +334,84 @@ public class CameraActivity extends AppCompatActivity {
             if (rtcJoiner != null) {
                 rtcJoiner.switchCamera();
             }
-        });        View settingsButton = findViewById(R.id.settings_button);
+        });
+
+        View settingsButton = findViewById(R.id.settings_button);
         registerForContextMenu(settingsButton);
         settingsButton.setOnClickListener(v -> {
             // Show context menu on regular click instead of requiring long press
             settingsButton.showContextMenu();
         });
+    }    // Add constant for request code
+    private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;
+    private static final int ALL_PERMISSIONS_REQUEST_CODE = 101;
+    
+    /**
+     * Check if all required permissions are granted
+     */
+    private boolean hasAllRequiredPermissions() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
+               ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
+               directoryManager.hasStoragePermissions();
     }
-
-    // Add constant for request code
-    private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;    // Add this method to initialize camera-related components
+    
+    /**
+     * Request all required permissions
+     */
+    private void requestAllRequiredPermissions() {
+        List<String> permissionsToRequest = new ArrayList<>();
+        
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA);
+        }
+        
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO);
+        }
+        
+        // Add storage permissions based on Android version
+        if (!directoryManager.hasStoragePermissions()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_VIDEO);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                permissionsToRequest.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            } else {
+                permissionsToRequest.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+        }
+        
+        if (!permissionsToRequest.isEmpty()) {
+            ActivityCompat.requestPermissions(this,
+                    permissionsToRequest.toArray(new String[0]),
+                    ALL_PERMISSIONS_REQUEST_CODE);
+        }
+    }
+    
+    /**
+     * Set up directories and check directory permissions after all permissions are granted
+     */
+    private void setupDirectoriesAndPermissions() {
+        // Ensure we have working directories
+        if (!directoryManager.hasValidDirectory()) {
+            Log.d(TAG, "No user-selected directory, using app storage as default");
+            // Don't prompt immediately, let user initiate if they want custom directory
+            Toast.makeText(this, "Using app storage for recordings. Tap Record > Select Path to choose custom folder.", Toast.LENGTH_LONG).show();
+        } else {
+            Log.d(TAG, "Using previously selected directory");
+        }
+        
+        // Update detection modules with directory manager
+        if (personDetection != null) {
+            personDetection.setDirectoryUri(directoryManager.hasValidDirectory() ? 
+                directoryManager.baseDirectoryUri : null);
+        }
+        
+        if (soundDetection != null) {
+            soundDetection.setDirectoryUri(directoryManager.hasValidDirectory() ? 
+                directoryManager.baseDirectoryUri : null);
+        }
+    }// Add this method to initialize camera-related components
 
     private void initializeCamera() {
         try {
@@ -324,61 +447,34 @@ public class CameraActivity extends AppCompatActivity {
             Log.e(TAG, "Error initializing camera: " + e.getMessage(), e);
             Toast.makeText(this, "Failed to initialize camera: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
-    }
-
-    @Override
+    }    @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
-            // Check if permission was granted
-            if (grantResults.length > 0 &&
-                    grantResults[0] == PackageManager.PERMISSION_GRANTED &&
-                    grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-
-                // Permission granted, initialize camera
+        if (requestCode == ALL_PERMISSIONS_REQUEST_CODE) {
+            boolean allGranted = true;
+            StringBuilder missingPermissions = new StringBuilder();
+            
+            for (int i = 0; i < permissions.length; i++) {
+                if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    if (missingPermissions.length() > 0) {
+                        missingPermissions.append(", ");
+                    }
+                    missingPermissions.append(permissions[i]);
+                }
+            }
+            
+            if (allGranted) {
+                // All permissions granted, initialize session
                 String sessionId = getIntent().getStringExtra("session_id");
                 String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-
-                initializeCamera();
-                initializeWebRTC(sessionId, userEmail);
-
-                Toast.makeText(this, "Permissions granted. You can now use the camera and audio.", Toast.LENGTH_SHORT).show();
+                initializeSession(sessionId, userEmail);
             } else {
-                // Permission denied
-                Toast.makeText(this, "Camera and microphone permissions are required", Toast.LENGTH_LONG).show();
-                finish(); // Close the activity as it can't function without camera
-            }
-        }
-
-        // Handle storage permissions result (request code 1)
-        if (requestCode == 1) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission granted, show record dialog
-                Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show();
-                showRecordDialog();
-            } else {
-                Toast.makeText(this, "Storage permission is required to save video files.", Toast.LENGTH_SHORT).show();
-
-                // Check if user clicked "Don't ask again"
-                boolean showRationale = false;
-                for (String permission : permissions) {
-                    showRationale = ActivityCompat.shouldShowRequestPermissionRationale(this, permission) || showRationale;
-                }
-
-                if (!showRationale) {
-                    // User clicked "Don't ask again" - show dialog explaining how to enable in settings
-                    new AlertDialog.Builder(this)
-                            .setTitle("Permission Required")
-                            .setMessage("Storage permission is required for recording videos. Please enable it in app settings.")
-                            .setPositiveButton("Open Settings", (dialog, which) -> {
-                                Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                intent.setData(Uri.fromParts("package", getPackageName(), null));
-                                startActivity(intent);
-                            })
-                            .setNegativeButton("Cancel", null)
-                            .show();
-                }
+                // Some permissions denied
+                Toast.makeText(this, "Required permissions not granted: " + missingPermissions.toString(), Toast.LENGTH_LONG).show();
+                Log.e(TAG, "Missing permissions: " + missingPermissions.toString());
+                finish();
             }
         }
     }

@@ -19,6 +19,7 @@ import androidx.fragment.app.Fragment;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.notifs.PopulateNotifs;
 
+import java.util.HashSet;
 import java.util.Set;
 
 public class NotificationFragment extends Fragment {
@@ -34,9 +35,7 @@ public class NotificationFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                          Bundle savedInstanceState) {
         Log.d(TAG, "NotificationFragment: onCreateView started");
-        View view = inflater.inflate(R.layout.fragment_notification, container, false);
-
-        // FIX: Correct the ID name (was notifcation_card_container)
+        View view = inflater.inflate(R.layout.fragment_notification, container, false);        // Get the notification container
         ViewGroup notificationContainer = view.findViewById(R.id.notification_card_container);
         
         // Check if notification container exists before proceeding
@@ -64,8 +63,7 @@ public class NotificationFragment extends Fragment {
         }
         
         // REMOVED: Debug button code completely removed
-        
-        // Add Clear All button functionality
+          // Add Clear All button functionality
         com.google.android.material.button.MaterialButton clearAllButton = view.findViewById(R.id.clear_all_button);
         if (clearAllButton != null) {
             // Set it visible by default
@@ -83,18 +81,30 @@ public class NotificationFragment extends Fragment {
                         Set<String> notificationIds = populator.getNotificationIds();
                         
                         if (notificationIds != null && !notificationIds.isEmpty()) {
+                            // Add all current notification IDs to deleted list
+                            Set<String> deletedNotifs = new HashSet<>(prefs.getStringSet("deleted_notifs", new HashSet<>()));
+                            deletedNotifs.addAll(notificationIds);
+                            
                             prefs.edit()
-                                 .putStringSet("deleted_notifs", notificationIds)
+                                 .putStringSet("deleted_notifs", deletedNotifs)
                                  .apply();
                                  
-                            // Refresh the UI
-                            refreshNotifications();
+                            // Clear the populator's internal map
+                            populator.clearNotifications();
+                                 
+                            // Immediately clear the UI
+                            notificationContainer.removeAllViews();
+                            
+                            // Show empty state
+                            populator.showEmptyState(getContext(), notificationContainer);
                             
                             // Show confirmation
                             Toast.makeText(getContext(), "All notifications cleared", Toast.LENGTH_SHORT).show();
                             
                             // Hide the button after clearing
                             clearAllButton.setVisibility(View.GONE);
+                        } else {
+                            Toast.makeText(getContext(), "No notifications to clear", Toast.LENGTH_SHORT).show();
                         }
                     }
                 } catch (Exception e) {
@@ -147,9 +157,7 @@ public class NotificationFragment extends Fragment {
         if (view == null) {
             Log.d(TAG, "refreshNotifications: View is null");
             return;
-        }
-
-        // FIX: Correct the ID name here too
+        }        // Get the notification container
         ViewGroup container = view.findViewById(R.id.notification_card_container);
         if (container == null) {
             Log.d(TAG, "refreshNotifications: Container not found");

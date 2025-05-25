@@ -51,7 +51,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class PersonDetection implements VideoSink {
     private static final String TAG = "PersonDetection";
     private static final String MODEL_FILE = "yolov8n.tflite";
-    private static final String LABEL_FILE = "labels.txt";    private static final float CONFIDENCE_THRESHOLD = 0.3f; // Reasonable threshold for person detection
+    private static final String LABEL_FILE = "labels.txt";    private static final float CONFIDENCE_THRESHOLD = 0.7f; // High threshold to reduce false positives
     private static final int INPUT_WIDTH = 640;
     private static final int INPUT_HEIGHT = 640;
 
@@ -98,7 +98,7 @@ public class PersonDetection implements VideoSink {
     private DetectionListener detectionListener;
     private YuvConverter yuvConverter = new YuvConverter();
     private final Paint boxPaint;    // Detection latency variables
-    private int detectionLatency = 2000; // Reduced to 2 seconds for faster testing
+    private int detectionLatency = 5000; // Default 5 seconds cooldown for production use
     private final Handler latencyHandler = new Handler(Looper.getMainLooper());
     private final Runnable resumeDetectionRunnable = new Runnable() {
         @Override

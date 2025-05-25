@@ -802,8 +802,7 @@ public class RTCJoiner {
         Date eventDate = new Date(timestamp);
         String dateString = dateFormat.format(eventDate);
         String timeString = timeFormat.format(eventDate);
-
-        // First, get the session name to create proper notifications
+          // First, get the session name to create proper notifications
         DatabaseReference sessionNameRef = FirebaseDatabase.getInstance()
                 .getReference("users")
                 .child(formattedHostEmail)
@@ -813,125 +812,319 @@ public class RTCJoiner {
                 
         sessionNameRef.get().addOnCompleteListener(task -> {
             String sessionName = "Unknown Session";
+            
+            // Try primary location first
             if (task.isSuccessful() && task.getResult().exists()) {
-                sessionName = task.getResult().getValue(String.class);
-                if (sessionName == null) sessionName = "Unknown Session";
-            }
-            
-            // Create the complete metadata structure that matches notification card expectations
-            Map<String, Object> completeMetadata = new HashMap<>();
-            completeMetadata.put("sessionName", sessionName);
-            completeMetadata.put("cameraNumber", "Camera " + assignedCameraNumber);
-            completeMetadata.put("deviceInfo", deviceInfo);
-            completeMetadata.put("detectionType", detectionType);
-            if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
-                completeMetadata.put("userEmail", currentUserEmail);
-            }
-            
-            // Add any additional detection-specific data
-            if (detectionData != null) {
-                // Add person count or amplitude to metadata
-                if (detectionData.containsKey("personCount")) {
-                    completeMetadata.put("personCount", detectionData.get("personCount"));
+                String foundName = task.getResult().getValue(String.class);
+                if (foundName != null) {
+                    sessionName = foundName;
+                    Log.d(TAG, "Found session name in main path: " + sessionName);
+                } else {
+                    Log.d(TAG, "Session name is null in main path, will try logininfo nodes");
                 }
-                if (detectionData.containsKey("amplitude")) {
-                    completeMetadata.put("amplitude", detectionData.get("amplitude"));
-                }
-                if (detectionData.containsKey("confidence")) {
-                    completeMetadata.put("confidence", detectionData.get("confidence"));
-                }
+            } else {
+                Log.d(TAG, "Session name not found in main path, will try logininfo nodes");
             }
-
-            // 1. Save to host's session detection_events (new format matching web app)
-            Map<String, Object> eventData = new HashMap<>();
-            eventData.put("type", detectionType);
-            eventData.put("timestamp", timestamp);
-            eventData.put("cameraNumber", assignedCameraNumber);
-            eventData.put("deviceName", deviceInfo);
-            eventData.put("email", currentUserEmail);
             
-            // Add detection-specific data to event
-            if (detectionData != null) {
-                eventData.putAll(detectionData);
-            }
-
-            DatabaseReference hostEventRef = FirebaseDatabase.getInstance()
-                    .getReference("users")
-                    .child(formattedHostEmail)
-                    .child("sessions")
-                    .child(sessionId)
-                    .child("detection_events")
-                    .child(eventId);
-
-            hostEventRef.setValue(eventData)
-                    .addOnSuccessListener(aVoid -> {
-                        Log.d(TAG, "Detection event saved successfully to host session");
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "Failed to save detection event to host session", e);
-                    });
-
-            // 2. Save enhanced notification to host's session notifications (matching notification card design)
-            String notificationReason = detectionType.equals("person") ? 
-                "Person detected by Camera " + assignedCameraNumber :
-                "Sound detected by Camera " + assignedCameraNumber;
-                
-            Map<String, Object> enhancedNotificationData = new HashMap<>();
-            enhancedNotificationData.put("reason", notificationReason);
-            enhancedNotificationData.put("date", dateString);
-            enhancedNotificationData.put("time", timeString);
-            enhancedNotificationData.put("cameraNumber", assignedCameraNumber);
-            enhancedNotificationData.put("deviceInfo", deviceInfo);
-            
-            // Add the complete metadata that matches notification card expectations
-            enhancedNotificationData.put("metadata", completeMetadata);
-
-            DatabaseReference hostNotificationRef = FirebaseDatabase.getInstance()
-                    .getReference("users")
-                    .child(formattedHostEmail)
-                    .child("sessions")
-                    .child(sessionId)
-                    .child("notifications")
-                    .child(eventId);
-
-            hostNotificationRef.setValue(enhancedNotificationData)
-                    .addOnSuccessListener(aVoid -> {
-                        Log.d(TAG, "Enhanced notification saved successfully to host session");
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "Failed to save enhanced notification to host session", e);
-                    });
-
-            // 3. Save to camera user's universal notifications if they have an account
-            if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
-                String formattedCameraEmail = currentUserEmail.replace(".", "_");
-                
-                // Create enhanced universal notification with complete metadata
-                Map<String, Object> universalNotificationData = new HashMap<>();
-                universalNotificationData.put("reason", notificationReason + " at " + sessionName);
-                universalNotificationData.put("date", dateString);
-                universalNotificationData.put("time", timeString);
-                
-                // Add the same complete metadata for universal notifications
-                universalNotificationData.put("metadata", completeMetadata);
-                
-                DatabaseReference universalNotifRef = FirebaseDatabase.getInstance()
-                        .getReference("users")
-                        .child(formattedCameraEmail)
-                        .child("universal_notifications")
-                        .child(eventId);
+            // If session name is still "Unknown Session", try to find it in logininfo nodes
+            if (sessionName.equals("Unknown Session")) {
+                // Fallback to check logininfo paths
+                findSessionNameInLoginInfo(formattedHostEmail, sessionId, foundSessionName -> {
+                    // Use the found session name if available, otherwise keep "Unknown Session"
+                    String finalSessionName = foundSessionName != null ? foundSessionName : "Unknown Session";
+                    if (foundSessionName == null) {
+                        Log.w(TAG, "Session name not found in any location, using default: " + finalSessionName);
+                    } else {
+                        Log.d(TAG, "Final session name after logininfo check: " + finalSessionName);
+                    }
                     
-                universalNotifRef.setValue(universalNotificationData)
-                        .addOnSuccessListener(aVoid -> {
-                            Log.d(TAG, "Enhanced universal notification saved successfully");
-                        })
-                        .addOnFailureListener(e -> {
-                            Log.e(TAG, "Failed to save enhanced universal notification", e);
-                        });
+                    // Create notification with the determined session name
+                    createDetectionNotification(
+                        detectionType, detectionData, eventId, formattedHostEmail, 
+                        currentUserEmail, deviceInfo, dateString, timeString, 
+                        finalSessionName, timestamp, assignedCameraNumber
+                    );
+                });
+            } else {
+                // Session name was found in primary location, proceed with it
+                createDetectionNotification(
+                    detectionType, detectionData, eventId, formattedHostEmail, 
+                    currentUserEmail, deviceInfo, dateString, timeString, 
+                    sessionName, timestamp, assignedCameraNumber
+                );
             }
-
-            Log.d(TAG, "Enhanced detection event reported: " + detectionType + " at " + timeString + " for session: " + sessionName);
         });
+    }
+      /**
+     * Helper method to find session name in logininfo nodes
+     */
+    private void findSessionNameInLoginInfo(String formattedHostEmail, String sessionId, SessionNameCallback callback) {
+        DatabaseReference userRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedHostEmail);
+                
+        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot userSnapshot) {
+                String foundSessionName = null;
+                
+                // FIRST: Check direct sessions node (most common location)
+                DataSnapshot directSessionsNode = userSnapshot.child("sessions");
+                if (directSessionsNode.hasChild(sessionId)) {
+                    String sessionName = directSessionsNode.child(sessionId).child("session_name").getValue(String.class);
+                    if (sessionName != null) {
+                        Log.d(TAG, "Found session name in direct sessions path: " + sessionName + " for session: " + sessionId);
+                        foundSessionName = sessionName;
+                    }
+                }
+                
+                // SECOND: Loop through all logininfo nodes if not found in direct path
+                if (foundSessionName == null) {
+                    for (DataSnapshot loginInfo : userSnapshot.getChildren()) {
+                        String key = loginInfo.getKey();
+                        if (key != null && key.startsWith("logininfo_")) {
+                            // Check sessions_added node for this session
+                            DataSnapshot sessionsNode = loginInfo.child("sessions_added");
+                            if (sessionsNode.hasChild(sessionId)) {
+                                String sessionName = sessionsNode.child(sessionId).child("session_name").getValue(String.class);
+                                if (sessionName != null) {
+                                    Log.d(TAG, "Found session name in logininfo: " + sessionName + " for session: " + sessionId);
+                                    foundSessionName = sessionName;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // THIRD: Check joined_sessions as a final fallback
+                if (foundSessionName == null) {
+                    DataSnapshot joinedSessionsNode = userSnapshot.child("joined_sessions");
+                    if (joinedSessionsNode.hasChild(sessionId)) {
+                        String sessionName = joinedSessionsNode.child(sessionId).child("session_name").getValue(String.class);
+                        if (sessionName != null) {
+                            Log.d(TAG, "Found session name in joined_sessions: " + sessionName + " for session: " + sessionId);
+                            foundSessionName = sessionName;
+                        }
+                    }
+                }
+                
+                // If we still don't have a name, check session_code as a last resort
+                if (foundSessionName == null) {
+                    // Get the session code (last 6 characters of session ID)
+                    String possibleSessionCode = sessionId.length() >= 6 ? 
+                                               sessionId.substring(sessionId.length() - 6) : 
+                                               null;
+                    
+                    if (possibleSessionCode != null) {
+                        Log.d(TAG, "Trying to find session via session code: " + possibleSessionCode);
+                        
+                        // We'll check synchronously here
+                        String finalFoundSessionName = foundSessionName;
+                        FirebaseDatabase.getInstance()
+                            .getReference("session_codes")
+                            .child(possibleSessionCode)
+                            .addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot codeSnapshot) {
+                                    if (codeSnapshot.exists()) {
+                                        String matchedSessionId = codeSnapshot.child("session_id").getValue(String.class);
+                                        String hostEmail = codeSnapshot.child("host_email").getValue(String.class);
+                                        
+                                        if (sessionId.equals(matchedSessionId) && hostEmail != null) {
+                                            String formattedCodeHostEmail = hostEmail.replace(".", "_");
+                                            Log.d(TAG, "Found matching session code, checking host: " + formattedCodeHostEmail);
+                                            
+                                            // Check host's session for the name
+                                            FirebaseDatabase.getInstance()
+                                                .getReference("users")
+                                                .child(formattedCodeHostEmail)
+                                                .child("sessions")
+                                                .child(sessionId)
+                                                .child("session_name")
+                                                .addListenerForSingleValueEvent(new ValueEventListener() {
+                                                    @Override
+                                                    public void onDataChange(DataSnapshot nameSnapshot) {
+                                                        String hostSessionName = nameSnapshot.getValue(String.class);
+                                                        if (hostSessionName != null) {
+                                                            Log.d(TAG, "Found session name via session code: " + hostSessionName);
+                                                            callback.onSessionNameFound(hostSessionName);
+                                                        } else {
+                                                            callback.onSessionNameFound(null);
+                                                        }
+                                                    }
+                                                    
+                                                    @Override
+                                                    public void onCancelled(DatabaseError error) {
+                                                        Log.e(TAG, "Error checking host session name: " + error.getMessage());
+                                                        callback.onSessionNameFound(null);
+                                                    }
+                                                });
+                                            return;
+                                        }
+                                    }
+                                    
+                                    // No session code match found
+                                    callback.onSessionNameFound(finalFoundSessionName);
+                                }
+                                
+                                @Override
+                                public void onCancelled(DatabaseError error) {
+                                    Log.e(TAG, "Error checking session code: " + error.getMessage());
+                                    callback.onSessionNameFound(finalFoundSessionName);
+                                }
+                            });
+                        return; // Exit early as we're handling callback in nested listeners
+                    }
+                }
+                
+                callback.onSessionNameFound(foundSessionName);
+            }
+            
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e(TAG, "Error finding session name: " + error.getMessage());
+                callback.onSessionNameFound(null);
+            }
+        });
+    }
+    
+    /**
+     * Callback interface for finding session name
+     */
+    interface SessionNameCallback {
+        void onSessionNameFound(String sessionName);
+    }
+      /**
+     * Helper method to create a notification with the provided session name
+     */
+    private void createDetectionNotification(String detectionType, Map<String, Object> detectionData, 
+                                String eventId, String formattedHostEmail, String currentUserEmail,
+                                String deviceInfo, String dateString, String timeString, 
+                                String sessionName, long timestamp, int cameraNumber) {
+        // Verify that we have a valid session name
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            Log.w(TAG, "Session name is null or empty, using default name");
+            sessionName = "Default Session";  // Use a slightly different default to distinguish from "Unknown Session"
+        }
+        
+        // Verify that we're not using the fallback name if we can get a better one
+        if (sessionName.equals("Unknown Session")) {
+            Log.w(TAG, "Using fallback session name. This may indicate a problem with session data.");
+        }
+        
+        // Create the complete metadata structure that matches notification card expectations
+        Map<String, Object> completeMetadata = new HashMap<>();
+        completeMetadata.put("sessionName", sessionName);
+        completeMetadata.put("cameraNumber", "Camera " + cameraNumber);
+        completeMetadata.put("deviceInfo", deviceInfo);
+        completeMetadata.put("detectionType", detectionType);
+        if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
+            completeMetadata.put("userEmail", currentUserEmail);
+        }
+        
+        // Add any additional detection-specific data
+        if (detectionData != null) {
+            if (detectionData.containsKey("personCount")) {
+                completeMetadata.put("personCount", detectionData.get("personCount"));
+            }
+            if (detectionData.containsKey("amplitude")) {
+                completeMetadata.put("amplitude", detectionData.get("amplitude"));
+            }
+            if (detectionData.containsKey("confidence")) {
+                completeMetadata.put("confidence", detectionData.get("confidence"));
+            }
+        }
+
+        // 1. Save to host's session detection_events (new format matching web app)
+        Map<String, Object> eventData = new HashMap<>();
+        eventData.put("type", detectionType);
+        eventData.put("timestamp", timestamp);
+        eventData.put("cameraNumber", cameraNumber);
+        eventData.put("deviceName", deviceInfo);
+        eventData.put("email", currentUserEmail);
+        
+        // Add detection-specific data to event
+        if (detectionData != null) {
+            eventData.putAll(detectionData);
+        }
+
+        DatabaseReference hostEventRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedHostEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("detection_events")
+                .child(eventId);
+
+        hostEventRef.setValue(eventData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Detection event saved successfully to host session");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to save detection event to host session", e);
+                });
+
+        // 2. Save enhanced notification to host's session notifications (matching notification card design)
+        String notificationReason = detectionType.equals("person") ? 
+            "Person detected by Camera " + cameraNumber :
+            "Sound detected by Camera " + cameraNumber;
+            
+        Map<String, Object> enhancedNotificationData = new HashMap<>();
+        enhancedNotificationData.put("reason", notificationReason);
+        enhancedNotificationData.put("date", dateString);
+        enhancedNotificationData.put("time", timeString);
+        enhancedNotificationData.put("cameraNumber", cameraNumber);
+        enhancedNotificationData.put("deviceInfo", deviceInfo);
+        
+        // Add the complete metadata that matches notification card expectations
+        enhancedNotificationData.put("metadata", completeMetadata);
+
+        DatabaseReference hostNotificationRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedHostEmail)
+                .child("sessions")
+                .child(sessionId)
+                .child("notifications")
+                .child(eventId);
+
+        hostNotificationRef.setValue(enhancedNotificationData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Enhanced notification saved successfully to host session");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to save enhanced notification to host session", e);
+                });
+
+        // 3. Save to camera user's universal notifications if they have an account
+        if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
+            String formattedCameraEmail = currentUserEmail.replace(".", "_");
+            
+            // Create enhanced universal notification with complete metadata
+            Map<String, Object> universalNotificationData = new HashMap<>();
+            universalNotificationData.put("reason", notificationReason + " at " + sessionName);
+            universalNotificationData.put("date", dateString);
+            universalNotificationData.put("time", timeString);
+            
+            // Add the same complete metadata for universal notifications
+            universalNotificationData.put("metadata", completeMetadata);
+            
+            DatabaseReference universalNotifRef = FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(formattedCameraEmail)
+                    .child("universal_notifications")
+                    .child(eventId);
+                
+            universalNotifRef.setValue(universalNotificationData)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "Enhanced universal notification saved successfully");
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to save enhanced universal notification", e);
+                    });
+        }
+
+        Log.d(TAG, "Enhanced detection event reported: " + detectionType + " at " + timeString + " for session: " + sessionName);
     }
 
     /**

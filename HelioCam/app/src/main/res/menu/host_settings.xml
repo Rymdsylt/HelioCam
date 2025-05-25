@@ -5,6 +5,9 @@
         android:id="@+id/option_1"
         android:title="Detection Settings" />
     <item
+        android:id="@+id/option_2"
+        android:title="Replay Buffer Settings" />
+    <item
         android:id="@+id/option_3"
         android:title="Record" />
     <item

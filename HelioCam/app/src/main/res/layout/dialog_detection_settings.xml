@@ -347,9 +347,7 @@
                     android:text="Set how long to record video when a person is detected (in seconds). The recording will automatically stop after this duration."
                     android:textSize="14sp"
                     android:layout_marginBottom="16dp"
-                    android:textColor="@android:color/darker_gray" />
-
-                <com.google.android.material.textfield.TextInputLayout
+                    android:textColor="@android:color/darker_gray" />                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="Recording duration in seconds"
@@ -368,7 +366,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Recommended: 3-10 seconds"
+                    android:text="Valid range: 3-30 seconds"
                     android:textSize="12sp"
                     android:layout_marginTop="8dp"
                     android:textColor="@android:color/darker_gray"

@@ -103,6 +103,8 @@ public class CameraActivity extends AppCompatActivity {
     private String recordingPath;
     private long recordingStartTime = 0;
     private static final int REPLAY_BUFFER_DURATION_MS = 30000; // 30 seconds buffer
+    private static final int MAX_REPLAY_BUFFER_DURATION_MS = 60000; // Maximum 60 seconds buffer
+    private int currentReplayBufferDuration = REPLAY_BUFFER_DURATION_MS; // Current setting
     private VideoSink recordingVideoSink;
     private SurfaceViewRenderer recordingSurfaceRenderer;
       // Replay buffer specific fields
@@ -517,9 +519,25 @@ public class CameraActivity extends AppCompatActivity {
                 showDetectionSettingsDialog();
                 return true;
 
+            case R.id.option_2: // Replay Buffer Settings
+                showReplayBufferSettingsDialog();
+                return true;
 
             case R.id.option_3: // Start/Stop Recording
                 showRecordDialog();
+                return true;            case R.id.option_4: // Replay Buffer
+                try {
+                    if (!isReplayBufferRunning) {
+                        startDirectReplayBufferRecording();
+                        Toast.makeText(this, "Replay buffer started", Toast.LENGTH_SHORT).show();
+                    } else {
+                        stopDirectReplayBufferRecording();
+                        Toast.makeText(this, "Replay buffer stopped", Toast.LENGTH_SHORT).show();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error toggling replay buffer: " + e.getMessage(), e);
+                    Toast.makeText(this, "Error with replay buffer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
                 return true;
 
             default:
@@ -1602,16 +1620,23 @@ public class CameraActivity extends AppCompatActivity {
                         ", videoTrack: " + (rtcJoiner != null && rtcJoiner.getLocalVideoTrack() != null) +
                         ", surface: " + (recorderSurface != null));
                 throw new Exception("Cannot connect video track to replay buffer MediaRecorder surface - missing components");
-            }
-
-            // Start the media recorder
+            }            // Start the media recorder
             Log.d(TAG, "Starting replay buffer MediaRecorder...");
             replayBufferRecorder.start();
 
             // Mark the recording start time
             replayBufferStartTime = System.currentTimeMillis();
 
-            Log.d(TAG, "Direct replay buffer recording started successfully at path: " + replayBufferPath);
+            // Schedule automatic stop based on current replay buffer duration
+            Handler durationHandler = new Handler(Looper.getMainLooper());
+            durationHandler.postDelayed(() -> {
+                if (isReplayBufferRunning) {
+                    checkReplayBufferDuration();
+                }
+            }, currentReplayBufferDuration);
+
+            Log.d(TAG, "Direct replay buffer recording started successfully at path: " + replayBufferPath + 
+                      " with duration limit: " + currentReplayBufferDuration + "ms");
 
         } catch (Exception e) {
             Log.e(TAG, "Failed to start direct replay buffer recording: " + e.getMessage(), e);
@@ -1811,17 +1836,23 @@ public class CameraActivity extends AppCompatActivity {
                     String input = personLatencyInput.getText().toString().trim();
                     if (!input.isEmpty()) {
                         int latencySeconds = Integer.parseInt(input);
-                        if (latencySeconds >= 1 && latencySeconds <= 300) {
+                        if (latencySeconds >= 1 && latencySeconds <= 300) { // 1-300 seconds constraint
                             personDetection.setDetectionLatency(latencySeconds * 1000);
+                        } else {
+                            Toast.makeText(this, "Person detection latency must be between 1-300 seconds", Toast.LENGTH_SHORT).show();
+                            return; // Don't close dialog if invalid
                         }
                     }
-                }                // Save video recording duration
+                }// Save video recording duration
                 if (videoRecordingDurationInput != null) {
                     String input = videoRecordingDurationInput.getText().toString().trim();
                     if (!input.isEmpty()) {
                         int durationSeconds = Integer.parseInt(input);
-                        if (durationSeconds >= 1 && durationSeconds <= 60) { // Limit to 60 seconds
+                        if (durationSeconds >= 3 && durationSeconds <= 30) { // Match PersonDetection constraints
                             personDetection.setVideoRecordingDuration(durationSeconds * 1000);
+                        } else {
+                            Toast.makeText(this, "Video recording duration must be between 3-30 seconds", Toast.LENGTH_SHORT).show();
+                            return; // Don't close dialog if invalid
                         }
                     }
                 }
@@ -1842,4 +1873,102 @@ public class CameraActivity extends AppCompatActivity {
         AlertDialog dialog = builder.create();
         dialog.show();
     }
+
+    /**
+     * Set the replay buffer duration in milliseconds.
+     * This defines how long the replay buffer should record continuously.
+     * Duration is constrained between 10-60 seconds for optimal performance and storage.
+     *
+     * @param milliseconds The replay buffer duration in milliseconds (10000-60000ms)
+     */
+    public void setReplayBufferDuration(int milliseconds) {
+        // Enforce 10-60 seconds constraint
+        int constrainedDuration = Math.max(10000, Math.min(MAX_REPLAY_BUFFER_DURATION_MS, milliseconds));
+        this.currentReplayBufferDuration = constrainedDuration;
+        
+        if (milliseconds != constrainedDuration) {
+            Log.w(TAG, "Replay buffer duration constrained from " + milliseconds + "ms to " + constrainedDuration + "ms (10-60 seconds)");
+        }
+        
+        Log.d(TAG, "Replay buffer duration set to " + constrainedDuration + " ms");
+    }
+
+    /**
+     * Get the current replay buffer duration in milliseconds.
+     *
+     * @return The current replay buffer duration
+     */
+    public int getReplayBufferDuration() {
+        return currentReplayBufferDuration;
+    }
+
+    /**
+     * Check if replay buffer has reached its maximum duration and should be automatically saved
+     */
+    private void checkReplayBufferDuration() {
+        if (isReplayBufferRunning && replayBufferStartTime > 0) {
+            long currentDuration = System.currentTimeMillis() - replayBufferStartTime;
+            if (currentDuration >= currentReplayBufferDuration) {
+                Log.d(TAG, "Replay buffer reached maximum duration (" + currentReplayBufferDuration + "ms), auto-saving...");
+                stopReplayBuffer();
+                
+                // Automatically restart replay buffer for continuous buffering
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.postDelayed(() -> {
+                    if (!isRecording) { // Only restart if not doing regular recording
+                        startReplayBuffer();
+                        Toast.makeText(this, "Replay buffer auto-restarted", Toast.LENGTH_SHORT).show();
+                    }
+                }, 1000); // 1 second delay before restart
+            }
+        }
+    }
+
+    // Add this new method to your CameraActivity class
+    private void showReplayBufferSettingsDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Replay Buffer Settings");
+
+        // Inflate custom layout
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_replay_buffer_settings, null);
+        EditText durationInput = view.findViewById(R.id.replayBufferDurationInput);        // Initialize with current duration (convert from milliseconds to seconds)
+        int currentDurationSeconds = getReplayBufferDuration() / 1000;
+        durationInput.setText(String.valueOf(currentDurationSeconds));
+
+        builder.setView(view);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            try {
+                String input = durationInput.getText().toString().trim();
+                if (input.isEmpty()) {
+                    Toast.makeText(this, "Please enter a value", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                
+                int durationSeconds = Integer.parseInt(input);
+                if (durationSeconds < 10 || durationSeconds > 60) {
+                    Toast.makeText(this, "Please enter a value between 10 and 60 seconds", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                
+                setReplayBufferDuration(durationSeconds * 1000);
+                Toast.makeText(this, "Replay buffer duration updated to " + durationSeconds + " seconds", Toast.LENGTH_SHORT).show();
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Please enter a valid number", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        // Focus on the input field and show keyboard
+        if (durationInput != null) {
+            durationInput.requestFocus();
+            durationInput.setSelection(durationInput.getText().length());
+        }
+    }
+
+    // ...existing code...
 }

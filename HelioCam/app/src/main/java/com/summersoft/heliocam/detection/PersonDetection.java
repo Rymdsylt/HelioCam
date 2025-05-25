@@ -281,17 +281,17 @@ public class PersonDetection implements VideoSink {
     }    /**
      * Set the video recording duration in milliseconds.
      * This defines how long to record video when a person is detected.
-     * Duration is constrained between 3-10 seconds for optimal performance.
+     * Duration is constrained between 3-30 seconds for optimal performance.
      *
-     * @param milliseconds The recording duration in milliseconds (3000-10000ms)
+     * @param milliseconds The recording duration in milliseconds (3000-30000ms)
      */
     public void setVideoRecordingDuration(int milliseconds) {
-        // Enforce 3-10 seconds constraint
-        int constrainedDuration = Math.max(3000, Math.min(10000, milliseconds));
+        // Enforce 3-30 seconds constraint to allow more flexibility
+        int constrainedDuration = Math.max(3000, Math.min(30000, milliseconds));
         this.videoRecordingDuration = constrainedDuration;
         
         if (milliseconds != constrainedDuration) {
-            Log.w(TAG, "Video recording duration constrained from " + milliseconds + "ms to " + constrainedDuration + "ms (3-10 seconds)");
+            Log.w(TAG, "Video recording duration constrained from " + milliseconds + "ms to " + constrainedDuration + "ms (3-30 seconds)");
         }
         
         Log.d(TAG, "Video recording duration set to " + constrainedDuration + " ms");

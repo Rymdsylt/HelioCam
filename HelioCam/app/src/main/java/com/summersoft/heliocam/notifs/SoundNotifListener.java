@@ -125,14 +125,34 @@ public class SoundNotifListener {
                     DatabaseReference notificationsRef = sessionRef.child("notifications");
 
                     // Attach a persistent listener for real-time notifications
-                    notificationsRef.addChildEventListener(new com.google.firebase.database.ChildEventListener() {
-                        @Override
+                    notificationsRef.addChildEventListener(new com.google.firebase.database.ChildEventListener() {                        @Override
                         public void onChildAdded(DataSnapshot snapshot, String previousChildName) {
                             String reason = snapshot.child("reason").getValue(String.class);
                             String time = snapshot.child("time").getValue(String.class);
                             String date = snapshot.child("date").getValue(String.class);
 
                             if (reason != null && time != null && date != null) {
+                                // Check notification settings before showing notification
+                                boolean shouldShow = false;
+                                String reasonLower = reason.toLowerCase();
+                                
+                                if (reasonLower.contains("sound")) {
+                                    shouldShow = com.summersoft.heliocam.ui.NotificationSettings.isSoundNotificationsEnabled(context);
+                                    Log.d(TAG, "Sound notification - enabled: " + shouldShow);
+                                } else if (reasonLower.contains("person")) {
+                                    shouldShow = com.summersoft.heliocam.ui.NotificationSettings.isPersonNotificationsEnabled(context);
+                                    Log.d(TAG, "Person notification - enabled: " + shouldShow);
+                                } else {
+                                    // For other types, default to checking all notifications
+                                    shouldShow = com.summersoft.heliocam.ui.NotificationSettings.isNotificationTypeEnabled(context, "in_app");
+                                    Log.d(TAG, "Other notification - enabled: " + shouldShow);
+                                }
+                                
+                                if (!shouldShow) {
+                                    Log.d(TAG, "Notification disabled by settings, skipping: " + reason);
+                                    return;
+                                }
+                                
                                 // Create the notification text in the desired format
                                 String notificationText = reason + ", " + time + " at " + sessionName + " on " + date;
                                 showNotification(context, sessionName, notificationText);

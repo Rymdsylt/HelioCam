@@ -60,10 +60,11 @@ public class NotificationSettings extends Fragment {
         initializeViews(view);
 
         // Load saved preferences
-        loadSavedPreferences();
-
-        // Setup switch listeners
+        loadSavedPreferences();        // Setup switch listeners
         setupSwitchListeners();
+
+        // Setup save button
+        setupSaveButton(view);
 
         // Handle window inset padding (system bar)
         ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
@@ -136,8 +137,29 @@ public class NotificationSettings extends Fragment {
         // In-app notifications switch
         inAppNotificationsSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             savePreference(KEY_IN_APP_NOTIFICATIONS, isChecked);
-            showToast(isChecked ? "In-app notifications enabled" : "In-app notifications disabled");
-        });
+            showToast(isChecked ? "In-app notifications enabled" : "In-app notifications disabled");        });
+    }
+
+    private void setupSaveButton(View view) {
+        View saveButton = view.findViewById(R.id.saveButton);
+        if (saveButton != null) {
+            saveButton.setOnClickListener(v -> {
+                // Force save all current switch states
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putBoolean(KEY_ALL_NOTIFICATIONS, allNotificationsSwitch.isChecked());
+                editor.putBoolean(KEY_EMAIL_NOTIFICATIONS, emailNotificationsSwitch.isChecked());
+                editor.putBoolean(KEY_SOUND_NOTIFICATIONS, soundNotificationsSwitch.isChecked());
+                editor.putBoolean(KEY_PERSON_NOTIFICATIONS, personNotificationsSwitch.isChecked());
+                editor.putBoolean(KEY_IN_APP_NOTIFICATIONS, inAppNotificationsSwitch.isChecked());
+                editor.apply();
+                
+                Log.d(TAG, "Settings saved - All: " + allNotificationsSwitch.isChecked() + 
+                          ", Sound: " + soundNotificationsSwitch.isChecked() + 
+                          ", Person: " + personNotificationsSwitch.isChecked());
+                
+                Toast.makeText(requireContext(), "Settings saved successfully!", Toast.LENGTH_SHORT).show();
+            });
+        }
     }
 
     private void updateAllSwitches(boolean isChecked) {
@@ -222,26 +244,85 @@ public class NotificationSettings extends Fragment {
         boolean allEnabled = prefs.getBoolean(KEY_ALL_NOTIFICATIONS, true);
         boolean emailEnabled = prefs.getBoolean(KEY_EMAIL_NOTIFICATIONS, true);
         return allEnabled && emailEnabled;
-    }
-
-    public static boolean isSoundNotificationsEnabled(Context context) {
+    }    public static boolean isSoundNotificationsEnabled(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         boolean allEnabled = prefs.getBoolean(KEY_ALL_NOTIFICATIONS, true);
         boolean soundEnabled = prefs.getBoolean(KEY_SOUND_NOTIFICATIONS, true);
-        return allEnabled && soundEnabled;
-    }
-
-    public static boolean isPersonNotificationsEnabled(Context context) {
+        boolean result = allEnabled && soundEnabled;
+        Log.d("NotificationSettings", "Sound notifications check - All: " + allEnabled + ", Sound: " + soundEnabled + ", Result: " + result);
+        return result;
+    }    public static boolean isPersonNotificationsEnabled(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         boolean allEnabled = prefs.getBoolean(KEY_ALL_NOTIFICATIONS, true);
         boolean personEnabled = prefs.getBoolean(KEY_PERSON_NOTIFICATIONS, true);
-        return allEnabled && personEnabled;
-    }
-
-    public static boolean isInAppNotificationsEnabled(Context context) {
+        boolean result = allEnabled && personEnabled;
+        Log.d("NotificationSettings", "Person notifications check - All: " + allEnabled + ", Person: " + personEnabled + ", Result: " + result);
+        return result;
+    }    public static boolean isInAppNotificationsEnabled(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         boolean allEnabled = prefs.getBoolean(KEY_ALL_NOTIFICATIONS, true);
         boolean inAppEnabled = prefs.getBoolean(KEY_IN_APP_NOTIFICATIONS, true);
         return allEnabled && inAppEnabled;
+    }
+
+    /**
+     * Debug method to log all current notification settings
+     */
+    public static void debugCurrentSettings(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean allEnabled = prefs.getBoolean(KEY_ALL_NOTIFICATIONS, true);
+        boolean emailEnabled = prefs.getBoolean(KEY_EMAIL_NOTIFICATIONS, true);
+        boolean soundEnabled = prefs.getBoolean(KEY_SOUND_NOTIFICATIONS, true);
+        boolean personEnabled = prefs.getBoolean(KEY_PERSON_NOTIFICATIONS, true);
+        boolean inAppEnabled = prefs.getBoolean(KEY_IN_APP_NOTIFICATIONS, true);
+        
+        Log.d("NotificationSettings", "=== DEBUG NOTIFICATION SETTINGS ===");
+        Log.d("NotificationSettings", "All Notifications: " + allEnabled);
+        Log.d("NotificationSettings", "Email Notifications: " + emailEnabled);
+        Log.d("NotificationSettings", "Sound Notifications: " + soundEnabled);
+        Log.d("NotificationSettings", "Person Notifications: " + personEnabled);
+        Log.d("NotificationSettings", "In-App Notifications: " + inAppEnabled);
+        Log.d("NotificationSettings", "Sound Result: " + (allEnabled && soundEnabled));        Log.d("NotificationSettings", "Person Result: " + (allEnabled && personEnabled));
+        Log.d("NotificationSettings", "========================================");
+    }
+
+    /**
+     * Test method to verify notification settings toggle functionality
+     */
+    public static void testNotificationSettings(Context context) {
+        Log.d("NotificationSettings", "=== TESTING NOTIFICATION SETTINGS ===");
+        
+        // Test initial state
+        debugCurrentSettings(context);
+        
+        // Simulate turning off all notifications
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putBoolean(KEY_ALL_NOTIFICATIONS, false);
+        editor.apply();
+        
+        Log.d("NotificationSettings", "After turning off all notifications:");
+        Log.d("NotificationSettings", "Sound enabled: " + isSoundNotificationsEnabled(context));
+        Log.d("NotificationSettings", "Person enabled: " + isPersonNotificationsEnabled(context));
+        
+        // Test turning all back on but sound off
+        editor = prefs.edit();
+        editor.putBoolean(KEY_ALL_NOTIFICATIONS, true);
+        editor.putBoolean(KEY_SOUND_NOTIFICATIONS, false);
+        editor.apply();
+        
+        Log.d("NotificationSettings", "After turning all on but sound off:");
+        Log.d("NotificationSettings", "Sound enabled: " + isSoundNotificationsEnabled(context));
+        Log.d("NotificationSettings", "Person enabled: " + isPersonNotificationsEnabled(context));
+        
+        // Restore default settings
+        editor = prefs.edit();
+        editor.putBoolean(KEY_ALL_NOTIFICATIONS, true);
+        editor.putBoolean(KEY_SOUND_NOTIFICATIONS, true);
+        editor.putBoolean(KEY_PERSON_NOTIFICATIONS, true);
+        editor.apply();
+        
+        Log.d("NotificationSettings", "Settings restored to defaults");
+        Log.d("NotificationSettings", "=== TEST COMPLETE ===");
     }
 }

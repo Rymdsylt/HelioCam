@@ -791,25 +791,34 @@ public class WatchSessionActivity extends AppCompatActivity {
 
                             // Add join requests to the grid
                             if (requestsGrid != null) {
-                                boolean hasValidRequests = false;
-
-                                // Track unique emails to prevent duplicates
-                                Set<String> uniqueEmails = new HashSet<>();
+                                boolean hasValidRequests = false;                                // Track unique email + device ID combinations to prevent duplicates
+                                Set<String> uniqueDeviceRequests = new HashSet<>();
 
                                 for (DataSnapshot requestSnapshot : task.getResult().getChildren()) {
                                     String requestId = requestSnapshot.getKey();
                                     String requestEmail = requestSnapshot.child("email").getValue(String.class);
+                                    String deviceId = requestSnapshot.child("deviceId").getValue(String.class);
+                                    String deviceName = requestSnapshot.child("deviceName").getValue(String.class);
 
                                     // Skip requests that already have status "accepted"
                                     String status = requestSnapshot.child("status").getValue(String.class);
                                     if ("accepted".equals(status)) continue;
 
-                                    // Skip duplicate emails
-                                    if (uniqueEmails.contains(requestEmail)) continue;
-                                    uniqueEmails.add(requestEmail);
+                                    // Create unique identifier using email + device ID combination
+                                    String uniqueIdentifier = requestEmail + "_" + (deviceId != null ? deviceId : "unknown");
+                                    
+                                    // Skip duplicate email + device ID combinations
+                                    if (uniqueDeviceRequests.contains(uniqueIdentifier)) continue;
+                                    uniqueDeviceRequests.add(uniqueIdentifier);
+
+                                    // Create display name with email and device name
+                                    String displayName = requestEmail != null ? requestEmail : "Unknown";
+                                    if (deviceName != null && !deviceName.isEmpty()) {
+                                        displayName += " (" + deviceName + ")";
+                                    }
 
                                     // Add request entry to the grid
-                                    addRequestToGrid(requestsGrid, requestId, requestEmail != null ? requestEmail : "Unknown");
+                                    addRequestToGrid(requestsGrid, requestId, displayName);
                                     hasValidRequests = true;
                                 }
 

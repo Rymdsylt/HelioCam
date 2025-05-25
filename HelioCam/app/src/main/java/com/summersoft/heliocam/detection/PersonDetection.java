@@ -640,36 +640,17 @@ public class PersonDetection implements VideoSink {
                 latencyHandler.removeCallbacks(resumeDetectionRunnable);
                 latencyHandler.postDelayed(resumeDetectionRunnable, detectionLatency);
             }
-        });
-
-        // Recycle the original bitmap
+        });        // Recycle the original bitmap
         bitmap.recycle();
-    }    // In PersonDetection.java, modify triggerPersonDetected() method:
+    }
+
+    // In PersonDetection.java, modify triggerPersonDetected() method:
     private void triggerPersonDetected(Bitmap bitmap) {
         try {
             // Always show toast
             uiHandler.post(() -> Toast.makeText(context, "Person detected!", Toast.LENGTH_SHORT).show());
 
-            // Start video recording only if auto recording is enabled
-            if (autoRecordingEnabled) {
-                startTimedVideoRecording();
-                Log.d(TAG, "Auto recording enabled - starting video recording");
-            } else {
-                Log.d(TAG, "Auto recording disabled - skipping video recording");
-            }
-
-            // Check if notification should be created
-            if (!NotificationSettings.isPersonNotificationsEnabled(context)) {
-                Log.d(TAG, "Person notifications disabled, skipping notification creation");
-                // Still save image locally for reference but focus on video recording
-                String sessionId = ((CameraActivity) context).getSessionId();
-                if (sessionId != null) {
-                    saveDetectionImage(bitmap, sessionId);
-                }
-                return;
-            }
-
-            // Report detection to host and save notifications
+            // Always report detection to WebRTC host first (for live monitoring)
             if (webRTCClient != null) {
                 // Count how many people were detected (could be multiple in one frame)
                 int personCount = countDetectedPeople(bitmap);
@@ -692,7 +673,25 @@ public class PersonDetection implements VideoSink {
                 Log.w(TAG, "WebRTC client is null, cannot report detection");
             }
 
-            // Save image locally for reference (optional, since we're recording video)
+            // Start video recording only if auto recording is enabled
+            if (autoRecordingEnabled) {
+                startTimedVideoRecording();
+                Log.d(TAG, "Auto recording enabled - starting video recording");
+            } else {
+                Log.d(TAG, "Auto recording disabled - skipping video recording");
+            }            // Check if notification should be created (this only affects local notifications, not live reporting)
+            if (!NotificationSettings.isPersonNotificationsEnabled(context)) {
+                Log.d(TAG, "Person notifications disabled, skipping notification creation");
+                NotificationSettings.debugCurrentSettings(context); // Debug the settings
+                // Still save image locally for reference but focus on video recording
+                String sessionId = ((CameraActivity) context).getSessionId();
+                if (sessionId != null) {
+                    saveDetectionImage(bitmap, sessionId);
+                }
+                return;
+            }
+
+            // Save image locally for reference
             String sessionId = ((CameraActivity) context).getSessionId();
             if (sessionId != null) {
                 saveDetectionImage(bitmap, sessionId);
@@ -719,9 +718,7 @@ public class PersonDetection implements VideoSink {
                 String fileName = directoryManager.generateTimestampedFilename("Person_Detected", ".jpg");
 
                 // Try to save to the person detection directory
-                DocumentFile personDir = directoryManager.getPersonDetectionDirectory();
-
-                if (personDir != null) {
+                DocumentFile personDir = directoryManager.getPersonDetectionDirectory();                if (personDir != null) {
                     // Save to user-selected directory
                     DocumentFile newFile = personDir.createFile("image/jpeg", fileName);
                     if (newFile != null) {
@@ -738,7 +735,8 @@ public class PersonDetection implements VideoSink {
                             scaledBitmap.recycle();
                             return;
                         }
-                    }                } else {
+                    }
+                }else {
                     // Only prompt once for directory selection during app session
                     if (!hasPromptedForDirectory && directoryManager.shouldPromptForDirectory()) {
                         hasPromptedForDirectory = true;

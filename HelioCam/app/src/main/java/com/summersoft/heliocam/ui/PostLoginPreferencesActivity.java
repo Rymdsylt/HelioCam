@@ -15,10 +15,10 @@ import com.summersoft.heliocam.R;
 
 public class PostLoginPreferencesActivity extends AppCompatActivity {
 
-    private static final String PREFS_NAME = "NotificationSettings";
-    private static final String KEY_ALL_NOTIFICATIONS = "all_notifications_enabled";
-    private static final String KEY_SOUND_NOTIFICATIONS = "sound_notifications_enabled";
-    private static final String KEY_PERSON_NOTIFICATIONS = "person_notifications_enabled";
+    private static final String PREFS_NAME = "notification_settings";
+    private static final String KEY_ALL_NOTIFICATIONS = "all_notifications";
+    private static final String KEY_SOUND_NOTIFICATIONS = "sound_notifications";
+    private static final String KEY_PERSON_NOTIFICATIONS = "person_notifications";
 
     private MaterialSwitch allNotificationsSwitch;
     private MaterialSwitch soundNotificationsSwitch;

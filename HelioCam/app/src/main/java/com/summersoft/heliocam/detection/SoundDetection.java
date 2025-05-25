@@ -143,21 +143,13 @@ public class SoundDetection {
             sum += Math.abs(buffer[i]);
         }
         return sum / length;
-    }
-
-    // In SoundDetection.java, modify triggerSoundDetected() method:
+    }    // In SoundDetection.java, modify triggerSoundDetected() method:
     private void triggerSoundDetected() {
         handler.post(() -> {
             // Always show toast regardless of notification settings
             Toast.makeText(context, "Sound Detected!", Toast.LENGTH_SHORT).show();
 
-            // Check if notification should be created
-            if (!NotificationSettings.isSoundNotificationsEnabled(context)) {
-                Log.d("SoundDetection", "Sound notifications disabled, skipping notification creation");
-                return;
-            }
-
-            // Report detection to host and save notifications
+            // Always report detection to host first (for live monitoring)
             if (webRTCClient != null) {
                 try {
                     // Get amplitude for reporting (use actual calculated value)
@@ -187,6 +179,11 @@ public class SoundDetection {
                 }
             } else {
                 Log.w("SoundDetection", "WebRTC client is null, cannot report detection");
+            }            // Check if notification should be created (this only affects local notifications, not live reporting)
+            if (!NotificationSettings.isSoundNotificationsEnabled(context)) {
+                Log.d("SoundDetection", "Sound notifications disabled, skipping notification creation");
+                NotificationSettings.debugCurrentSettings(context); // Debug the settings
+                return;
             }
         });
     }

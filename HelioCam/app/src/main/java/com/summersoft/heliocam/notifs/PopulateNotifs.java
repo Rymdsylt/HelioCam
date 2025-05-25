@@ -528,11 +528,12 @@ public class PopulateNotifs {
                         showEmptyState(context, notificationContainer);
                     }
                 });
-            }
-
-            // Set up view details button with enhanced functionality
+            }            // Set up view details button with enhanced functionality
             View viewDetailsButton = innerLayout.findViewById(R.id.view_details_button);
             if (viewDetailsButton != null) {
+                // Clear any existing click listener first to prevent double triggering
+                viewDetailsButton.setOnClickListener(null);
+                
                 NotificationFragment fragment = null;
                 
                 // Safer way to find the NotificationFragment
@@ -548,6 +549,15 @@ public class PopulateNotifs {
                 
                 if (fragment != null) {
                     fragment.setUpViewDetailsButton(innerLayout, viewDetailsButton);
+                } else {
+                    // Fallback: set up a basic click listener if no fragment is found
+                    View metadataContainer = innerLayout.findViewById(R.id.metadata_container);
+                    if (metadataContainer != null) {
+                        viewDetailsButton.setOnClickListener(v -> {
+                            boolean currentlyVisible = metadataContainer.getVisibility() == View.VISIBLE;
+                            metadataContainer.setVisibility(currentlyVisible ? View.GONE : View.VISIBLE);
+                        });
+                    }
                 }
             }
 

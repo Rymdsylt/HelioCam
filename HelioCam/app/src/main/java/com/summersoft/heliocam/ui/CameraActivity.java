@@ -279,10 +279,12 @@ public class CameraActivity extends AppCompatActivity {
             if (rtcJoiner != null) {
                 rtcJoiner.switchCamera();
             }
-        });
-
-        View settingsButton = findViewById(R.id.settings_button);
+        });        View settingsButton = findViewById(R.id.settings_button);
         registerForContextMenu(settingsButton);
+        settingsButton.setOnClickListener(v -> {
+            // Show context menu on regular click instead of requiring long press
+            settingsButton.showContextMenu();
+        });
     }
 
     // Add constant for request code
@@ -418,15 +420,12 @@ public class CameraActivity extends AppCompatActivity {
             case R.id.option_1: // Detection Settings (Combined)
                 showDetectionSettingsDialog();
                 return true;
-            case R.id.option_2: // Sound Detection Notification Latency (Legacy)
-                showLatencyDialog();
-                return true;
+
+
             case R.id.option_3: // Start/Stop Recording
                 showRecordDialog();
                 return true;
-            case R.id.option_5: // Person Detection Latency (Legacy)
-                showPersonLatencyDialog();
-                return true;
+
             default:
                 return super.onContextItemSelected(item);
         }
@@ -850,10 +849,38 @@ public class CameraActivity extends AppCompatActivity {
         }
         return null;
     }
-
-
     public String getSessionId() {
         return getIntent().getStringExtra("session_id");
+    }
+
+    /**
+     * Start recording from person detection - public method for PersonDetection class
+     * @return true if recording started successfully, false otherwise
+     */
+    public boolean startRecordingFromDetection() {
+        try {
+            if (canStartRecording()) {
+                startRecording();
+                return isRecording;
+            }
+            return false;
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting recording from detection", e);
+            return false;
+        }
+    }
+
+    /**
+     * Stop recording from person detection - public method for PersonDetection class
+     */
+    public void stopRecordingFromDetection() {
+        try {
+            if (isRecording) {
+                stopRecording();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping recording from detection", e);
+        }
     }
 
     /**
@@ -1616,16 +1643,15 @@ public class CameraActivity extends AppCompatActivity {
     // Add this new method to your CameraActivity class
     private void showDetectionSettingsDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Detection Settings");
-
-        // Inflate custom layout
+        builder.setTitle("Detection Settings");        // Inflate custom layout
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_detection_settings, null);
-        
-        // Get references to views - you'll need to create this layout file
+          // Get references to views - you'll need to create this layout file
         SeekBar soundThresholdSeekBar = view.findViewById(R.id.soundThresholdSeekBar);
         TextView soundThresholdValue = view.findViewById(R.id.soundThresholdValue);
         com.google.android.material.textfield.TextInputEditText soundLatencyInput = view.findViewById(R.id.soundLatencyInput);
         com.google.android.material.textfield.TextInputEditText personLatencyInput = view.findViewById(R.id.personLatencyInput);
+        com.google.android.material.textfield.TextInputEditText videoRecordingDurationInput = view.findViewById(R.id.videoRecordingDurationInput);
+        com.google.android.material.switchmaterial.SwitchMaterial autoRecordingSwitch = view.findViewById(R.id.autoRecordingSwitch);
 
         // Initialize sound threshold
         if (soundThresholdSeekBar != null && soundThresholdValue != null) {
@@ -1651,11 +1677,18 @@ public class CameraActivity extends AppCompatActivity {
         if (soundLatencyInput != null) {
             int currentSoundLatencySeconds = (int) (soundDetection.getDetectionLatency() / 1000);
             soundLatencyInput.setText(String.valueOf(currentSoundLatencySeconds));
-        }
-
-        if (personLatencyInput != null) {
+        }        if (personLatencyInput != null) {
             int currentPersonLatencySeconds = personDetection.getDetectionLatency() / 1000;
             personLatencyInput.setText(String.valueOf(currentPersonLatencySeconds));
+        }        // Initialize video recording duration input
+        if (videoRecordingDurationInput != null) {
+            int currentVideoRecordingSeconds = personDetection.getVideoRecordingDuration() / 1000;
+            videoRecordingDurationInput.setText(String.valueOf(currentVideoRecordingSeconds));
+        }
+
+        // Initialize automatic recording toggle
+        if (autoRecordingSwitch != null) {
+            autoRecordingSwitch.setChecked(personDetection.isAutoRecordingEnabled());
         }
 
         builder.setView(view);
@@ -1677,9 +1710,7 @@ public class CameraActivity extends AppCompatActivity {
                             soundDetection.setDetectionLatency(latencySeconds * 1000);
                         }
                     }
-                }
-
-                // Save person latency
+                }                // Save person latency
                 if (personLatencyInput != null) {
                     String input = personLatencyInput.getText().toString().trim();
                     if (!input.isEmpty()) {
@@ -1688,6 +1719,20 @@ public class CameraActivity extends AppCompatActivity {
                             personDetection.setDetectionLatency(latencySeconds * 1000);
                         }
                     }
+                }                // Save video recording duration
+                if (videoRecordingDurationInput != null) {
+                    String input = videoRecordingDurationInput.getText().toString().trim();
+                    if (!input.isEmpty()) {
+                        int durationSeconds = Integer.parseInt(input);
+                        if (durationSeconds >= 1 && durationSeconds <= 60) { // Limit to 60 seconds
+                            personDetection.setVideoRecordingDuration(durationSeconds * 1000);
+                        }
+                    }
+                }
+
+                // Save automatic recording toggle state
+                if (autoRecordingSwitch != null) {
+                    personDetection.setAutoRecordingEnabled(autoRecordingSwitch.isChecked());
                 }
 
                 Toast.makeText(this, "Detection settings updated", Toast.LENGTH_SHORT).show();

@@ -277,12 +277,98 @@
                         android:maxLength="3"
                         android:padding="12dp" />
 
+                </com.google.android.material.textfield.TextInputLayout>                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Recommended: 5-15 seconds"
+                    android:textSize="12sp"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@android:color/darker_gray"
+                    android:textStyle="italic" />
+
+                <!-- Automatic Recording Toggle -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="24dp"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Automatic Recording"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/black" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Automatically start recording when a person is detected"
+                            android:textSize="14sp"
+                            android:layout_marginTop="4dp"
+                            android:textColor="@android:color/darker_gray" />
+
+                    </LinearLayout>
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/autoRecordingSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:layout_marginStart="16dp"
+                        app:thumbTint="@color/green"
+                        app:trackTint="@color/green" />
+
+                </LinearLayout>
+
+                <!-- Video Recording Duration -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Video Recording Duration"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:textColor="@android:color/black" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Set how long to record video when a person is detected (in seconds). The recording will automatically stop after this duration."
+                    android:textSize="14sp"
+                    android:layout_marginBottom="16dp"
+                    android:textColor="@android:color/darker_gray" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Recording duration in seconds"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/videoRecordingDurationInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number"
+                        android:maxLength="3"
+                        android:padding="12dp" />
+
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Recommended: 5-15 seconds"
+                    android:text="Recommended: 3-10 seconds"
                     android:textSize="12sp"
                     android:layout_marginTop="8dp"
                     android:textColor="@android:color/darker_gray"

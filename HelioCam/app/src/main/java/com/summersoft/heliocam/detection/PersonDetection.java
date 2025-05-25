@@ -83,9 +83,7 @@ public class PersonDetection implements VideoSink {
     private long lastDetectionTime = 0;
     private DetectionListener detectionListener;
     private YuvConverter yuvConverter = new YuvConverter();
-    private final Paint boxPaint;
-
-    // Detection latency variables
+    private final Paint boxPaint;    // Detection latency variables
     private int detectionLatency = 5000; // Default 5 seconds (in milliseconds)
     private final Handler latencyHandler = new Handler(Looper.getMainLooper());
     private final Runnable resumeDetectionRunnable = new Runnable() {
@@ -99,6 +97,13 @@ public class PersonDetection implements VideoSink {
             }
         }
     };
+
+    // Video recording variables
+    private int videoRecordingDuration = 5000; // Default 5 seconds (in milliseconds)
+    private boolean autoRecordingEnabled = true; // Toggle for automatic recording on detection
+    private final AtomicBoolean isRecordingVideo = new AtomicBoolean(false);
+    private final Handler recordingHandler = new Handler(Looper.getMainLooper());
+    private Runnable stopRecordingRunnable;
 
     private void run() {
         try {
@@ -202,13 +207,16 @@ public class PersonDetection implements VideoSink {
             isInLatencyPeriod.set(false);
             latencyHandler.removeCallbacks(resumeDetectionRunnable);
         }
-    }
-
-    public void stop() {
+    }    public void stop() {
         if (isRunning.compareAndSet(true, false)) {
             Log.d(TAG, "Person detection stopped");
             isInLatencyPeriod.set(false);
             latencyHandler.removeCallbacks(resumeDetectionRunnable);
+            
+            // Stop any ongoing video recording
+            if (isRecordingVideo.get()) {
+                stopTimedVideoRecording();
+            }
 
             // Don't close the interpreter here to avoid reloading it
             // Just stop the detection process
@@ -217,6 +225,13 @@ public class PersonDetection implements VideoSink {
 
     public void shutdown() {
         stop();
+        
+        // Clean up video recording resources
+        if (stopRecordingRunnable != null) {
+            recordingHandler.removeCallbacks(stopRecordingRunnable);
+            stopRecordingRunnable = null;
+        }
+        
         if (tflite != null) {
             tflite.close();
             tflite = null;
@@ -251,9 +266,7 @@ public class PersonDetection implements VideoSink {
      */
     public boolean isInLatencyPeriod() {
         return isInLatencyPeriod.get();
-    }
-
-    /**
+    }    /**
      * Force exit from latency period and resume detection immediately
      */
     public void forceResumeDetection() {
@@ -263,6 +276,132 @@ public class PersonDetection implements VideoSink {
             Log.d(TAG, "Detection resumed forcefully");
             if (detectionListener != null) {
                 detectionListener.onDetectionStatusChanged(false);
+            }
+        }
+    }    /**
+     * Set the video recording duration in milliseconds.
+     * This defines how long to record video when a person is detected.
+     * Duration is constrained between 3-10 seconds for optimal performance.
+     *
+     * @param milliseconds The recording duration in milliseconds (3000-10000ms)
+     */
+    public void setVideoRecordingDuration(int milliseconds) {
+        // Enforce 3-10 seconds constraint
+        int constrainedDuration = Math.max(3000, Math.min(10000, milliseconds));
+        this.videoRecordingDuration = constrainedDuration;
+        
+        if (milliseconds != constrainedDuration) {
+            Log.w(TAG, "Video recording duration constrained from " + milliseconds + "ms to " + constrainedDuration + "ms (3-10 seconds)");
+        }
+        
+        Log.d(TAG, "Video recording duration set to " + constrainedDuration + " ms");
+    }
+
+    /**
+     * Get the current video recording duration in milliseconds.
+     *
+     * @return The current video recording duration
+     */
+    public int getVideoRecordingDuration() {
+        return videoRecordingDuration;
+    }    /**
+     * Check whether video recording is currently in progress.
+     *
+     * @return true if recording video, false otherwise
+     */
+    public boolean isRecordingVideo() {
+        return isRecordingVideo.get();
+    }
+
+    /**
+     * Set whether automatic recording should be triggered on person detection.
+     *
+     * @param enabled true to enable automatic recording, false to disable
+     */
+    public void setAutoRecordingEnabled(boolean enabled) {
+        this.autoRecordingEnabled = enabled;
+        Log.d(TAG, "Auto recording " + (enabled ? "enabled" : "disabled"));
+    }
+
+    /**
+     * Get whether automatic recording is enabled for person detection.
+     *
+     * @return true if auto recording is enabled, false otherwise
+     */
+    public boolean isAutoRecordingEnabled() {
+        return autoRecordingEnabled;
+    }
+
+    /**
+     * Start video recording for the configured duration when person is detected
+     */
+    private void startTimedVideoRecording() {
+        if (isRecordingVideo.compareAndSet(false, true)) {
+            try {
+                // Cast context to CameraActivity to access recording methods
+                CameraActivity cameraActivity = (CameraActivity) context;
+                
+                Log.d(TAG, "Starting timed video recording for " + videoRecordingDuration + "ms");
+                
+                // Start recording using existing CameraActivity method
+                if (cameraActivity.startRecordingFromDetection()) {
+                    // Schedule automatic stop after configured duration
+                    stopRecordingRunnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            stopTimedVideoRecording();
+                        }
+                    };
+                    recordingHandler.postDelayed(stopRecordingRunnable, videoRecordingDuration);
+                    
+                    uiHandler.post(() -> Toast.makeText(context, 
+                            "Recording video for " + (videoRecordingDuration / 1000) + " seconds...", 
+                            Toast.LENGTH_SHORT).show());
+                } else {
+                    // Failed to start recording, reset state
+                    isRecordingVideo.set(false);
+                    Log.w(TAG, "Failed to start video recording");
+                }
+            } catch (ClassCastException e) {
+                Log.e(TAG, "Context is not CameraActivity, cannot start recording", e);
+                isRecordingVideo.set(false);
+            } catch (Exception e) {
+                Log.e(TAG, "Error starting video recording", e);
+                isRecordingVideo.set(false);
+            }
+        } else {
+            Log.d(TAG, "Video recording already in progress, skipping");
+        }
+    }
+
+    /**
+     * Stop the timed video recording
+     */
+    private void stopTimedVideoRecording() {
+        if (isRecordingVideo.compareAndSet(true, false)) {
+            try {
+                // Remove the scheduled stop callback
+                if (stopRecordingRunnable != null) {
+                    recordingHandler.removeCallbacks(stopRecordingRunnable);
+                    stopRecordingRunnable = null;
+                }
+                
+                // Cast context to CameraActivity to access recording methods
+                CameraActivity cameraActivity = (CameraActivity) context;
+                
+                Log.d(TAG, "Stopping timed video recording");
+                
+                // Stop recording using existing CameraActivity method
+                cameraActivity.stopRecordingFromDetection();
+                
+                uiHandler.post(() -> Toast.makeText(context, 
+                        "Person detection video saved", 
+                        Toast.LENGTH_SHORT).show());
+                        
+            } catch (ClassCastException e) {
+                Log.e(TAG, "Context is not CameraActivity, cannot stop recording", e);
+            } catch (Exception e) {
+                Log.e(TAG, "Error stopping video recording", e);
             }
         }
     }
@@ -505,18 +644,24 @@ public class PersonDetection implements VideoSink {
 
         // Recycle the original bitmap
         bitmap.recycle();
-    }
-
-    // In PersonDetection.java, modify triggerPersonDetected() method:
+    }    // In PersonDetection.java, modify triggerPersonDetected() method:
     private void triggerPersonDetected(Bitmap bitmap) {
         try {
             // Always show toast
             uiHandler.post(() -> Toast.makeText(context, "Person detected!", Toast.LENGTH_SHORT).show());
 
+            // Start video recording only if auto recording is enabled
+            if (autoRecordingEnabled) {
+                startTimedVideoRecording();
+                Log.d(TAG, "Auto recording enabled - starting video recording");
+            } else {
+                Log.d(TAG, "Auto recording disabled - skipping video recording");
+            }
+
             // Check if notification should be created
             if (!NotificationSettings.isPersonNotificationsEnabled(context)) {
                 Log.d(TAG, "Person notifications disabled, skipping notification creation");
-                // Still save image locally but don't create notifications
+                // Still save image locally for reference but focus on video recording
                 String sessionId = ((CameraActivity) context).getSessionId();
                 if (sessionId != null) {
                     saveDetectionImage(bitmap, sessionId);
@@ -539,6 +684,7 @@ public class PersonDetection implements VideoSink {
                 detectionData.put("imageWidth", bitmap.getWidth());
                 detectionData.put("imageHeight", bitmap.getHeight());
                 detectionData.put("processingTime", System.currentTimeMillis()); // For performance tracking
+                detectionData.put("recordingDuration", videoRecordingDuration); // Include video duration info
                 
                 // Report person detection with enhanced data
                 webRTCClient.reportDetectionEvent("person", detectionData);
@@ -546,7 +692,7 @@ public class PersonDetection implements VideoSink {
                 Log.w(TAG, "WebRTC client is null, cannot report detection");
             }
 
-            // Save image locally
+            // Save image locally for reference (optional, since we're recording video)
             String sessionId = ((CameraActivity) context).getSessionId();
             if (sessionId != null) {
                 saveDetectionImage(bitmap, sessionId);

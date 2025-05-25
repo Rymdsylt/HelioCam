@@ -193,9 +193,7 @@ public class NotificationFragment extends Fragment {
         if (activeInstance == this) {
             activeInstance = null;
         }
-    }
-
-    // Enhanced setUpViewDetailsButton method
+    }    // Enhanced setUpViewDetailsButton method
     public void setUpViewDetailsButton(View innerLayout, View detailsButton) {
         // Find metadata container (now it's a MaterialCardView)
         View metadataContainer = innerLayout.findViewById(R.id.metadata_container);
@@ -204,6 +202,9 @@ public class NotificationFragment extends Fragment {
             Log.w(TAG, "Metadata container not found in notification layout");
             return;
         }
+        
+        // Clear any existing click listener to prevent double triggering
+        detailsButton.setOnClickListener(null);
         
         // Set initial text and icon based on visibility state
         boolean isVisible = metadataContainer.getVisibility() == View.VISIBLE;

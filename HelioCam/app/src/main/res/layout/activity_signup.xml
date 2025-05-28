@@ -25,15 +25,13 @@
             android:src="@drawable/heliocam_logo"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <!-- Title with accent color -->
+            app:layout_constraintTop_toTopOf="parent" />        <!-- Title with accent color -->
         <TextView
             android:id="@+id/titleText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Create Account"
+            android:text="Sign Up"
             android:textAlignment="center"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Headline4"
             android:textColor="#FF9B44"
@@ -266,9 +264,7 @@
                         android:layout_height="wrap_content"
                         android:hint="Password"
                         android:inputType="textPassword" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- Modern Confirm Password input -->
+                </com.google.android.material.textfield.TextInputLayout>                <!-- Modern Confirm Password input -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -293,64 +289,15 @@
                         android:hint="Confirm Password"
                         android:inputType="textPassword" />
                 </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- Modern Settings Key input -->
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:startIconDrawable="@drawable/baseline_key_24"
-                    app:startIconTint="#FF9B44"
-                    app:boxBackgroundColor="#F7F7F7"
-                    app:boxStrokeWidth="0dp"
-                    app:boxCornerRadiusBottomEnd="16dp"
-                    app:boxCornerRadiusBottomStart="16dp"
-                    app:boxCornerRadiusTopEnd="16dp"
-                    app:boxCornerRadiusTopStart="16dp"
-                    app:hintTextColor="#FF9B44"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/settingsKey"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="Settings Key"
-                        android:inputType="textPassword" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- Modern Confirm Settings Key input -->
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:startIconDrawable="@drawable/baseline_key_24"
-                    app:startIconTint="#FF9B44"
-                    app:boxBackgroundColor="#F7F7F7"
-                    app:boxStrokeWidth="0dp"
-                    app:boxCornerRadiusBottomEnd="16dp"
-                    app:boxCornerRadiusBottomStart="16dp"
-                    app:boxCornerRadiusTopEnd="16dp"
-                    app:boxCornerRadiusTopStart="16dp"
-                    app:hintTextColor="#FF9B44"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/confirmSettingsKey"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="Confirm Settings Key"
-                        android:inputType="textPassword" />
-                </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Modern Sign Up Button -->
+        </com.google.android.material.card.MaterialCardView>        <!-- Modern Sign Up Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/enterBtn"
             android:layout_width="0dp"
             android:layout_height="60dp"
             android:layout_marginTop="24dp"
             android:layout_marginHorizontal="4dp"
-            android:text="Create Account"
+            android:text="Sign Up"
             android:textAllCaps="false"
             android:textSize="18sp"
             android:backgroundTint="#FF9B44"

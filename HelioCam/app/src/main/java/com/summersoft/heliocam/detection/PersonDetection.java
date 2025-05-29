@@ -51,7 +51,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class PersonDetection implements VideoSink {
     private static final String TAG = "PersonDetection";
     private static final String MODEL_FILE = "yolov8n.tflite";
-    private static final String LABEL_FILE = "labels.txt";    private static final float CONFIDENCE_THRESHOLD = 0.7f; // High threshold to reduce false positives
+    private static final String LABEL_FILE = "labels.txt";    private static final float CONFIDENCE_THRESHOLD = 0.5f; // Balanced threshold for reliable detection
     private static final int INPUT_WIDTH = 640;
     private static final int INPUT_HEIGHT = 640;
 
@@ -85,9 +85,8 @@ public class PersonDetection implements VideoSink {
     private final AtomicInteger framesProcessedCount = new AtomicInteger(0);
     private long lastDebugLogTime = 0;
     private static final long DEBUG_LOG_INTERVAL = 5000; // Log every 5 seconds
-    
-    // Optimized frame skipping with adaptive behavior
-    private int dynamicSkipFactor = 4; // Start with power-of-2 value
+      // Optimized frame skipping with adaptive behavior
+    private int dynamicSkipFactor = 2; // Start with lower value for more responsive detection
     private long lastSkipFactorUpdate = 0;
     private static final long SKIP_FACTOR_UPDATE_INTERVAL = 2000; // Update every 2 seconds
 
@@ -98,7 +97,7 @@ public class PersonDetection implements VideoSink {
     private DetectionListener detectionListener;
     private YuvConverter yuvConverter = new YuvConverter();
     private final Paint boxPaint;    // Detection latency variables
-    private int detectionLatency = 5000; // Default 5 seconds cooldown for production use
+    private int detectionLatency = 3000; // Reduced to 3 seconds for more responsive detection
     private final Handler latencyHandler = new Handler(Looper.getMainLooper());
     private final Runnable resumeDetectionRunnable = new Runnable() {
         @Override
@@ -112,10 +111,8 @@ public class PersonDetection implements VideoSink {
                 Log.w(TAG, "Attempted to end latency period but was not in latency period");
             }
         }
-    };
-
-    // Video recording variables
-    private int videoRecordingDuration = 5000; // Default 5 seconds (in milliseconds)
+    };    // Video recording variables
+    private int videoRecordingDuration = 10000; // Default 10 seconds for better capture (in milliseconds)
     private boolean autoRecordingEnabled = true; // Toggle for automatic recording on detection
     private final AtomicBoolean isRecordingVideo = new AtomicBoolean(false);
     private final Handler recordingHandler = new Handler(Looper.getMainLooper());
@@ -374,65 +371,20 @@ public class PersonDetection implements VideoSink {
      */
     public boolean isAutoRecordingEnabled() {
         return autoRecordingEnabled;
-    }
-
-    /**
-     * Test the detection system by forcing a mock detection
-     * Useful for debugging latency period issues
-     */
-    public void testDetection() {
-        Log.i(TAG, "Testing detection system...");
-        Log.i(TAG, "Current state - Running: " + isRunning.get() + ", Model loaded: " + isModelLoaded.get() + 
-                  ", In latency: " + isInLatencyPeriod.get());
-        
-        if (!isRunning.get()) {
-            Log.w(TAG, "Detection not running - cannot test");
-            return;
-        }
-        
-        if (isInLatencyPeriod.get()) {
-            Log.w(TAG, "Currently in latency period - forcing resume for test");
-            forceResumeDetection();
-        }
-        
-        // Simulate a person detection to test the latency mechanism
-        lastDetectionTime = System.currentTimeMillis();
-        lastDetectedPersonCount = 1;
-        
-        if (isInLatencyPeriod.compareAndSet(false, true)) {
-            Log.i(TAG, "TEST: Entering latency period for " + detectionLatency + "ms");
-            
-            handler.post(() -> {
-                Toast.makeText(context, "TEST: Person detected!", Toast.LENGTH_SHORT).show();
-                if (detectionListener != null) {
-                    detectionListener.onDetectionStatusChanged(true);
-                }
-            });
-
-            // Schedule resumption
-            try {
-                latencyHandler.removeCallbacks(resumeDetectionRunnable);
-                boolean scheduled = latencyHandler.postDelayed(resumeDetectionRunnable, detectionLatency);
-                Log.i(TAG, "TEST: Latency resumption scheduled: " + scheduled);
-            } catch (Exception e) {
-                Log.e(TAG, "TEST: Failed to schedule resumption: " + e.getMessage());
-                isInLatencyPeriod.set(false);
-            }
-        }
-    }
-
-    /**
+    }    /**
      * Start video recording for the configured duration when person is detected
      */    private void startTimedVideoRecording() {
         if (isRecordingVideo.compareAndSet(false, true)) {
             try {
+                Log.d(TAG, "Starting timed video recording for " + videoRecordingDuration + "ms");
+                
                 // Cast context to CameraActivity to access recording methods
                 CameraActivity cameraActivity = (CameraActivity) context;
                 
-                Log.d(TAG, "Starting timed video recording for " + videoRecordingDuration + "ms");
-                
                 // Start recording using existing CameraActivity method
                 if (cameraActivity.startRecordingFromDetection("Person_Detected")) {
+                    Log.d(TAG, "Video recording started successfully");
+                    
                     // Schedule automatic stop after configured duration
                     stopRecordingRunnable = new Runnable() {
                         @Override
@@ -442,20 +394,35 @@ public class PersonDetection implements VideoSink {
                     };
                     recordingHandler.postDelayed(stopRecordingRunnable, videoRecordingDuration);
                     
-                    uiHandler.post(() -> Toast.makeText(context, 
-                            "Person detected - Recording for " + (videoRecordingDuration / 1000) + " seconds", 
-                            Toast.LENGTH_SHORT).show());
+                    // Show recording start toast immediately
+                    uiHandler.post(() -> {
+                        Toast.makeText(context, 
+                                "Person detected - Recording for " + (videoRecordingDuration / 1000) + " seconds", 
+                                Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, "Recording start toast displayed");
+                    });
                 } else {
                     // Failed to start recording, reset state
                     isRecordingVideo.set(false);
                     Log.w(TAG, "Failed to start video recording");
+                    
+                    // Show error toast
+                    uiHandler.post(() -> {
+                        Toast.makeText(context, "Failed to start recording", Toast.LENGTH_SHORT).show();
+                    });
                 }
             } catch (ClassCastException e) {
                 Log.e(TAG, "Context is not CameraActivity, cannot start recording", e);
                 isRecordingVideo.set(false);
+                uiHandler.post(() -> {
+                    Toast.makeText(context, "Recording error: Context issue", Toast.LENGTH_SHORT).show();
+                });
             } catch (Exception e) {
                 Log.e(TAG, "Error starting video recording", e);
                 isRecordingVideo.set(false);
+                uiHandler.post(() -> {
+                    Toast.makeText(context, "Recording error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
             }
         } else {
             Log.d(TAG, "Video recording already in progress, skipping");
@@ -909,6 +876,8 @@ public class PersonDetection implements VideoSink {
         lastDetectionTime = System.currentTimeMillis();
         lastDetectedPersonCount = personCount;
         
+        Log.i(TAG, "Person detection triggered with count: " + personCount);
+        
         // Quick WebRTC reporting
         if (webRTCClient != null) {
             try {
@@ -917,6 +886,7 @@ public class PersonDetection implements VideoSink {
                 detectionData.put("confidence", "high");
                 detectionData.put("timestamp", lastDetectionTime);
                 webRTCClient.reportDetectionEvent("person", detectionData);
+                Log.d(TAG, "Person detection reported to WebRTC host");
             } catch (Exception e) {
                 Log.e(TAG, "Error reporting detection: " + e.getMessage());
             }
@@ -926,19 +896,31 @@ public class PersonDetection implements VideoSink {
         if (isInLatencyPeriod.compareAndSet(false, true)) {
             Log.d(TAG, "Person detected - entering latency period for " + detectionLatency + "ms");
             
-            // Handle UI updates on main thread
-            handler.post(() -> {
-                // Quick toast notification
-                Toast.makeText(context, "Person detected! (" + personCount + ")", Toast.LENGTH_SHORT).show();
-                
-                // Trigger additional actions
-                triggerPersonDetectedOptimized();
-
-                // Notify detection listener
-                if (detectionListener != null) {
-                    detectionListener.onDetectionStatusChanged(true);
+            // Handle UI updates and recording on main thread immediately
+            uiHandler.post(() -> {
+                try {
+                    // Show toast notification immediately
+                    Toast.makeText(context, "Person detected! (" + personCount + ")", Toast.LENGTH_SHORT).show();
+                    Log.d(TAG, "Toast notification displayed");
+                    
+                    // Start recording immediately if auto recording is enabled
+                    if (autoRecordingEnabled) {
+                        Log.d(TAG, "Starting automatic recording...");
+                        startTimedVideoRecording();
+                    } else {
+                        Log.d(TAG, "Auto recording disabled - skipping video recording");
+                    }
+                    
+                    // Notify detection listener
+                    if (detectionListener != null) {
+                        detectionListener.onDetectionStatusChanged(true);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in UI updates: " + e.getMessage());
                 }
-            });            // Schedule resumption on latency handler (ensure it's properly scheduled)
+            });
+
+            // Schedule resumption on latency handler (ensure it's properly scheduled)
             try {
                 latencyHandler.removeCallbacks(resumeDetectionRunnable);
                 boolean scheduled = latencyHandler.postDelayed(resumeDetectionRunnable, detectionLatency);
@@ -958,22 +940,7 @@ public class PersonDetection implements VideoSink {
         }
 
         // Return bitmap to pool
-        ImageUtils.safeRecycleBitmap(bitmap);
-    }
-
-    /**
-     * Optimized person detection trigger with minimal overhead
-     */
-    private void triggerPersonDetectedOptimized() {
-        try {
-            // Start video recording only if auto recording is enabled
-            if (autoRecordingEnabled) {
-                startTimedVideoRecording();
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error in optimized person detection trigger: " + e.getMessage());
-        }
-    }private void handlePersonDetection(List<Detection> detections, Bitmap bitmap) {
+        ImageUtils.safeRecycleBitmap(bitmap);    }private void handlePersonDetection(List<Detection> detections, Bitmap bitmap) {
         lastDetectionTime = System.currentTimeMillis();
 
         // Count the number of persons detected and update the tracker
@@ -1111,5 +1078,67 @@ public class PersonDetection implements VideoSink {
         } else {
             Log.w(TAG, "Cannot report person detection - webRTCClient is null");
         }
+    }
+
+    /**
+     * Verify detection system status and configuration
+     * Call this method to debug detection issues
+     */
+    public void verifyDetectionSystem() {
+        Log.i(TAG, "=== PersonDetection System Status ===");
+        Log.i(TAG, "Model loaded: " + isModelLoaded.get());
+        Log.i(TAG, "Detection running: " + isRunning.get());
+        Log.i(TAG, "In latency period: " + isInLatencyPeriod.get());
+        Log.i(TAG, "Auto recording enabled: " + autoRecordingEnabled);
+        Log.i(TAG, "Video recording duration: " + videoRecordingDuration + "ms");
+        Log.i(TAG, "Detection latency: " + detectionLatency + "ms");
+        Log.i(TAG, "Confidence threshold: " + CONFIDENCE_THRESHOLD);
+        Log.i(TAG, "Dynamic skip factor: " + dynamicSkipFactor);
+        Log.i(TAG, "Currently recording: " + isRecordingVideo.get());
+        Log.i(TAG, "Last detection time: " + (System.currentTimeMillis() - lastDetectionTime) + "ms ago");
+        Log.i(TAG, "Frames received: " + totalFramesReceived.get());
+        Log.i(TAG, "Frames processed: " + framesProcessedCount.get());
+        
+        if (tflite != null) {
+            Log.i(TAG, "TensorFlow Lite interpreter: OK");
+            Log.i(TAG, "Model input shape: " + Arrays.toString(cachedInputShape));
+            Log.i(TAG, "Model output shape: " + Arrays.toString(cachedOutputShape));
+        } else {
+            Log.e(TAG, "TensorFlow Lite interpreter: NULL");
+        }
+        
+        Log.i(TAG, "===================================");
+    }
+
+    /**
+     * Force trigger a test detection for debugging
+     * This should only be used for testing purposes
+     */
+    public void forceTestDetection() {
+        Log.w(TAG, "Force triggering test detection for debugging");
+        
+        // Simulate a person detection
+        lastDetectionTime = System.currentTimeMillis();
+        lastDetectedPersonCount = 1;
+        
+        // Reset latency period if stuck
+        isInLatencyPeriod.set(false);
+        
+        // Trigger the detection handler directly
+        uiHandler.post(() -> {
+            try {
+                Toast.makeText(context, "TEST: Person detected! (1)", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "Test toast notification displayed");
+                
+                if (autoRecordingEnabled) {
+                    Log.d(TAG, "Test: Starting automatic recording...");
+                    startTimedVideoRecording();
+                } else {
+                    Log.d(TAG, "Test: Auto recording disabled - skipping video recording");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error in test detection: " + e.getMessage());
+            }
+        });
     }
 }

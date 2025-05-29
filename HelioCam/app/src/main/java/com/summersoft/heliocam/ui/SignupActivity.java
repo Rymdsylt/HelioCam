@@ -15,19 +15,20 @@ import com.summersoft.heliocam.utils.UserModel;
 import androidx.appcompat.app.AlertDialog;
 import android.widget.Toast;
 
-public class SignupActivity extends AppCompatActivity {
-
-    private static final String TAG = "SignupActivity";
+public class SignupActivity extends AppCompatActivity {    private static final String TAG = "SignupActivity";
     private TextInputEditText fullname, username, contact, email, password, confirmPassword;
     private FirebaseAuth mAuth;
-    private DatabaseReference databaseRef;@Override
+    private DatabaseReference databaseRef;
+    
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_signup);
-
+        
         mAuth = FirebaseAuth.getInstance();
         databaseRef = FirebaseDatabase.getInstance().getReference("users");  // Store all users here, no role-based separation.
-          fullname = findViewById(R.id.fullname);
+        
+        fullname = findViewById(R.id.fullname);
         username = findViewById(R.id.username);
         contact = findViewById(R.id.contact);
         email = findViewById(R.id.email);
@@ -35,14 +36,15 @@ public class SignupActivity extends AppCompatActivity {
         confirmPassword = findViewById(R.id.confirmPassword);
 
         findViewById(R.id.enterBtn).setOnClickListener(v -> signUpUser());
-        
-        // Add click listener for login link to navigate to LoginActivity
+          // Add click listener for login link to navigate to LoginActivity
         findViewById(R.id.loginLink).setOnClickListener(v -> {
             Intent intent = new Intent(SignupActivity.this, LoginActivity.class);
             startActivity(intent);
             finish(); // Close signup activity
         });
-    }    private void signUpUser() {
+    }
+
+    private void signUpUser() {
         // Add null checks to identify which field is causing the issue
         if (email == null) {
             showErrorDialog("Field Error", "Email field not found");
@@ -74,7 +76,9 @@ public class SignupActivity extends AppCompatActivity {
         String confirmPasswordText = confirmPassword.getText().toString().trim();
         String fullnameText = fullname.getText().toString().trim();
         String usernameText = username.getText().toString().trim();
-        String contactText = contact.getText().toString().trim();        if (emailText.isEmpty() || passwordText.isEmpty() || confirmPasswordText.isEmpty() || fullnameText.isEmpty() || usernameText.isEmpty() || contactText.isEmpty()) {
+        String contactText = contact.getText().toString().trim();
+        
+        if (emailText.isEmpty() || passwordText.isEmpty() || confirmPasswordText.isEmpty() || fullnameText.isEmpty() || usernameText.isEmpty() || contactText.isEmpty()) {
             showWarningDialog("Missing Information", "Please fill all fields");
             return;
         }
@@ -83,11 +87,15 @@ public class SignupActivity extends AppCompatActivity {
             showErrorDialog("Password Mismatch", "Passwords do not match");
             return;
         }
-        
-        // Directly create user instead of checking if email exists
+          // Directly create user instead of checking if email exists
         // Firebase Auth will handle duplicate email errors automatically
-        createUserWithEmail(emailText, fullnameText, usernameText, contactText, passwordText);    }    private void createUserWithEmail(String email, String fullname, String username, String contact, String password) {
-        mAuth.createUserWithEmailAndPassword(email, password)                .addOnCompleteListener(this, task -> {                    if (task.isSuccessful()) {
+        createUserWithEmail(emailText, fullnameText, usernameText, contactText, passwordText);
+    }
+
+    private void createUserWithEmail(String email, String fullname, String username, String contact, String password) {
+        mAuth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
                         // Authentication successful - directly send verification email (no dialog)
                         FirebaseUser user = mAuth.getCurrentUser();
                         if (user != null) {

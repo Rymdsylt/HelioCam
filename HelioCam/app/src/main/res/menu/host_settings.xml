@@ -13,7 +13,5 @@
     <item
         android:id="@+id/option_4"
         android:title="Replay Buffer" />
-    <item
-        android:id="@+id/option_5"
-        android:title="Test Person Detection" />
+
 </menu>

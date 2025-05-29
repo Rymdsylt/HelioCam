@@ -43,9 +43,20 @@ public class UserRoleSelectionActivity extends AppCompatActivity {
             navigateToNextScreen();
         });
 
-        // Check if user already has a saved role and pre-select it
-        String currentRole = getUserRole(this);
-        selectRole(currentRole != null && !currentRole.isEmpty() ? currentRole : ROLE_HOST);
+        // Check if coming from post-login preferences
+        boolean fromPostLogin = getIntent().getBooleanExtra("from_post_login", false);
+        
+        // Check if user already has a saved role and pre-select it (only if not from post-login)
+        String currentRole = null;
+        if (!fromPostLogin) {
+            currentRole = getUserRole(this);
+        }
+        
+        // If no role is saved (returns null or empty) or coming from post-login, default to HOST
+        if (currentRole == null || currentRole.isEmpty()) {
+            currentRole = ROLE_HOST;
+        }
+        selectRole(currentRole);
     }
 
     private void selectRole(String role) {
@@ -100,18 +111,20 @@ public class UserRoleSelectionActivity extends AppCompatActivity {
         finish();
     }    /**
      * Utility method to get the user role from anywhere in the app
+     * Returns null if no role is saved
      */
     public static String getUserRole(Context context) {
         SharedPreferences preferences = 
                 context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return preferences.getString(KEY_USER_ROLE, ROLE_HOST);
-    }
-
-    /**
+        return preferences.getString(KEY_USER_ROLE, null);
+    }    /**
      * Utility method to check if user is a host
+     * Returns true by default if no role is saved
      */
     public static boolean isUserHost(Context context) {
-        return ROLE_HOST.equals(getUserRole(context));
+        String role = getUserRole(context);
+        // Default to HOST if no role is saved
+        return role == null || ROLE_HOST.equals(role);
     }
 
     /**

@@ -257,33 +257,12 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 - [ ] Person detection accuracy varies with lighting conditions
 - [ ] High battery usage during extended sessions
 
-## 🗺️ Roadmap
-
-- [ ] **Cloud recording** with Firebase Storage integration
-- [ ] **Advanced detection features** (object detection, facial recognition)
-- [ ] **Push notifications** for real-time detection alerts
-- [ ] **Video analytics** and session reporting
-- [ ] **Enhanced UI/UX** improvements and dark mode
-- [ ] **Performance optimizations** for lower-end devices
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## 🙏 Acknowledgments
 
 - **WebRTC** team for the excellent real-time communication framework
 - **Firebase** for reliable backend services and authentication
 - **TensorFlow Lite** team for mobile AI/ML capabilities
 - **Android** development community for resources and support
-
-## 📞 Support
-
-For issues, questions, or feature requests related to the HelioCam Android application:
-
-- **Issues**: Create an issue in the project repository
-- **Documentation**: Refer to the code comments and this README
-- **Development**: Follow the contributing guidelines for code contributions
 
 ---
 

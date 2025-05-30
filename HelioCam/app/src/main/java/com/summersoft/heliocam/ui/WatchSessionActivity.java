@@ -3,6 +3,7 @@ package com.summersoft.heliocam.ui;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -744,9 +745,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                 .setCancelable(true)
                 .create()
                 .show();
-    }
-
-    /**
+    }    /**
      * End the current session
      */
     private void endSession() {
@@ -755,19 +754,56 @@ public class WatchSessionActivity extends AppCompatActivity {
             rtcHost.dispose();
         }
 
-        // Delete the session from Firebase
+        // Save session to history and remove from active sessions
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                .removeValue()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Log.d(TAG, "Session deleted successfully");
-                        finish();
+        DatabaseReference sessionRef = mDatabase.child("users").child(userEmail).child("sessions").child(sessionId);
+        
+        // First, get the session data to save it to history
+        sessionRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                // Get the session data
+                DataSnapshot sessionData = task.getResult();
+                
+                // Create history entry with ended timestamp
+                HashMap<String, Object> historySession = new HashMap<>();
+                historySession.put("session_name", sessionData.child("session_name").getValue());
+                historySession.put("passkey", sessionData.child("passkey").getValue());
+                historySession.put("created_at", sessionData.child("created_at").getValue());
+                historySession.put("active", false);
+                historySession.put("ended_at", System.currentTimeMillis());
+                
+                // Save to session history
+                DatabaseReference historyRef = mDatabase.child("users").child(userEmail)
+                        .child("session_history").child(sessionId);
+                
+                historyRef.setValue(historySession).addOnCompleteListener(historyTask -> {
+                    if (historyTask.isSuccessful()) {
+                        // Successfully saved to history, now remove from active sessions
+                        sessionRef.removeValue().addOnCompleteListener(removeTask -> {
+                            if (removeTask.isSuccessful()) {
+                                Log.d(TAG, "Session ended and saved to history successfully");
+                                Toast.makeText(this, "Session ended successfully", Toast.LENGTH_SHORT).show();
+                                navigateToHome();
+                            } else {
+                                Log.e(TAG, "Failed to remove session from active sessions", removeTask.getException());
+                                Toast.makeText(this, "Session ended but failed to clean up", Toast.LENGTH_SHORT).show();
+                                navigateToHome();
+                            }
+                        });
                     } else {
-                        Log.e(TAG, "Failed to delete session", task.getException());
-                        Toast.makeText(this, "Failed to end session", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failed to save session to history", historyTask.getException());
+                        // Still try to remove from active sessions even if history save failed
+                        sessionRef.removeValue().addOnCompleteListener(removeTask -> {
+                            Toast.makeText(this, "Session ended (history save failed)", Toast.LENGTH_SHORT).show();
+                            navigateToHome();
+                        });
                     }
                 });
+            } else {
+                Log.e(TAG, "Failed to get session data for history", task.getException());
+                Toast.makeText(this, "Failed to end session", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     /**
@@ -1784,5 +1820,26 @@ public class WatchSessionActivity extends AppCompatActivity {
         
         return (x >= viewX && x <= (viewX + view.getWidth()) &&
                 y >= viewY && y <= (viewY + view.getHeight()));
+    }
+
+    /**
+     * Navigate to the appropriate home activity based on user role
+     */
+    private void navigateToHome() {
+        // Get user role and navigate to appropriate home
+        String userRole = UserRoleSelectionActivity.getUserRole(this);
+        Intent intent;
+        
+        if (UserRoleSelectionActivity.ROLE_JOINER.equals(userRole)) {
+            intent = new Intent(this, JoinerHomeActivity.class);
+        } else {
+            // Default to HOST home (includes null/empty role cases)
+            intent = new Intent(this, HomeActivity.class);
+        }
+        
+        // Clear the task stack to prevent going back to watch session
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 }

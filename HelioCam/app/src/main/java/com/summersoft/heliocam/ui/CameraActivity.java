@@ -152,56 +152,48 @@ public class CameraActivity extends AppCompatActivity {
     }    @Override
     protected void onDestroy() {
         super.onDestroy();
-        String sessionId = getSessionId();
-        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-
-        if (sessionId != null && !sessionId.isEmpty()) {
-            mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                    .removeValue()
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            Log.d("CameraActivity", "Session deleted successfully in onDestroy.");
-                        } else {
-                            Log.e("CameraActivity", "Failed to delete session in onDestroy: " + task.getException());
-                        }
-                    });
-        }
         
         // Make sure to properly dispose all resources
         disposeResources();
-    }
-
-    @Override
+    }    @Override
     public void onBackPressed() {
         // Create a confirmation dialog
         new AlertDialog.Builder(this)
-                .setTitle("End Session")
-                .setMessage("Closing will also end the session. Continue?")
+                .setTitle("Leave Session")
+                .setMessage("Are you sure you want to leave this session?")
                 .setPositiveButton("Yes", (dialog, which) -> {
-                    // Delete session details from Firebase
-                    String sessionId = getSessionId();
-                    String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-                    if (sessionId != null && !sessionId.isEmpty()) {
-                        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                                .removeValue()
-                                .addOnCompleteListener(task -> {
-                                    if (task.isSuccessful()) {
-                                        Log.d("CameraActivity", "Session deleted successfully.");
-                                    } else {
-                                        Log.e("CameraActivity", "Failed to delete session: " + task.getException());
-                                    }
-                                });
-                    }
-
-                    // Call the standard back button behavior to close the activity
-                    disposeResources();
-                    super.onBackPressed();
+                    // Navigate to appropriate home activity based on user role
+                    navigateToHome();
                 })
                 .setNegativeButton("No", (dialog, which) -> dialog.dismiss())
                 .setCancelable(true)
                 .create()
                 .show();
-    }    // Dispose resources properly
+    }
+
+    /**
+     * Navigate to the appropriate home activity based on user role
+     */
+    private void navigateToHome() {
+        // Dispose resources first
+        disposeResources();
+        
+        // Get user role and navigate to appropriate home
+        String userRole = UserRoleSelectionActivity.getUserRole(this);
+        Intent intent;
+        
+        if (UserRoleSelectionActivity.ROLE_JOINER.equals(userRole)) {
+            intent = new Intent(this, JoinerHomeActivity.class);
+        } else {
+            // Default to HOST home (includes null/empty role cases)
+            intent = new Intent(this, HomeActivity.class);
+        }
+        
+        // Clear the task stack to prevent going back to camera
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }// Dispose resources properly
     private void disposeResources() {
         if (videoCapturer != null) {
             try {

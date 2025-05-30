@@ -49,34 +49,49 @@ public class HostSession extends AppCompatActivity {
             return insets;
         });
 
-        // Handle recreate intent
-        boolean isRecreating = getIntent().getBooleanExtra("RECREATE", false);
-        if (isRecreating) {
-            String sessionName = getIntent().getStringExtra("SESSION_NAME");
-            String sessionKey = getIntent().getStringExtra("SESSION_KEY");
+        // Handle intent extras for re-hosting a historic session
+        boolean isRehostingHistoric = getIntent().getBooleanExtra("is_rehosting_historic", false);
+        if (isRehostingHistoric) {
+            String historicSessionName = getIntent().getStringExtra("session_name");
+            String historicPasskey = getIntent().getStringExtra("passkey");
             
-            if (sessionName != null) {
-                sessionNameInput.setText(sessionName);
+            if (historicSessionName != null) {
+                sessionNameInput.setText(historicSessionName);
             }
             
-            // If we have a session key, fetch the passkey
-            if (sessionKey != null) {
-                String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-                mDatabase.child("users")
-                        .child(userEmail)
-                        .child("sessions")
-                        .child(sessionKey)
-                        .child("passkey")
-                        .get()
-                        .addOnSuccessListener(snapshot -> {
-                            String passkey = snapshot.getValue(String.class);
-                            if (passkey != null) {
-                                passkeyInput.setText(passkey);
-                            }
-                        })
-                        .addOnFailureListener(e -> {
-                            Toast.makeText(this, "Failed to load session details", Toast.LENGTH_SHORT).show();
-                        });
+            if (historicPasskey != null) {
+                passkeyInput.setText(historicPasskey);
+            }
+        } else {
+            // Handle the old recreate intent for backward compatibility if needed, or remove
+            boolean isRecreating = getIntent().getBooleanExtra("RECREATE", false);
+            if (isRecreating) {
+                String sessionName = getIntent().getStringExtra("SESSION_NAME");
+                String sessionKey = getIntent().getStringExtra("SESSION_KEY");
+                
+                if (sessionName != null) {
+                    sessionNameInput.setText(sessionName);
+                }
+                
+                // If we have a session key, fetch the passkey (old logic)
+                if (sessionKey != null) {
+                    String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+                    mDatabase.child("users")
+                            .child(userEmail)
+                            .child("sessions")
+                            .child(sessionKey)
+                            .child("passkey") // Assuming passkey is stored under this node in the old structure
+                            .get()
+                            .addOnSuccessListener(snapshot -> {
+                                String passkey = snapshot.getValue(String.class);
+                                if (passkey != null) {
+                                    passkeyInput.setText(passkey);
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(this, "Failed to load old session details", Toast.LENGTH_SHORT).show();
+                            });
+                }
             }
         }
 

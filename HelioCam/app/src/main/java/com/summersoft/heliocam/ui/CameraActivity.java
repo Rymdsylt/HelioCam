@@ -58,6 +58,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.detection.PersonDetection;
 import com.summersoft.heliocam.detection.SoundDetection;
@@ -111,6 +112,11 @@ public class CameraActivity extends AppCompatActivity {
     private MediaRecorder replayBufferRecorder;
     private String replayBufferPath;
     private long replayBufferStartTime;    private VideoSink replayBufferVideoSink;
+
+    // Timestamp related fields
+    private TextView liveTimestampText;
+    private Handler timestampHandler = new Handler(Looper.getMainLooper());
+    private Runnable timestampRunnable;
 
     // Method to open directory picker
     public void openDirectoryPicker() {
@@ -305,12 +311,18 @@ public class CameraActivity extends AppCompatActivity {
     private void completeSessionSetup() {
         // Get reference to the recording status text
         recordingStatus = findViewById(R.id.recording_status);
+        liveTimestampText = findViewById(R.id.live_timestamp_text); // Initialize timestamp TextView
 
         // Set up button click listeners
         setupButtonListeners();
         
         // Fetch and display session information
         fetchSessionName();
+
+        // Make timestamp visible
+        if (liveTimestampText != null) {
+            liveTimestampText.setVisibility(View.VISIBLE);
+        }
         
         Log.d(TAG, "Session setup completed successfully");
     }
@@ -2021,6 +2033,11 @@ public class CameraActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         
+        // Stop timestamp updates
+        if (timestampRunnable != null) {
+            timestampHandler.removeCallbacks(timestampRunnable);
+        }
+
         // If we're pausing the activity, we should clean up some resources to avoid memory leaks
         if (isFinishing()) {
             // Only do full cleanup if we're actually finishing
@@ -2042,5 +2059,25 @@ public class CameraActivity extends AppCompatActivity {
             // Only do full cleanup if we're actually finishing
             disposeResources();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        startTimestampUpdates();
+    }
+
+    private void startTimestampUpdates() {
+        timestampRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (liveTimestampText != null) {
+                    String currentTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+                    liveTimestampText.setText(currentTime);
+                }
+                timestampHandler.postDelayed(this, 1000); // Update every second
+            }
+        };
+        timestampHandler.post(timestampRunnable);
     }
 }

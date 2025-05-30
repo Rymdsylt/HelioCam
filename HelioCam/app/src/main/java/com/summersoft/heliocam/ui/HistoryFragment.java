@@ -287,9 +287,27 @@ public class HistoryFragment extends Fragment {
             } else {
                 sessionCreationDateView.setText("Ended: Unknown");
             }
-            
-            // Hide passkey for history sessions (or show "Completed" status)
-            sessionPasskeyView.setText("Status: Completed");
+
+            // Fetch and display the passkey
+            String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+            DatabaseReference sessionRef = FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(userEmail)
+                    .child("session_history")
+                    .child(sessionKey);
+
+            sessionRef.child("passkey").get().addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                    String passkey = task.getResult().getValue(String.class);
+                    if (passkey != null && !passkey.isEmpty()) {
+                        sessionPasskeyView.setText(passkey);
+                    } else {
+                        sessionPasskeyView.setText("N/A");
+                    }
+                } else {
+                    sessionPasskeyView.setText("N/A");
+                }
+            });
             
             // Set up delete button to remove from history
             if (deleteButton != null) {
@@ -305,9 +323,27 @@ public class HistoryFragment extends Fragment {
                 });
             }
             
-            // Disable clicking to recreate session since it's completed
+            // Set OnClickListener to navigate to HostSession with pre-filled data
             sessionCardView.setOnClickListener(v -> {
-                Toast.makeText(getActivity(), "This session has been completed", Toast.LENGTH_SHORT).show();
+                sessionRef.get().addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                        String historicSessionName = task.getResult().child("session_name").getValue(String.class);
+                        String historicPasskey = task.getResult().child("passkey").getValue(String.class);
+
+                        if (historicSessionName != null && historicPasskey != null) {
+                            Intent intent = new Intent(getActivity(), HostSession.class);
+                            intent.putExtra("session_name", historicSessionName);
+                            intent.putExtra("passkey", historicPasskey);
+                            // Potentially add a flag to indicate it's a historic session being re-hosted
+                            intent.putExtra("is_rehosting_historic", true); 
+                            startActivity(intent);
+                        } else {
+                            Toast.makeText(getActivity(), "Session data incomplete.", Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        Toast.makeText(getActivity(), "Failed to load session data.", Toast.LENGTH_SHORT).show();
+                    }
+                });
             });
             
             sessionCardContainer.addView(sessionCardView);

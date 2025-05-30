@@ -1219,14 +1219,25 @@ public class CameraActivity extends AppCompatActivity {
                                         android.graphics.Bitmap bitmap = convertI420ToBitmapDirect(i420Buffer, width, height);
 
                                         if (bitmap != null) {
+                                            // Create a mutable copy to draw on
+                                            android.graphics.Bitmap mutableBitmap = bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true);
+                                            android.graphics.Canvas tempCanvas = new android.graphics.Canvas(mutableBitmap);
+                                            android.graphics.Paint paint = new android.graphics.Paint();
+                                            paint.setColor(android.graphics.Color.WHITE);
+                                            paint.setTextSize(20); // Adjust size as needed
+                                            paint.setAntiAlias(true);
+                                            String currentTime = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date());
+                                            tempCanvas.drawText(currentTime, 10, 30, paint); // Adjust position as needed
+
                                             // Scale bitmap to fit canvas
                                             android.graphics.Bitmap scaledBitmap = android.graphics.Bitmap.createScaledBitmap(
-                                                    bitmap, canvas.getWidth(), canvas.getHeight(), false);
+                                                    mutableBitmap, canvas.getWidth(), canvas.getHeight(), false);
 
                                             // Draw bitmap to canvas
                                             canvas.drawBitmap(scaledBitmap, 0, 0, null);
 
                                             bitmap.recycle();
+                                            mutableBitmap.recycle();
                                             scaledBitmap.recycle();
                                         }
 
@@ -1597,14 +1608,25 @@ public class CameraActivity extends AppCompatActivity {
                                         android.graphics.Bitmap bitmap = convertI420ToBitmapDirect(i420Buffer, width, height);
 
                                         if (bitmap != null) {
+                                            // Create a mutable copy to draw on
+                                            android.graphics.Bitmap mutableBitmap = bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true);
+                                            android.graphics.Canvas tempCanvas = new android.graphics.Canvas(mutableBitmap);
+                                            android.graphics.Paint paint = new android.graphics.Paint();
+                                            paint.setColor(android.graphics.Color.WHITE);
+                                            paint.setTextSize(20); // Adjust size as needed
+                                            paint.setAntiAlias(true);
+                                            String currentTime = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date());
+                                            tempCanvas.drawText(currentTime, 10, 30, paint); // Adjust position as needed
+
                                             // Scale bitmap to fit canvas
                                             android.graphics.Bitmap scaledBitmap = android.graphics.Bitmap.createScaledBitmap(
-                                                    bitmap, canvas.getWidth(), canvas.getHeight(), false);
+                                                    mutableBitmap, canvas.getWidth(), canvas.getHeight(), false);
 
                                             // Draw bitmap to canvas
                                             canvas.drawBitmap(scaledBitmap, 0, 0, null);
 
                                             bitmap.recycle();
+                                            mutableBitmap.recycle();
                                             scaledBitmap.recycle();
                                         }
 

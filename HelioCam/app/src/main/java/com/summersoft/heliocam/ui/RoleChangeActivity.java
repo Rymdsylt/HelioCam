@@ -41,10 +41,12 @@ public class RoleChangeActivity extends AppCompatActivity {
         // Initialize UI components
         hostCard = findViewById(R.id.hostCard);
         joinerCard = findViewById(R.id.joinerCard);
-        saveButton = findViewById(R.id.saveButton);
-
-        // Get current role
+        saveButton = findViewById(R.id.saveButton);        // Get current role
         selectedRole = UserRoleSelectionActivity.getUserRole(this);
+        // If no role is saved, default to HOST
+        if (selectedRole == null || selectedRole.isEmpty()) {
+            selectedRole = ROLE_HOST;
+        }
 
         // Set up click listeners for the cards
         hostCard.setOnClickListener(v -> selectRole(ROLE_HOST));

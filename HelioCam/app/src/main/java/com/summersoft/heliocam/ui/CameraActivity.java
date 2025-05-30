@@ -58,13 +58,14 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.detection.PersonDetection;
 import com.summersoft.heliocam.detection.SoundDetection;
 
 
 import com.summersoft.heliocam.utils.DetectionDirectoryManager;
-import com.summersoft.heliocam.webrtc_utils.RTCHost;
+import com.summersoft.heliocam.webrtc_utils.RTCJoiner;
 
 import java.io.File;
 import java.util.Date;
@@ -88,7 +89,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private boolean isCameraOn = true;
     public Context context;
-    public com.summersoft.heliocam.webrtc_utils.RTCJoiner rtcJoiner;
+    public RTCJoiner rtcJoiner;
     private static final int REQUEST_DIRECTORY_PICKER = 1001;
     private PersonDetection personDetection;
 
@@ -112,6 +113,15 @@ public class CameraActivity extends AppCompatActivity {
     private String replayBufferPath;
     private long replayBufferStartTime;    private VideoSink replayBufferVideoSink;
 
+    // Timestamp related fields
+    private TextView liveTimestampText;
+    private Handler timestampHandler = new Handler(Looper.getMainLooper());
+    private Runnable timestampRunnable;
+
+    // Member variables for session details
+    private String currentSessionId;
+    private String currentUserEmail;
+
     // Method to open directory picker
     public void openDirectoryPicker() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
@@ -130,19 +140,18 @@ public class CameraActivity extends AppCompatActivity {
                 Uri selectedDirectoryUri = data.getData();
                 directoryManager.setBaseDirectory(selectedDirectoryUri);
 
-                // Update person detection to use the new directory
-                if (personDetection != null) {
-                    personDetection.setDirectoryUri(selectedDirectoryUri);
-                }
+                // No need to update detection modules here directly.
+                // initializeSession will handle their initialization and directory configuration.
 
-                // Update sound detection
-                if (soundDetection != null) {
-                    soundDetection.setDirectoryUri(selectedDirectoryUri);
-                }
-
-                // Show the record dialog again with updated path
-                showRecordDialog();
+                Log.d(TAG, "Directory selected. Initializing session.");
+                initializeSession(currentSessionId, currentUserEmail); // Proceed to session
             }
+        } else if (requestCode == REQUEST_DIRECTORY_PICKER) { // Handle cancellation or failure
+            // User cancelled or failed to pick a directory
+            Log.w(TAG, "Directory selection cancelled or failed. Proceeding with default app storage.");
+            Toast.makeText(this, "No custom directory selected. Using app storage.", Toast.LENGTH_LONG).show();
+            directoryManager.setPromptedForDirectory(true); // Don't ask again in this app lifecycle unless reset
+            initializeSession(currentSessionId, currentUserEmail); // Proceed with default/app-specific
         }
     }
 
@@ -152,56 +161,49 @@ public class CameraActivity extends AppCompatActivity {
     }    @Override
     protected void onDestroy() {
         super.onDestroy();
-        String sessionId = getSessionId();
-        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-
-        if (sessionId != null && !sessionId.isEmpty()) {
-            mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                    .removeValue()
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            Log.d("CameraActivity", "Session deleted successfully in onDestroy.");
-                        } else {
-                            Log.e("CameraActivity", "Failed to delete session in onDestroy: " + task.getException());
-                        }
-                    });
-        }
         
         // Make sure to properly dispose all resources
         disposeResources();
-    }
-
-    @Override
+    }    @Override
     public void onBackPressed() {
         // Create a confirmation dialog
+        super.onBackPressed();
         new AlertDialog.Builder(this)
-                .setTitle("End Session")
-                .setMessage("Closing will also end the session. Continue?")
+                .setTitle("Leave Session")
+                .setMessage("Are you sure you want to leave this session?")
                 .setPositiveButton("Yes", (dialog, which) -> {
-                    // Delete session details from Firebase
-                    String sessionId = getSessionId();
-                    String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-                    if (sessionId != null && !sessionId.isEmpty()) {
-                        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                                .removeValue()
-                                .addOnCompleteListener(task -> {
-                                    if (task.isSuccessful()) {
-                                        Log.d("CameraActivity", "Session deleted successfully.");
-                                    } else {
-                                        Log.e("CameraActivity", "Failed to delete session: " + task.getException());
-                                    }
-                                });
-                    }
-
-                    // Call the standard back button behavior to close the activity
-                    disposeResources();
-                    super.onBackPressed();
+                    // Navigate to appropriate home activity based on user role
+                    navigateToHome();
                 })
                 .setNegativeButton("No", (dialog, which) -> dialog.dismiss())
                 .setCancelable(true)
                 .create()
                 .show();
-    }    // Dispose resources properly
+    }
+
+    /**
+     * Navigate to the appropriate home activity based on user role
+     */
+    private void navigateToHome() {
+        // Dispose resources first
+        disposeResources();
+        
+        // Get user role and navigate to appropriate home
+        String userRole = UserRoleSelectionActivity.getUserRole(this);
+        Intent intent;
+        
+        if (UserRoleSelectionActivity.ROLE_JOINER.equals(userRole)) {
+            intent = new Intent(this, JoinerHomeActivity.class);
+        } else {
+            // Default to HOST home (includes null/empty role cases)
+            intent = new Intent(this, HomeActivity.class);
+        }
+        
+        // Clear the task stack to prevent going back to camera
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }// Dispose resources properly
     private void disposeResources() {
         if (videoCapturer != null) {
             try {
@@ -243,6 +245,10 @@ public class CameraActivity extends AppCompatActivity {
         String sessionId = getIntent().getStringExtra("session_id");
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
 
+        // Store session details in member variables
+        this.currentSessionId = sessionId;
+        this.currentUserEmail = userEmail;
+
         // Initialize directoryManager early
         directoryManager = new DetectionDirectoryManager(this);
 
@@ -256,47 +262,90 @@ public class CameraActivity extends AppCompatActivity {
             return; // ← Important! Don't continue execution
         }
 
-        // Initialize everything after permissions are confirmed
-        initializeSession(sessionId, userEmail);
+        // If permissions are already granted, proceed with directory check and session initialization
+        checkDirectoryAndProceedWithSessionInit();
+    }
+
+    /**
+     * Checks if a custom directory needs to be prompted for, then proceeds with session initialization.
+     */
+    private void checkDirectoryAndProceedWithSessionInit() {
+        if (!directoryManager.hasValidDirectory() && directoryManager.shouldPromptForDirectory()) {
+            // No valid custom directory, and we should prompt (e.g., first time or previous was invalid)
+            Log.d(TAG, "Prompting for directory selection.");
+            openDirectoryPicker();
+            // Execution will resume in onActivityResult
+        } else {
+            // Either has a valid directory, or we shouldn't prompt.
+            // Proceed with session initialization using whatever directoryManager provides.
+            Log.d(TAG, "Proceeding with session initialization. Has valid directory: " + directoryManager.hasValidDirectory());
+            initializeSession(currentSessionId, currentUserEmail);
+        }
+    }
+    
+    /**
+     * Logs the current state of the directory being used.
+     */
+    private void logDirectoryState() {
+        if (directoryManager.hasValidDirectory()) {
+            Log.d(TAG, "Initializing session with user-selected directory: " + directoryManager.getBaseDirectoryUri());
+        } else {
+            Log.d(TAG, "Initializing session with app-specific storage. User was informed if prompt was cancelled, or prompt was skipped.");
+        }
     }
 
     /**
      * Initialize the complete session including camera, WebRTC, and detection modules
      */
     private void initializeSession(String sessionId, String userEmail) {
-        // Setup directories first
-        setupDirectoriesAndPermissions();
+        // Log current directory state
+        logDirectoryState();
         
-        // Initialize camera components
+        // Initialize camera components (includes RTCJoiner setup)
         initializeCamera();
         
-        // Initialize WebRTC connection
+        // Initialize WebRTC connection using the rtcJoiner initialized in initializeCamera
         initializeWebRTC(sessionId, userEmail);
         
         // Initialize detection modules with proper directory configuration
         initializeDetectionModules();
+
+        // Configure detection modules with the correct directory URI
+        Uri currentDirUri = directoryManager.hasValidDirectory() ? directoryManager.getBaseDirectoryUri() : null;
+        if (personDetection != null) {
+            personDetection.setDirectoryUri(currentDirUri);
+        }
+        if (soundDetection != null) {
+            soundDetection.setDirectoryUri(currentDirUri);
+        }
         
         // Final setup
         completeSessionSetup();
     }
     
     /**
-     * Initialize detection modules after camera and directories are ready
+     * Initialize detection modules after camera and WebRTC are ready
      */
     private void initializeDetectionModules() {
+        if (rtcJoiner == null) {
+            Log.e(TAG, "RTCJoiner is null, cannot initialize detection modules.");
+            Toast.makeText(this, "Error: RTC setup failed, cannot start detection.", Toast.LENGTH_LONG).show();
+            return;
+        }
         try {
             // Initialize sound detection
             soundDetection = new SoundDetection(this, rtcJoiner);
+            // TODO: Apply any saved or default settings for soundDetection here if needed
+            // e.g., soundDetection.setSoundThreshold(loadSoundThreshold());
             soundDetection.startDetection();
             
             // Initialize person detection
             personDetection = new PersonDetection(this, rtcJoiner);
+            // TODO: Apply any saved or default settings for personDetection here if needed
+            // e.g., personDetection.setDetectionLatency(loadPersonLatency());
             
-            // Connect person detection to video stream after camera is ready
-            if (rtcJoiner != null) {
-                rtcJoiner.setPersonDetection(personDetection);
-            }
-            
+            // Connect person detection to video stream (RTCJoiner might use this to forward frames)
+            rtcJoiner.setPersonDetection(personDetection);
             personDetection.start();
             
             Log.d(TAG, "Detection modules initialized successfully");
@@ -312,12 +361,18 @@ public class CameraActivity extends AppCompatActivity {
     private void completeSessionSetup() {
         // Get reference to the recording status text
         recordingStatus = findViewById(R.id.recording_status);
+        liveTimestampText = findViewById(R.id.live_timestamp_text); // Initialize timestamp TextView
 
         // Set up button click listeners
         setupButtonListeners();
         
         // Fetch and display session information
         fetchSessionName();
+
+        // Make timestamp visible
+        if (liveTimestampText != null) {
+            liveTimestampText.setVisibility(View.VISIBLE);
+        }
         
         Log.d(TAG, "Session setup completed successfully");
     }
@@ -408,49 +463,37 @@ public class CameraActivity extends AppCompatActivity {
         }
         
         // Update detection modules with directory manager
-        if (personDetection != null) {
-            personDetection.setDirectoryUri(directoryManager.hasValidDirectory() ?
-                    directoryManager.getBaseDirectoryUri() : null);
-        }
-        
-        if (soundDetection != null) {
-            soundDetection.setDirectoryUri(directoryManager.hasValidDirectory() ?
-                    directoryManager.getBaseDirectoryUri() : null);
-        }
+        // This logic is now handled in initializeSession after detection modules are created.
+        // Uri currentUri = directoryManager.hasValidDirectory() ?
+        //         directoryManager.getBaseDirectoryUri() : null;
+        // if (personDetection != null) {
+        //     personDetection.setDirectoryUri(currentUri);
+        // }
+        // if (soundDetection != null) {
+        //     soundDetection.setDirectoryUri(currentUri);
+        // }
     }// Add this method to initialize camera-related components
 
     private void initializeCamera() {
         try {
-            // Create webRTCClient
-            rtcJoiner = new com.summersoft.heliocam.webrtc_utils.RTCJoiner(this, cameraView, mDatabase);
+            // Create webRTCClient (RTCJoiner)
+            rtcJoiner = new RTCJoiner(this, cameraView, mDatabase);
 
             // Start camera first (rtcJoiner will handle this)
             rtcJoiner.startCamera(true); // Start with front camera
 
-            // Wait a moment for camera to initialize before connecting detection
-            new android.os.Handler(Looper.getMainLooper()).postDelayed(() -> {
-                // Initialize detection components AFTER camera is started
-                personDetection = new PersonDetection(this, rtcJoiner);
-                rtcJoiner.setPersonDetection(personDetection);
-                personDetection.start();
-
-                // Initialize sound detection
-                soundDetection = new SoundDetection(this, rtcJoiner);
-                soundDetection.setSoundThreshold(3000);
-                soundDetection.setDetectionLatency(3000);
-                soundDetection.startDetection();
-
-                Log.d(TAG, "Detection systems initialized successfully");
-            }, 500); // 500ms delay to ensure camera is ready
+            // The initialization of detection components (personDetection, soundDetection)
+            // is now handled by initializeDetectionModules(), called from initializeSession().
+            // The delayed initialization previously here is removed.
 
             // Store references for direct recording access
             videoCapturer = rtcJoiner.getVideoCapturer();
             videoTrack = rtcJoiner.getLocalVideoTrack();
 
-            Log.d(TAG, "Camera initialized successfully");
+            Log.d(TAG, "Camera and RTCJoiner initialized successfully");
 
         } catch (Exception e) {
-            Log.e(TAG, "Error initializing camera: " + e.getMessage(), e);
+            Log.e(TAG, "Error initializing camera or RTCJoiner: " + e.getMessage(), e);
             Toast.makeText(this, "Failed to initialize camera: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }    @Override
@@ -475,7 +518,8 @@ public class CameraActivity extends AppCompatActivity {
                 // All permissions granted, initialize session
                 String sessionId = getIntent().getStringExtra("session_id");
                 String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-                initializeSession(sessionId, userEmail);
+                // initializeSession(sessionId, userEmail); No longer call initializeSession directly
+                checkDirectoryAndProceedWithSessionInit(); // New flow
             } else {
                 // Some permissions denied
                 Toast.makeText(this, "Required permissions not granted: " + missingPermissions.toString(), Toast.LENGTH_LONG).show();
@@ -523,25 +567,8 @@ public class CameraActivity extends AppCompatActivity {
                 showDetectionSettingsDialog();
                 return true;
 
-            case R.id.option_2: // Replay Buffer Settings
-                showReplayBufferSettingsDialog();
-                return true;
-
             case R.id.option_3: // Start/Stop Recording
                 showRecordDialog();
-                return true;            case R.id.option_4: // Replay Buffer
-                try {
-                    if (!isReplayBufferRunning) {
-                        startReplayBuffer();
-                        Toast.makeText(this, "Replay buffer started", Toast.LENGTH_SHORT).show();
-                    } else {
-                        stopDirectReplayBufferRecording();
-                        Toast.makeText(this, "Replay buffer stopped", Toast.LENGTH_SHORT).show();
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error toggling replay buffer: " + e.getMessage(), e);
-                    Toast.makeText(this, "Error with replay buffer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                }
                 return true;
 
             default:
@@ -568,12 +595,9 @@ public class CameraActivity extends AppCompatActivity {
         Button btnSelectPath = view.findViewById(R.id.btn_select_path);
         Button btnRecordNow = view.findViewById(R.id.btn_record_now);
         Button btnRecordStop = view.findViewById(R.id.btn_record_stop);
-        Button btnRecordBuffer = view.findViewById(R.id.btn_record_buffer);
-        Button btnRecordBufferStop = view.findViewById(R.id.btn_record_bufferStop);          // Set initial button states based on CameraActivity state
+          // Set initial button states based on CameraActivity state
         btnRecordStop.setEnabled(isRecording);
         btnRecordNow.setEnabled(!isRecording);
-        btnRecordBufferStop.setEnabled(isReplayBufferRunning);
-        btnRecordBuffer.setEnabled(!isReplayBufferRunning);
 
         // Display the storage path with null check
         String storagePath;
@@ -640,7 +664,6 @@ public class CameraActivity extends AppCompatActivity {
                             // Update UI
                             btnRecordNow.setEnabled(false);
                             btnRecordStop.setEnabled(true);
-                            btnRecordBuffer.setEnabled(false);
                             recordingStatus.setText("● RECORDING");
                             recordingStatus.setVisibility(View.VISIBLE);
                             currentDialog.dismiss();
@@ -663,32 +686,8 @@ public class CameraActivity extends AppCompatActivity {
             stopRecording();
             btnRecordNow.setEnabled(true);
             btnRecordStop.setEnabled(false);
-            btnRecordBuffer.setEnabled(true);
             recordingStatus.setVisibility(View.GONE);
             Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show();
-        });
-        btnRecordBuffer.setOnClickListener(v -> {
-            // Start replay buffer using CameraActivity's own method
-            if (canStartRecording()) {
-                startReplayBuffer();
-                btnRecordBuffer.setEnabled(false);
-                btnRecordBufferStop.setEnabled(true);
-                btnRecordNow.setEnabled(false);
-                recordingStatus.setText("⟳ BUFFERING");
-                recordingStatus.setVisibility(View.VISIBLE);
-                Toast.makeText(this, "Replay buffer started", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Cannot start replay buffer", Toast.LENGTH_SHORT).show();
-            }
-        });
-        btnRecordBufferStop.setOnClickListener(v -> {
-            // Stop and save replay buffer using CameraActivity's own method
-            stopReplayBuffer();
-            btnRecordBuffer.setEnabled(true);
-            btnRecordBufferStop.setEnabled(false);
-            btnRecordNow.setEnabled(true);
-            recordingStatus.setVisibility(View.GONE);
-            Toast.makeText(this, "Replay buffer saved", Toast.LENGTH_SHORT).show();
         });
 
         // Show the dialog
@@ -887,7 +886,12 @@ public class CameraActivity extends AppCompatActivity {
 
 
     private void initializeWebRTC(String sessionId, String email) { //a
-        rtcJoiner.startCamera(isUsingFrontCamera); // Start camera first
+        if (rtcJoiner == null) {
+            Log.e(TAG, "RTCJoiner is null, cannot initialize WebRTC. Camera initialization might have failed.");
+            Toast.makeText(this, "Failed to setup WebRTC: Camera not ready.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        // rtcJoiner.startCamera(isUsingFrontCamera); // Camera is already started in initializeCamera()
         // In RTCJoiner, you'll need to implement the joinSession method
         rtcJoiner.joinSession(email, sessionId);
     }
@@ -932,18 +936,12 @@ public class CameraActivity extends AppCompatActivity {
 
 
     private void fetchSessionName() {
-        String sessionName = getIntent().getStringExtra("session_name");
-        String sessionId = getIntent().getStringExtra("session_id");
-
-        if (sessionId == null || sessionId.isEmpty()) {
-            Log.w("CameraActivity", "Session ID is missing.");
-            return;
+        if (currentUserEmail == null || currentUserEmail.isEmpty()){
+             Log.e(TAG, "User email is null or empty, cannot fetch session name.");
+             return;
         }
 
-        Log.d("CameraActivity", "Camera is on session: " + sessionId);
-        String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-
-        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
+        mDatabase.child("users").child(currentUserEmail).child("sessions").child(currentSessionId)
                 .get()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && task.getResult().exists()) {
@@ -951,7 +949,7 @@ public class CameraActivity extends AppCompatActivity {
                         String fetchedSessionName = sessionSnapshot.child("session_name").getValue(String.class);
                         Log.d("CameraActivity", "Fetched session name: " + fetchedSessionName);
                     } else {
-                        Log.w("CameraActivity", "Session not found for session ID: " + sessionId);
+                        Log.w("CameraActivity", "Session not found for session ID: " + currentSessionId);
                     }
                 });
     }
@@ -1045,7 +1043,7 @@ public class CameraActivity extends AppCompatActivity {
      */
     private boolean canStartRecording() {
         // Check if we already have a recording running
-        if (isRecording || isReplayBufferRunning) {
+        if (isRecording) {
             Log.w(TAG, "Recording or replay buffer already running");
             return false;
         }
@@ -1226,14 +1224,25 @@ public class CameraActivity extends AppCompatActivity {
                                         android.graphics.Bitmap bitmap = convertI420ToBitmapDirect(i420Buffer, width, height);
 
                                         if (bitmap != null) {
+                                            // Create a mutable copy to draw on
+                                            android.graphics.Bitmap mutableBitmap = bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true);
+                                            android.graphics.Canvas tempCanvas = new android.graphics.Canvas(mutableBitmap);
+                                            android.graphics.Paint paint = new android.graphics.Paint();
+                                            paint.setColor(android.graphics.Color.WHITE);
+                                            paint.setTextSize(20); // Adjust size as needed
+                                            paint.setAntiAlias(true);
+                                            String currentTime = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date());
+                                            tempCanvas.drawText(currentTime, 10, 30, paint); // Adjust position as needed
+
                                             // Scale bitmap to fit canvas
                                             android.graphics.Bitmap scaledBitmap = android.graphics.Bitmap.createScaledBitmap(
-                                                    bitmap, canvas.getWidth(), canvas.getHeight(), false);
+                                                    mutableBitmap, canvas.getWidth(), canvas.getHeight(), false);
 
                                             // Draw bitmap to canvas
                                             canvas.drawBitmap(scaledBitmap, 0, 0, null);
 
                                             bitmap.recycle();
+                                            mutableBitmap.recycle();
                                             scaledBitmap.recycle();
                                         }
 
@@ -1478,91 +1487,6 @@ public class CameraActivity extends AppCompatActivity {
 
             mediaRecorder = null;
         }
-    }    /**
-     * Start replay buffer (continuous recording buffer)
-     */
-    private void startReplayBuffer() {
-        if (isReplayBufferRunning) {
-            Log.w(TAG, "Replay buffer is already running");
-            return;
-        }
-
-        // Do a final permission check before starting
-        if (!canStartRecording()) {
-            Log.e(TAG, "Cannot start replay buffer - permission check failed");
-            Toast.makeText(this, "Cannot start replay buffer", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        try {
-            // Generate a filename with timestamp
-            String fileName = "replay_buffer_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + ".mp4";
-
-            // Try to use the user-selected directory first
-            File recordingDir;
-
-            if (directoryManager != null && directoryManager.hasValidDirectory()) {
-                DocumentFile videoClipsDir = directoryManager.getVideoClipsDirectory();
-                if (videoClipsDir != null) {
-                    // Use content resolver to create a new file
-                    DocumentFile newFile = videoClipsDir.createFile("video/mp4", fileName);
-                    if (newFile != null) {
-                        ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(newFile.getUri(), "w");
-                        if (pfd != null) {
-                            // Initialize MediaRecorder for replay buffer
-                            replayBufferRecorder = new MediaRecorder();
-                            replayBufferRecorder.setOutputFile(pfd.getFileDescriptor());
-                            configureMediaRecorder(replayBufferRecorder);
-
-                            // Connect to camera surface for direct recording
-                            startDirectReplayBufferRecording();
-                            replayBufferPath = newFile.getUri().toString();
-                            
-                            isReplayBufferRunning = true;
-                            Log.d(TAG, "Replay buffer started successfully");
-                            return;
-                        }
-                    }
-                }
-            }
-
-            // Fall back to app-specific directory or public directory
-            recordingDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "HelioCam");
-            if (!recordingDir.exists()) {
-                if (!recordingDir.mkdirs()) {
-                    Log.e(TAG, "Failed to create recording directory");
-                    recordingDir = directoryManager.getAppStorageDirectory("Video_Clips");
-                }
-            }
-
-            // Fall back to app-specific directory if public directory fails
-            if (!recordingDir.exists() || !recordingDir.canWrite()) {
-                Log.w(TAG, "Failed to use public directory, falling back to app-specific storage");
-                recordingDir = new File(getExternalFilesDir(Environment.DIRECTORY_MOVIES), "HelioCam");
-                if (!recordingDir.exists()) {
-                    recordingDir.mkdirs();
-                }
-            }
-
-            // Create file for replay buffer
-            File videoFile = new File(recordingDir, fileName);
-            replayBufferPath = videoFile.getAbsolutePath();
-
-            // Initialize MediaRecorder for replay buffer
-            replayBufferRecorder = new MediaRecorder();
-            replayBufferRecorder.setOutputFile(replayBufferPath);
-            configureMediaRecorder(replayBufferRecorder);
-            startDirectReplayBufferRecording();
-            
-            isReplayBufferRunning = true;
-            Log.d(TAG, "Replay buffer started successfully");
-
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start replay buffer", e);
-            Toast.makeText(this, "Failed to start replay buffer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            releaseReplayBufferRecorder();
-            isReplayBufferRunning = false;
-        }
     }
 
     /**
@@ -1604,14 +1528,25 @@ public class CameraActivity extends AppCompatActivity {
                                         android.graphics.Bitmap bitmap = convertI420ToBitmapDirect(i420Buffer, width, height);
 
                                         if (bitmap != null) {
+                                            // Create a mutable copy to draw on
+                                            android.graphics.Bitmap mutableBitmap = bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true);
+                                            android.graphics.Canvas tempCanvas = new android.graphics.Canvas(mutableBitmap);
+                                            android.graphics.Paint paint = new android.graphics.Paint();
+                                            paint.setColor(android.graphics.Color.WHITE);
+                                            paint.setTextSize(20); // Adjust size as needed
+                                            paint.setAntiAlias(true);
+                                            String currentTime = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date());
+                                            tempCanvas.drawText(currentTime, 10, 30, paint); // Adjust position as needed
+
                                             // Scale bitmap to fit canvas
                                             android.graphics.Bitmap scaledBitmap = android.graphics.Bitmap.createScaledBitmap(
-                                                    bitmap, canvas.getWidth(), canvas.getHeight(), false);
+                                                    mutableBitmap, canvas.getWidth(), canvas.getHeight(), false);
 
                                             // Draw bitmap to canvas
                                             canvas.drawBitmap(scaledBitmap, 0, 0, null);
 
                                             bitmap.recycle();
+                                            mutableBitmap.recycle();
                                             scaledBitmap.recycle();
                                         }
 
@@ -1948,7 +1883,7 @@ public class CameraActivity extends AppCompatActivity {
                 Handler handler = new Handler(Looper.getMainLooper());
                 handler.postDelayed(() -> {
                     if (!isRecording) { // Only restart if not doing regular recording
-                        startReplayBuffer();
+
                         Toast.makeText(this, "Replay buffer auto-restarted", Toast.LENGTH_SHORT).show();
                     }
                 }, 1000); // 1 second delay before restart
@@ -2006,13 +1941,18 @@ public class CameraActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         
+        // Stop timestamp updates
+        if (timestampRunnable != null) {
+            timestampHandler.removeCallbacks(timestampRunnable);
+        }
+
         // If we're pausing the activity, we should clean up some resources to avoid memory leaks
         if (isFinishing()) {
             // Only do full cleanup if we're actually finishing
             disposeResources();
         } else {
             // For temporary pause, we might need lighter cleanup
-            if (personDetection != null) {
+            if (personDetection != null && personDetection.isRunning()) { // USE GETTER HERE
                 personDetection.stop(); // Stop detection but don't fully shut down
             }
         }
@@ -2027,5 +1967,33 @@ public class CameraActivity extends AppCompatActivity {
             // Only do full cleanup if we're actually finishing
             disposeResources();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        startTimestampUpdates();
+    }
+
+    private void startTimestampUpdates() {
+        timestampRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (liveTimestampText != null) {
+                    String currentTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+                    liveTimestampText.setText(currentTime);
+                }
+                timestampHandler.postDelayed(this, 1000); // Update every second
+            }
+        };
+        timestampHandler.post(timestampRunnable);
+    }
+
+    /**
+     * Checks if a recording is currently in progress.
+     * @return true if recording, false otherwise.
+     */
+    public boolean isRecording() {
+        return isRecording;
     }
 }

@@ -7,7 +7,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -17,6 +16,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.status.LoginStatus;
 import com.summersoft.heliocam.status.LoginUser;
+import androidx.appcompat.app.AlertDialog;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -75,29 +75,22 @@ public class LoginActivity extends AppCompatActivity {
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
         }, LOCATION_PERMISSION_REQUEST_CODE);
-    }
-
-    @Override
+    }    @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
             // If permissions are granted, attempt to login
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                loginUser();
-            } else {
+                loginUser();            } else {
                 // Show a message if permissions are denied
-                Toast.makeText(this, "Location permissions are required to continue.", Toast.LENGTH_SHORT).show();
+                showWarningDialog("Permission Required", "Location permissions are required to continue.");
             }
         }
-    }
-
-    private void loginUser() {
+    }    private void loginUser() {
         String email = mUsername.getText().toString().trim();
-        String password = mPassword.getText().toString().trim();
-
-        if (email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Please enter both email and password", Toast.LENGTH_SHORT).show();
+        String password = mPassword.getText().toString().trim();        if (email.isEmpty() || password.isEmpty()) {
+            showWarningDialog("Missing Information", "Please enter both email and password");
             return;
         }
 
@@ -122,5 +115,36 @@ public class LoginActivity extends AppCompatActivity {
         if (loginStatusRunnable != null) {
             handler.removeCallbacks(loginStatusRunnable);
         }
+    }
+
+    // Helper methods for showing dialogs
+    private void showWarningDialog(String title, String message) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setIcon(android.R.drawable.stat_sys_warning)
+                .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
+                .setCancelable(true)
+                .show();
+    }
+
+    private void showErrorDialog(String title, String message) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
+                .setCancelable(true)
+                .show();
+    }
+
+    private void showSuccessDialog(String title, String message) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
+                .setCancelable(true)
+                .show();
     }
 }

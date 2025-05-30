@@ -179,9 +179,20 @@ public class PopulateNotifs {
                 return;
             }
 
+            // First, prioritize sessions directly from sessions node (where hosts store their sessions)
+            DataSnapshot sessionsNode = userSnapshot.child("sessions");
+            if (sessionsNode.exists()) {
+                for (DataSnapshot sessionSnap : sessionsNode.getChildren()) {
+                    String sessionKey = sessionSnap.getKey();
+                    if (sessionKey != null) {
+                        sessionKeys.add(sessionKey);
+                    }
+                }
+            }
+
             String currentDeviceInfo = android.os.Build.MANUFACTURER + " " + android.os.Build.DEVICE;
 
-            // Fetch sessions from login info nodes
+            // Then fetch sessions from device-specific login info nodes (where joiners store session references)
             for (DataSnapshot loginInfo : userSnapshot.getChildren()) {
                 String key = loginInfo.getKey();
                 if (key != null && key.startsWith("logininfo_")) {
@@ -191,20 +202,11 @@ public class PopulateNotifs {
                         if (sessions.exists()) {
                             for (DataSnapshot session : sessions.getChildren()) {
                                 String sessionKey = session.getKey();
-                                sessionKeys.add(sessionKey);
+                                if (sessionKey != null && !sessionKeys.contains(sessionKey)) {
+                                    sessionKeys.add(sessionKey);
+                                }
                             }
                         }
-                    }
-                }
-            }
-
-            // Fetch sessions directly from sessions node for this user (backup method)
-            DataSnapshot sessionsNode = userSnapshot.child("sessions");
-            if (sessionsNode.exists()) {
-                for (DataSnapshot sessionSnap : sessionsNode.getChildren()) {
-                    String sessionKey = sessionSnap.getKey();
-                    if (sessionKey != null && !sessionKeys.contains(sessionKey)) {
-                        sessionKeys.add(sessionKey);
                     }
                 }
             }
@@ -352,7 +354,7 @@ public class PopulateNotifs {
                             for (DataSnapshot eventSnapshot : detectionEvents.getChildren()) {
                                 String eventId = eventSnapshot.getKey();
                                 if (eventId != null && !deletedNotifs.contains(eventId)) {
-                                    processDetectionEvent(eventId, eventSnapshot, sessionName);
+                                    processDetectionEvent(context, eventId, eventSnapshot, sessionName);
                                 }
                             }
                         }
@@ -425,15 +427,17 @@ public class PopulateNotifs {
                 View deleteButton = innerLayout.findViewById(R.id.delete_button);
                 
                 // Set icon based on notification type with enhanced detection
+                String detectionType = "unknown";
                 if (notification.metadata != null && notification.metadata.containsKey("detectionType")) {
-                    String type = (String) notification.metadata.get("detectionType");
-                    if ("sound".equals(type)) {
-                        if (notificationIcon != null) notificationIcon.setImageResource(R.drawable.ic_sound);
-                    } else if ("person".equals(type)) {
-                        if (notificationIcon != null) notificationIcon.setImageResource(R.drawable.ic_person);
-                    }
+                    detectionType = (String) notification.metadata.get("detectionType");
+                }
+
+                if ("sound".equals(detectionType)) {
+                    if (notificationIcon != null) notificationIcon.setImageResource(R.drawable.ic_sound);
+                } else if ("person".equals(detectionType)) {
+                    if (notificationIcon != null) notificationIcon.setImageResource(R.drawable.ic_person);
                 } else {
-                    // Fallback detection from title text
+                    // Fallback detection from title text if metadata is missing or unclear
                     String title = notification.title.toLowerCase();
                     if (title.contains("sound")) {
                         if (notificationIcon != null) notificationIcon.setImageResource(R.drawable.ic_sound);
@@ -706,7 +710,7 @@ public class PopulateNotifs {
     }
 
     // Enhanced processDetectionEvent method with better logging and error handling
-    private void processDetectionEvent(String eventId, DataSnapshot eventSnapshot, String sessionName) {
+    private void processDetectionEvent(Context context, String eventId, DataSnapshot eventSnapshot, String sessionName) {
         try {
             Log.d(TAG, "Processing detection event: " + eventId + " for session: " + sessionName);
             
@@ -723,17 +727,6 @@ public class PopulateNotifs {
 
             if (type == null || timestamp == null) {
                 Log.w(TAG, "Invalid detection event data for ID: " + eventId + " - missing type or timestamp");
-                return;
-            }
-
-            // Check if notification type is enabled
-            if ("sound".equals(type) && !NotificationSettings.isSoundNotificationsEnabled(requireContext())) {
-                Log.d(TAG, "Sound notifications disabled, skipping event: " + eventId);
-                return;
-            }
-            
-            if ("person".equals(type) && !NotificationSettings.isPersonNotificationsEnabled(requireContext())) {
-                Log.d(TAG, "Person notifications disabled, skipping event: " + eventId);
                 return;
             }
 
@@ -781,8 +774,13 @@ public class PopulateNotifs {
     private Context requireContext() {
         // This is a workaround since we're not in a Fragment context
         // You'll need to pass context to this method or store it as a field
-        return activeInstance != null && NotificationFragment.activeInstance != null ? 
-               NotificationFragment.activeInstance.getContext() : null;
+        Context localContext = getContext(); // Use the existing getContext() for other cases if needed
+        if (localContext == null) {
+            Log.e(TAG, "requireContext() called when context is unavailable. This indicates an issue.");
+            // Consider throwing an exception or returning a default if absolutely necessary,
+            // but ideally this state should be avoided.
+        }
+        return localContext;
     }
 
     /**
@@ -989,7 +987,7 @@ public class PopulateNotifs {
             for (DataSnapshot eventSnapshot : detectionEvents.getChildren()) {
                 String eventId = eventSnapshot.getKey();
                 if (eventId != null && !deletedNotifs.contains(eventId)) {
-                    processDetectionEvent(eventId, eventSnapshot, sessionName);
+                    processDetectionEvent(context, eventId, eventSnapshot, sessionName);
                 }
             }
         }
@@ -1060,18 +1058,30 @@ public class PopulateNotifs {
                 detectionType = "person";
             }
             
-            // Check if notification type is enabled
-            Context context = getContext();
-            if (context != null) {
-                if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(context)) {
-                    Log.d(TAG, "Sound notifications disabled, skipping notification: " + notificationId);
-                    return;
+            // Check if this is a host-specific notification from one of their sessions
+            boolean isHostSessionNotification = metadata.containsKey("isHostNotification") && 
+                                              (Boolean) metadata.get("isHostNotification");
+
+            // Check if notifications of this type are enabled, UNLESS it's a host session notification
+            if (!isHostSessionNotification) {
+                Context context = getContext();
+                if (context != null) {
+                    if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(context)) {
+                        Log.d(TAG, "Skipping universal sound notification (user setting): " + notificationId);
+                        return;
+                    }
+                    if ("person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(context)) {
+                        Log.d(TAG, "Skipping universal person notification (user setting): " + notificationId);
+                        return;
+                    }
+                } else {
+                    Log.w(TAG, "Context is null, cannot check notification settings for: " + notificationId);
+                    // Decide if you want to proceed or skip if context is null
+                    // For now, we skip to be safe, as settings can't be checked.
+                    return; 
                 }
-                
-                if ("person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(context)) {
-                    Log.d(TAG, "Person notifications disabled, skipping notification: " + notificationId);
-                    return;
-                }
+            } else {
+                Log.d(TAG, "Processing host session notification, bypassing general filters: " + notificationId);
             }
             
             // Create enhanced title matching web app format
@@ -1101,24 +1111,21 @@ public class PopulateNotifs {
 
     // Enhanced universal notifications processing
     private void handleUniversalNotifications(DataSnapshot universalSnapshot) {
-        if (!universalSnapshot.exists()) return;
-        
-        SharedPreferences prefs = getContext() != null ? 
-            getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) : null;
-        Set<String> deletedNotifs = prefs != null ? 
-            prefs.getStringSet(DELETED_NOTIFICATIONS_KEY, new HashSet<>()) : new HashSet<>();
-        
+        if (!universalSnapshot.exists() || getContext() == null) return;
+
+        SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        Set<String> deletedNotifs = prefs.getStringSet(DELETED_NOTIFICATIONS_KEY, new HashSet<>());
+
         for (DataSnapshot notificationSnapshot : universalSnapshot.getChildren()) {
             String notificationId = notificationSnapshot.getKey();
             if (notificationId != null && !deletedNotifs.contains(notificationId)) {
                 String reason = notificationSnapshot.child("reason").getValue(String.class);
                 String time = notificationSnapshot.child("time").getValue(String.class);
                 String date = notificationSnapshot.child("date").getValue(String.class);
-                
+
                 // Get metadata if it exists (enhanced format)
-                DataSnapshot metadataSnapshot = notificationSnapshot.child("metadata");
                 Map<String, Object> metadata = new HashMap<>();
-                
+                DataSnapshot metadataSnapshot = notificationSnapshot.child("metadata");
                 if (metadataSnapshot.exists()) {
                     for (DataSnapshot metaChild : metadataSnapshot.getChildren()) {
                         String key = metaChild.getKey();
@@ -1139,18 +1146,33 @@ public class PopulateNotifs {
                     } else if (reason.toLowerCase().contains("person")) {
                         detectionType = "person";
                     }
-                    
-                    // Check if notifications of this type are enabled
-                    Context context = getContext();
-                    if (context != null) {
-                        if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(context)) {
-                            continue;
+
+                    // Check if this is a host-specific notification from one of their sessions
+                    boolean isHostSessionNotification = metadata.containsKey("isHostNotification") && 
+                                                      (Boolean) metadata.get("isHostNotification");
+
+                    // Check if notifications of this type are enabled, UNLESS it's a host session notification
+                    if (!isHostSessionNotification) {
+                        Context context = getContext();
+                        if (context != null) {
+                            if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(context)) {
+                                Log.d(TAG, "Skipping universal sound notification (user setting): " + notificationId);
+                                continue;
+                            }
+                            if ("person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(context)) {
+                                Log.d(TAG, "Skipping universal person notification (user setting): " + notificationId);
+                                continue;
+                            }
+                        } else {
+                            Log.w(TAG, "Context is null, cannot check notification settings for: " + notificationId);
+                            // Decide if you want to proceed or skip if context is null
+                            // For now, we skip to be safe, as settings can't be checked.
+                            continue; 
                         }
-                        if ("person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(context)) {
-                            continue;
-                        }
+                    } else {
+                        Log.d(TAG, "Processing host session notification, bypassing general filters: " + notificationId);
                     }
-                    
+
                     NotificationData notification = new NotificationData(
                             notificationId,
                             reason,
@@ -1159,6 +1181,7 @@ public class PopulateNotifs {
                             metadata.isEmpty() ? null : metadata
                     );
                     notificationMap.put(notificationId, notification);
+                    Log.d(TAG, "Processed universal notification: " + notificationId + " with metadata: " + (metadata.isEmpty() ? "No" : "Yes"));
                 }
             }
         }

@@ -16,6 +16,7 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.summersoft.heliocam.R;
@@ -149,11 +150,11 @@ public class HistoryFragment extends Fragment {
      */
     private void clearAllSessions() {
         if (mAuth.getCurrentUser() != null) {
-            String userId = mAuth.getCurrentUser().getUid();
+            String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
             DatabaseReference userSessionsRef = FirebaseDatabase.getInstance()
                 .getReference("users")
-                .child(userId)
-                .child("sessions");
+                .child(userEmail)
+                .child("session_history");
                 
             // Remove all sessions
             userSessionsRef.removeValue()
@@ -195,9 +196,8 @@ public class HistoryFragment extends Fragment {
         // Stop loading sessions when fragment is not visible
         handler.removeCallbacks(loadSessionsRunnable);
     }
-    
-    /**
-     * Custom extension of SessionLoader to handle visibility updates
+      /**
+     * Custom extension of SessionLoader to handle visibility updates and load from history
      */
     private class CustomSessionLoader extends SessionLoader {
         public CustomSessionLoader(HomeActivity homeActivity, LinearLayout container) {
@@ -206,7 +206,8 @@ public class HistoryFragment extends Fragment {
         
         @Override
         public void loadUserSessions() {
-            super.loadUserSessions();
+            // Load from session_history instead of active sessions
+            loadHistorySessions();
             
             // After sessions are loaded, check if we need to update visibility
             handler.postDelayed(() -> {
@@ -214,6 +215,161 @@ public class HistoryFragment extends Fragment {
                     updateVisibility();
                 }
             }, 300);
+        }
+        
+        /**
+         * Load sessions from session_history node
+         */
+        private void loadHistorySessions() {
+            if (mAuth.getCurrentUser() == null || sessionCardContainer == null) {
+                Log.e("CustomSessionLoader", "User not authenticated or container is null");
+                return;
+            }
+            
+            String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+            DatabaseReference historyRef = FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(userEmail)
+                    .child("session_history");
+            
+            historyRef.get().addOnCompleteListener(task -> {
+                if (getActivity() == null || !isAdded()) {
+                    return; // Fragment no longer active
+                }
+                
+                // Clear existing views
+                sessionCardContainer.removeAllViews();
+                
+                if (task.isSuccessful() && task.getResult() != null) {
+                    boolean sessionsFound = false;
+                    int sessionCount = 1;
+                    
+                    for (DataSnapshot sessionSnapshot : task.getResult().getChildren()) {
+                        String sessionKey = sessionSnapshot.getKey();
+                        String sessionName = sessionSnapshot.child("session_name").getValue(String.class);
+                        Long endedAt = sessionSnapshot.child("ended_at").getValue(Long.class);
+                        
+                        if (sessionName != null) {
+                            createHistorySessionCard(sessionKey, sessionName, endedAt, sessionCount);
+                            sessionCount++;
+                            sessionsFound = true;
+                        }
+                    }
+                    
+                    updateVisibility();
+                } else {
+                    Log.e("CustomSessionLoader", "Failed to load session history", task.getException());
+                    updateVisibility();
+                }
+            });
+        }
+        
+        /**
+         * Create a session card for history view
+         */
+        private void createHistorySessionCard(String sessionKey, String sessionName, Long endedAt, int sessionCount) {
+            View sessionCardView = LayoutInflater.from(getActivity()).inflate(R.layout.session_card, sessionCardContainer, false);
+            
+            // Update the card for history display
+            android.widget.TextView sessionNameView = sessionCardView.findViewById(R.id.session_name);
+            android.widget.TextView sessionNumberView = sessionCardView.findViewById(R.id.session_number);
+            android.widget.TextView sessionPasskeyView = sessionCardView.findViewById(R.id.session_passkey);
+            android.widget.TextView sessionCreationDateView = sessionCardView.findViewById(R.id.session_creation_date);
+            View deleteButton = sessionCardView.findViewById(R.id.delete_button);
+            
+            sessionNameView.setText(sessionName);
+            sessionNumberView.setText("Session " + sessionCount + " (Completed)");
+            
+            // Show ended date instead of passkey
+            if (endedAt != null) {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MMM dd, yyyy HH:mm", java.util.Locale.getDefault());
+                sessionCreationDateView.setText("Ended: " + sdf.format(new java.util.Date(endedAt)));
+            } else {
+                sessionCreationDateView.setText("Ended: Unknown");
+            }
+
+            // Fetch and display the passkey
+            String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+            DatabaseReference sessionRef = FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(userEmail)
+                    .child("session_history")
+                    .child(sessionKey);
+
+            sessionRef.child("passkey").get().addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                    String passkey = task.getResult().getValue(String.class);
+                    if (passkey != null && !passkey.isEmpty()) {
+                        sessionPasskeyView.setText(passkey);
+                    } else {
+                        sessionPasskeyView.setText("N/A");
+                    }
+                } else {
+                    sessionPasskeyView.setText("N/A");
+                }
+            });
+            
+            // Set up delete button to remove from history
+            if (deleteButton != null) {
+                deleteButton.setOnClickListener(v -> {
+                    new AlertDialog.Builder(getActivity())
+                        .setTitle("Delete from History")
+                        .setMessage("Are you sure you want to permanently delete this session from history?")
+                        .setPositiveButton("Yes", (dialog, which) -> {
+                            deleteHistorySession(sessionKey, sessionCardView);
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+                });
+            }
+            
+            // Set OnClickListener to navigate to HostSession with pre-filled data
+            sessionCardView.setOnClickListener(v -> {
+                sessionRef.get().addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                        String historicSessionName = task.getResult().child("session_name").getValue(String.class);
+                        String historicPasskey = task.getResult().child("passkey").getValue(String.class);
+
+                        if (historicSessionName != null && historicPasskey != null) {
+                            Intent intent = new Intent(getActivity(), HostSession.class);
+                            intent.putExtra("session_name", historicSessionName);
+                            intent.putExtra("passkey", historicPasskey);
+                            // Potentially add a flag to indicate it's a historic session being re-hosted
+                            intent.putExtra("is_rehosting_historic", true); 
+                            startActivity(intent);
+                        } else {
+                            Toast.makeText(getActivity(), "Session data incomplete.", Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        Toast.makeText(getActivity(), "Failed to load session data.", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            });
+            
+            sessionCardContainer.addView(sessionCardView);
+        }
+        
+        /**
+         * Delete a session from history
+         */
+        private void deleteHistorySession(String sessionKey, View sessionCard) {
+            String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
+            DatabaseReference historyRef = FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(userEmail)
+                    .child("session_history")
+                    .child(sessionKey);
+            
+            historyRef.removeValue().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    Toast.makeText(getActivity(), "Session deleted from history", Toast.LENGTH_SHORT).show();
+                    sessionCardContainer.removeView(sessionCard);
+                    updateVisibility();
+                } else {
+                    Toast.makeText(getActivity(), "Failed to delete session from history", Toast.LENGTH_SHORT).show();
+                    Log.e("CustomSessionLoader", "Failed to delete history session", task.getException());
+                }
+            });
         }
     }
 }

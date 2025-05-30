@@ -304,19 +304,6 @@
                     app:cornerRadius="16dp"
                     app:strokeColor="#FF9B44"
                     android:layout_marginBottom="12dp"/>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnTwoFactorAuth"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Enable Two-Factor Authentication"
-                    android:textColor="#FF9B44"
-                    android:paddingVertical="12dp"
-                    app:icon="@drawable/ic_security"
-                    app:iconTint="#FF9B44"
-                    app:cornerRadius="16dp"
-                    app:strokeColor="#FF9B44" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

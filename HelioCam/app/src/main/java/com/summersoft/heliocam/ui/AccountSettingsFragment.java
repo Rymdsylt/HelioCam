@@ -28,11 +28,12 @@ import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.summersoft.heliocam.R;
 import com.summersoft.heliocam.notifs.PopulateNotifs;
+import com.summersoft.heliocam.ui.LoginActivity;
 
 public class AccountSettingsFragment extends Fragment {
 
     private TextInputEditText etFullName, etUsername, etContact, etEmail;
-    private MaterialButton btnSave, btnChangePassword, btnTwoFactorAuth, btnLogout;
+    private MaterialButton btnSave, btnChangePassword, btnLogout;
     private ShapeableImageView ivProfileAvatar;
     private FloatingActionButton fabChangePhoto;
     private FirebaseAuth mAuth;
@@ -80,7 +81,6 @@ public class AccountSettingsFragment extends Fragment {
         fabChangePhoto = view.findViewById(R.id.fabChangePhoto);
         btnSave = view.findViewById(R.id.btnSave);
         btnChangePassword = view.findViewById(R.id.btnChangePassword);
-        btnTwoFactorAuth = view.findViewById(R.id.btnTwoFactorAuth);
         btnLogout = view.findViewById(R.id.btnLogout);
 
         // Set email field to current user's email and disable editing
@@ -107,12 +107,6 @@ public class AccountSettingsFragment extends Fragment {
                 etFullName.setText(task.getResult().child("fullname").getValue(String.class));
                 etUsername.setText(task.getResult().child("username").getValue(String.class));
                 etContact.setText(task.getResult().child("contact").getValue(String.class));
-
-                // Check if 2FA is enabled and update button text
-                Boolean isTwoFactorEnabled = task.getResult().child("twoFactorEnabled").getValue(Boolean.class);
-                if (isTwoFactorEnabled != null && isTwoFactorEnabled) {
-                    btnTwoFactorAuth.setText("Disable Two-Factor Authentication");
-                }
             } else {
                 Toast.makeText(getContext(), "Failed to fetch account details.", Toast.LENGTH_SHORT).show();
             }
@@ -141,15 +135,7 @@ public class AccountSettingsFragment extends Fragment {
             databaseRef.child(sanitizedEmail).child("username").setValue(username);
             databaseRef.child(sanitizedEmail).child("contact").setValue(contact);
 
-            // Upload profile image if selected
-            if (selectedImageUri != null) {
-                uploadProfileImage(sanitizedEmail);
-            } else {
-                // If no new image, just update profile data
-                btnSave.setEnabled(true);
-                btnSave.setText("Save Changes");
-                Toast.makeText(getContext(), "Account details updated successfully", Toast.LENGTH_SHORT).show();
-            }
+
         });
 
         // Send password reset email with cooldown
@@ -192,65 +178,23 @@ public class AccountSettingsFragment extends Fragment {
             }
         });
 
-        // Two-factor authentication toggle
-        btnTwoFactorAuth.setOnClickListener(v -> {
-            databaseRef.child(sanitizedEmail).child("twoFactorEnabled").get().addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    Boolean isEnabled = task.getResult().getValue(Boolean.class);
-                    boolean newValue = !(isEnabled != null && isEnabled);
-
-                    databaseRef.child(sanitizedEmail).child("twoFactorEnabled").setValue(newValue)
-                            .addOnSuccessListener(unused -> {
-                                btnTwoFactorAuth.setText(newValue ?
-                                        "Disable Two-Factor Authentication" :
-                                        "Enable Two-Factor Authentication");
-
-                                Toast.makeText(getContext(),
-                                        "Two-factor authentication " + (newValue ? "enabled" : "disabled"),
-                                        Toast.LENGTH_SHORT).show();
-                            });
-                }
-            });
-        });
-
         // Logout functionality
-        /* btnLogout.setOnClickListener(v -> {
+        btnLogout.setOnClickListener(v -> {
             mAuth.signOut();
-            // Navigate to login activity or main activity
-            // Replace MainActivity.class with your login activity
-            Intent intent = new Intent(getActivity(), MainActivity.class);
+            // Navigate to login activity
+            Intent intent = new Intent(getActivity(), LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
+            if (getActivity() != null) {
+                getActivity().finish();
+            }
         });
-
-         */
 
         return view;
     }
 
     // Upload profile image to Firebase Storage
-    private void uploadProfileImage(String userId) {
-        if (selectedImageUri != null) {
-            StorageReference fileRef = storageRef.child(userId + ".jpg");
-            fileRef.putFile(selectedImageUri)
-                    .addOnSuccessListener(taskSnapshot -> {
-                        fileRef.getDownloadUrl().addOnSuccessListener(uri -> {
-                            // Update profile image URL in database
-                            databaseRef.child(userId).child("profileImageUrl").setValue(uri.toString())
-                                    .addOnCompleteListener(task -> {
-                                        btnSave.setEnabled(true);
-                                        btnSave.setText("Save Changes");
-                                        Toast.makeText(getContext(), "Profile updated successfully", Toast.LENGTH_SHORT).show();
-                                    });
-                        });
-                    })
-                    .addOnFailureListener(e -> {
-                        btnSave.setEnabled(true);
-                        btnSave.setText("Save Changes");
-                        Toast.makeText(getContext(), "Failed to upload image: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    });
-        }
-    }
+
 
     // Cooldown logic for password reset
     private void startCooldown() {

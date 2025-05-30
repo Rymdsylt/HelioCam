@@ -6,22 +6,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ServerValue;
 import com.summersoft.heliocam.R;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class SettingsFragment extends Fragment {
 
@@ -37,16 +28,10 @@ public class SettingsFragment extends Fragment {
 
         // Get reference to the buttons in the layout
         Button btnNotification = rootView.findViewById(R.id.btnNotification);
-        Button btDevicesLogin = rootView.findViewById(R.id.btDevicesLogin);
-        Button btnAccountSettings = rootView.findViewById(R.id.btnAccountSetting);
+        Button btDevicesLogin = rootView.findViewById(R.id.btDevicesLogin);        Button btnAccountSettings = rootView.findViewById(R.id.btnAccountSetting);
         Button btnRoleChange = rootView.findViewById(R.id.btnRoleChange); // New button
         Button btnAbout = rootView.findViewById(R.id.btnAbout);
         Button btnLogout = rootView.findViewById(R.id.btnLogout);
-
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser != null && currentUser.getEmail() != null) {
-            ensureUserHasSettingsKey(currentUser.getEmail());
-        }
 
         // Set OnClickListener for btnNotification
         btnNotification.setOnClickListener(v -> {
@@ -97,9 +82,7 @@ public class SettingsFragment extends Fragment {
                 })
                 .setNegativeButton("No", null)
                 .show();
-        });
-
-        return rootView;
+        });        return rootView;
     }
     
     /**
@@ -113,41 +96,5 @@ public class SettingsFragment extends Fragment {
             transaction.addToBackStack(null);
             transaction.commit();
         }
-    }
-
-    private void ensureUserHasSettingsKey(String userEmail) {
-        String emailKey = userEmail.replace(".", "_");
-        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(emailKey);
-
-        userRef.child("settingsKey").get().addOnCompleteListener(task -> {
-            if (task.isSuccessful() && task.getResult() != null && task.getResult().exists() &&
-                    task.getResult().getValue() != null) {
-                // Key already exists, no action needed
-            } else {
-                // Generate a random settings key (alphanumeric, 8 characters)
-                String newKey = generateRandomKey(8);
-
-                // Save the key to Firebase
-                userRef.child("settingsKey").setValue(newKey)
-                        .addOnSuccessListener(unused -> {
-                            // Key created successfully
-                        })
-                        .addOnFailureListener(e -> {
-                            Toast.makeText(requireContext(),
-                                    "Failed to create settings key: " + e.getMessage(),
-                                    Toast.LENGTH_SHORT).show();
-                        });
-            }
-        });
-    }
-
-    private String generateRandomKey(int length) {
-        String alphaNumeric = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < length; i++) {
-            int index = (int) (Math.random() * alphaNumeric.length());
-            sb.append(alphaNumeric.charAt(index));
-        }
-        return sb.toString();
     }
 }

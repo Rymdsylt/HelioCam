@@ -3,6 +3,7 @@ package com.summersoft.heliocam.ui;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -93,6 +94,12 @@ public class WatchSessionActivity extends AppCompatActivity {
     private Map<String, TextView> cameraTimestamps = new HashMap<>();
     private Handler timestampUpdateHandler = new Handler(Looper.getMainLooper());
     private Runnable timestampUpdateRunnable;
+
+    // Focus mode variables
+    private boolean isInFocusMode = false;
+    private View focusedContainer = null;
+    private int previousActiveCount = 0;
+    private FloatingActionButton backToGridButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -203,6 +210,7 @@ public class WatchSessionActivity extends AppCompatActivity {
         MaterialButton micButton = findViewById(R.id.microphone_button);
         joinRequestNotification = findViewById(R.id.join_request_notification);
         FloatingActionButton settingsButton = findViewById(R.id.settings_button);
+        backToGridButton = findViewById(R.id.back_to_grid_button);
 
         // Initially hide the join request notification
         if (joinRequestNotification != null) {
@@ -339,13 +347,21 @@ public class WatchSessionActivity extends AppCompatActivity {
 
         // Start the timestamp update scheduler
         startTimestampUpdates();
-
+        
         participantsCount.setOnClickListener(v -> {
             // Show detailed participant list when count is clicked
             showParticipantListDialog();
         });
+        
+        // Initialize back to grid button
+        backToGridButton = findViewById(R.id.back_to_grid_button);
+        if (backToGridButton != null) {
+            backToGridButton.setVisibility(View.GONE);
+            backToGridButton.setOnClickListener(v -> exitFocusMode());
+        }
 
-        // Remove all focus-related touch listeners and gesture detectors
+        // Set up click listeners for focus mode on feed containers
+        setupFocusModeClickListeners();
     }
 
     /**
@@ -731,9 +747,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                 .setCancelable(true)
                 .create()
                 .show();
-    }
-
-    /**
+    }    /**
      * End the current session
      */
     private void endSession() {
@@ -742,19 +756,56 @@ public class WatchSessionActivity extends AppCompatActivity {
             rtcHost.dispose();
         }
 
-        // Delete the session from Firebase
+        // Save session to history and remove from active sessions
         String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
-        mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                .removeValue()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Log.d(TAG, "Session deleted successfully");
-                        finish();
+        DatabaseReference sessionRef = mDatabase.child("users").child(userEmail).child("sessions").child(sessionId);
+        
+        // First, get the session data to save it to history
+        sessionRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                // Get the session data
+                DataSnapshot sessionData = task.getResult();
+                
+                // Create history entry with ended timestamp
+                HashMap<String, Object> historySession = new HashMap<>();
+                historySession.put("session_name", sessionData.child("session_name").getValue());
+                historySession.put("passkey", sessionData.child("passkey").getValue());
+                historySession.put("created_at", sessionData.child("created_at").getValue());
+                historySession.put("active", false);
+                historySession.put("ended_at", System.currentTimeMillis());
+                
+                // Save to session history
+                DatabaseReference historyRef = mDatabase.child("users").child(userEmail)
+                        .child("session_history").child(sessionId);
+                
+                historyRef.setValue(historySession).addOnCompleteListener(historyTask -> {
+                    if (historyTask.isSuccessful()) {
+                        // Successfully saved to history, now remove from active sessions
+                        sessionRef.removeValue().addOnCompleteListener(removeTask -> {
+                            if (removeTask.isSuccessful()) {
+                                Log.d(TAG, "Session ended and saved to history successfully");
+                                Toast.makeText(this, "Session ended successfully", Toast.LENGTH_SHORT).show();
+                                navigateToHome();
+                            } else {
+                                Log.e(TAG, "Failed to remove session from active sessions", removeTask.getException());
+                                Toast.makeText(this, "Session ended but failed to clean up", Toast.LENGTH_SHORT).show();
+                                navigateToHome();
+                            }
+                        });
                     } else {
-                        Log.e(TAG, "Failed to delete session", task.getException());
-                        Toast.makeText(this, "Failed to end session", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failed to save session to history", historyTask.getException());
+                        // Still try to remove from active sessions even if history save failed
+                        sessionRef.removeValue().addOnCompleteListener(removeTask -> {
+                            Toast.makeText(this, "Session ended (history save failed)", Toast.LENGTH_SHORT).show();
+                            navigateToHome();
+                        });
                     }
                 });
+            } else {
+                Log.e(TAG, "Failed to get session data for history", task.getException());
+                Toast.makeText(this, "Failed to end session", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     /**
@@ -1527,13 +1578,228 @@ public class WatchSessionActivity extends AppCompatActivity {
             // Apply the updated constraints
             try {
                 set.applyTo(constraintLayout);
-                Log.d(TAG, "Successfully applied constraints for " + activeCount + " cameras");
-            } catch (Exception e) {
+                Log.d(TAG, "Successfully applied constraints for " + activeCount + " cameras");            } catch (Exception e) {
                 Log.e(TAG, "Error applying constraints: " + e.getMessage());
             }
         } else {
             Log.e(TAG, "gridLayout is not a ConstraintLayout, it's: " + 
                   (gridLayout != null ? gridLayout.getClass().getSimpleName() : "null"));
         }
+    }
+
+    /**
+     * Enter focus mode for a specific camera feed
+     */
+    private void enterFocusMode(View containerToFocus) {
+        if (isInFocusMode || containerToFocus == null) {
+            return;
+        }
+
+        Log.d(TAG, "Entering focus mode for container: " + containerToFocus.getId());
+
+        isInFocusMode = true;
+        focusedContainer = containerToFocus;
+
+        // Store the current active count to restore later
+        previousActiveCount = getVisibleContainerCount();
+
+        // Hide all other containers
+        View feedContainer1 = findViewById(R.id.feed_container_1);
+        View feedContainer2 = findViewById(R.id.feed_container_2);
+        View feedContainer3 = findViewById(R.id.feed_container_3);
+        View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        if (feedContainer1 != null && feedContainer1 != containerToFocus) {
+            feedContainer1.setVisibility(View.GONE);
+        }
+        if (feedContainer2 != null && feedContainer2 != containerToFocus) {
+            feedContainer2.setVisibility(View.GONE);
+        }
+        if (feedContainer3 != null && feedContainer3 != containerToFocus) {
+            feedContainer3.setVisibility(View.GONE);
+        }
+        if (feedContainer4 != null && feedContainer4 != containerToFocus) {
+            feedContainer4.setVisibility(View.GONE);
+        }
+
+        // Make the focused container fill the entire screen
+        setContainerToFullScreen(containerToFocus);
+
+        // Show the back to grid button
+        if (backToGridButton != null) {
+            backToGridButton.setVisibility(View.VISIBLE);
+            backToGridButton.animate()
+                .alpha(1.0f)
+                .setDuration(300)
+                .start();
+        }        // Add visual feedback
+        Toast.makeText(this, "Focus mode activated - Double tap to exit", Toast.LENGTH_LONG).show();
+    }
+
+    /**
+     * Exit focus mode and return to grid layout
+     */
+    private void exitFocusMode() {
+        if (!isInFocusMode) {
+            return;
+        }
+
+        Log.d(TAG, "Exiting focus mode");
+
+        isInFocusMode = false;
+
+        // Hide the back to grid button
+        if (backToGridButton != null) {
+            backToGridButton.animate()
+                .alpha(0.0f)
+                .setDuration(300)
+                .withEndAction(() -> backToGridButton.setVisibility(View.GONE))
+                .start();
+        }
+
+        // Restore all visible containers based on previous active count
+        restoreGridLayout();
+
+        focusedContainer = null;
+
+        // Add visual feedback
+        Toast.makeText(this, "Returned to grid view", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Set a container to fill the entire screen
+     */
+    private void setContainerToFullScreen(View container) {
+        if (gridLayout instanceof ConstraintLayout) {
+            ConstraintLayout constraintLayout = (ConstraintLayout) gridLayout;
+            ConstraintSet set = new ConstraintSet();
+            set.clone(constraintLayout);
+
+            // Clear all constraints for the focused container
+            set.clear(container.getId());
+
+            // Set container to fill parent completely
+            set.connect(container.getId(), ConstraintSet.TOP, constraintLayout.getId(), ConstraintSet.TOP);
+            set.connect(container.getId(), ConstraintSet.BOTTOM, constraintLayout.getId(), ConstraintSet.BOTTOM);
+            set.connect(container.getId(), ConstraintSet.START, constraintLayout.getId(), ConstraintSet.START);
+            set.connect(container.getId(), ConstraintSet.END, constraintLayout.getId(), ConstraintSet.END);
+
+            // Apply the constraints
+            try {
+                set.applyTo(constraintLayout);
+                Log.d(TAG, "Successfully applied full screen constraints");
+            } catch (Exception e) {
+                Log.e(TAG, "Error applying full screen constraints: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Restore the grid layout from focus mode
+     */
+    private void restoreGridLayout() {
+        // Make all previously visible containers visible again
+        View feedContainer1 = findViewById(R.id.feed_container_1);
+        View feedContainer2 = findViewById(R.id.feed_container_2);
+        View feedContainer3 = findViewById(R.id.feed_container_3);
+        View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        // Restore visibility based on previous active count
+        if (feedContainer1 != null) {
+            feedContainer1.setVisibility(View.VISIBLE);
+        }
+        if (feedContainer2 != null) {
+            feedContainer2.setVisibility(previousActiveCount >= 2 ? View.VISIBLE : View.GONE);
+        }
+        if (feedContainer3 != null) {
+            feedContainer3.setVisibility(previousActiveCount >= 3 ? View.VISIBLE : View.GONE);
+        }
+        if (feedContainer4 != null) {
+            feedContainer4.setVisibility(previousActiveCount >= 4 ? View.VISIBLE : View.GONE);
+        }
+
+        // Restore the grid layout constraints
+        adjustContainerConstraints(previousActiveCount);
+    }
+
+    /**
+     * Get the count of currently visible containers
+     */
+    private int getVisibleContainerCount() {
+        int count = 0;
+        View feedContainer1 = findViewById(R.id.feed_container_1);
+        View feedContainer2 = findViewById(R.id.feed_container_2);
+        View feedContainer3 = findViewById(R.id.feed_container_3);
+        View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        if (feedContainer1 != null && feedContainer1.getVisibility() == View.VISIBLE) count++;
+        if (feedContainer2 != null && feedContainer2.getVisibility() == View.VISIBLE) count++;
+        if (feedContainer3 != null && feedContainer3.getVisibility() == View.VISIBLE) count++;
+        if (feedContainer4 != null && feedContainer4.getVisibility() == View.VISIBLE) count++;        return count;
+    }
+
+    /**
+     * Set up click listeners for focus mode functionality
+     */
+    private void setupFocusModeClickListeners() {
+        View feedContainer1 = findViewById(R.id.feed_container_1);
+        View feedContainer2 = findViewById(R.id.feed_container_2);
+        View feedContainer3 = findViewById(R.id.feed_container_3);
+        View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        View[] containers = {feedContainer1, feedContainer2, feedContainer3, feedContainer4};
+
+        for (View container : containers) {
+            if (container != null) {
+                final View currentFocusableView = container; // Make effectively final for use in listener
+
+                GestureDetector detector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+                    @Override
+                    public boolean onDoubleTap(MotionEvent e) {
+                        if (isInFocusMode) {
+                            // Any double tap when in focus mode will exit.
+                            exitFocusMode();
+                            return true;
+                        }
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onSingleTapConfirmed(MotionEvent e) {
+                        // Single tap on 'currentFocusableView'
+                        if (!isInFocusMode && currentFocusableView.getVisibility() == View.VISIBLE) {
+                            enterFocusMode(currentFocusableView);
+                            return true;
+                        }
+                        return false;
+                    }
+                });
+
+                // Set the OnTouchListener for the container to use the GestureDetector
+                // The return value of detector.onTouchEvent(event) is important for gesture handling.
+                container.setOnTouchListener((v, event) -> detector.onTouchEvent(event));
+            }
+        }
+    }
+
+    /**
+     * Navigate to the appropriate home activity based on user role
+     */
+    private void navigateToHome() {
+        // Get user role and navigate to appropriate home
+        String userRole = UserRoleSelectionActivity.getUserRole(this);
+        Intent intent;
+        
+        if (UserRoleSelectionActivity.ROLE_JOINER.equals(userRole)) {
+            intent = new Intent(this, JoinerHomeActivity.class);
+        } else {
+            // Default to HOST home (includes null/empty role cases)
+            intent = new Intent(this, HomeActivity.class);
+        }
+        
+        // Clear the task stack to prevent going back to watch session
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 }

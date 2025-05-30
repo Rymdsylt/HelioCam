@@ -179,9 +179,20 @@ public class PopulateNotifs {
                 return;
             }
 
+            // First, prioritize sessions directly from sessions node (where hosts store their sessions)
+            DataSnapshot sessionsNode = userSnapshot.child("sessions");
+            if (sessionsNode.exists()) {
+                for (DataSnapshot sessionSnap : sessionsNode.getChildren()) {
+                    String sessionKey = sessionSnap.getKey();
+                    if (sessionKey != null) {
+                        sessionKeys.add(sessionKey);
+                    }
+                }
+            }
+
             String currentDeviceInfo = android.os.Build.MANUFACTURER + " " + android.os.Build.DEVICE;
 
-            // Fetch sessions from login info nodes
+            // Then fetch sessions from device-specific login info nodes (where joiners store session references)
             for (DataSnapshot loginInfo : userSnapshot.getChildren()) {
                 String key = loginInfo.getKey();
                 if (key != null && key.startsWith("logininfo_")) {
@@ -191,20 +202,11 @@ public class PopulateNotifs {
                         if (sessions.exists()) {
                             for (DataSnapshot session : sessions.getChildren()) {
                                 String sessionKey = session.getKey();
-                                sessionKeys.add(sessionKey);
+                                if (sessionKey != null && !sessionKeys.contains(sessionKey)) {
+                                    sessionKeys.add(sessionKey);
+                                }
                             }
                         }
-                    }
-                }
-            }
-
-            // Fetch sessions directly from sessions node for this user (backup method)
-            DataSnapshot sessionsNode = userSnapshot.child("sessions");
-            if (sessionsNode.exists()) {
-                for (DataSnapshot sessionSnap : sessionsNode.getChildren()) {
-                    String sessionKey = sessionSnap.getKey();
-                    if (sessionKey != null && !sessionKeys.contains(sessionKey)) {
-                        sessionKeys.add(sessionKey);
                     }
                 }
             }

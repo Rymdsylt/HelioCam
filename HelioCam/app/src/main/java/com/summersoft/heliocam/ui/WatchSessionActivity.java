@@ -94,6 +94,12 @@ public class WatchSessionActivity extends AppCompatActivity {
     private Handler timestampUpdateHandler = new Handler(Looper.getMainLooper());
     private Runnable timestampUpdateRunnable;
 
+    // Focus mode variables
+    private boolean isInFocusMode = false;
+    private View focusedContainer = null;
+    private int previousActiveCount = 0;
+    private FloatingActionButton backToGridButton;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -203,6 +209,7 @@ public class WatchSessionActivity extends AppCompatActivity {
         MaterialButton micButton = findViewById(R.id.microphone_button);
         joinRequestNotification = findViewById(R.id.join_request_notification);
         FloatingActionButton settingsButton = findViewById(R.id.settings_button);
+        backToGridButton = findViewById(R.id.back_to_grid_button);
 
         // Initially hide the join request notification
         if (joinRequestNotification != null) {
@@ -338,14 +345,20 @@ public class WatchSessionActivity extends AppCompatActivity {
         }
 
         // Start the timestamp update scheduler
-        startTimestampUpdates();
-
-        participantsCount.setOnClickListener(v -> {
+        startTimestampUpdates();        participantsCount.setOnClickListener(v -> {
             // Show detailed participant list when count is clicked
             showParticipantListDialog();
         });
+        
+        // Initialize back to grid button
+        backToGridButton = findViewById(R.id.back_to_grid_button);
+        if (backToGridButton != null) {
+            backToGridButton.setVisibility(View.GONE);
+            backToGridButton.setOnClickListener(v -> exitFocusMode());
+        }
 
-        // Remove all focus-related touch listeners and gesture detectors
+        // Set up click listeners for focus mode on feed containers
+        setupFocusModeClickListeners();
     }
 
     /**
@@ -1527,13 +1540,208 @@ public class WatchSessionActivity extends AppCompatActivity {
             // Apply the updated constraints
             try {
                 set.applyTo(constraintLayout);
-                Log.d(TAG, "Successfully applied constraints for " + activeCount + " cameras");
-            } catch (Exception e) {
+                Log.d(TAG, "Successfully applied constraints for " + activeCount + " cameras");            } catch (Exception e) {
                 Log.e(TAG, "Error applying constraints: " + e.getMessage());
             }
         } else {
             Log.e(TAG, "gridLayout is not a ConstraintLayout, it's: " + 
                   (gridLayout != null ? gridLayout.getClass().getSimpleName() : "null"));
+        }
+    }
+
+    /**
+     * Enter focus mode for a specific camera feed
+     */
+    private void enterFocusMode(View containerToFocus) {
+        if (isInFocusMode || containerToFocus == null) {
+            return;
+        }
+
+        Log.d(TAG, "Entering focus mode for container: " + containerToFocus.getId());
+
+        isInFocusMode = true;
+        focusedContainer = containerToFocus;
+
+        // Store the current active count to restore later
+        previousActiveCount = getVisibleContainerCount();
+
+        // Hide all other containers
+        View feedContainer1 = findViewById(R.id.feed_container_1);
+        View feedContainer2 = findViewById(R.id.feed_container_2);
+        View feedContainer3 = findViewById(R.id.feed_container_3);
+        View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        if (feedContainer1 != null && feedContainer1 != containerToFocus) {
+            feedContainer1.setVisibility(View.GONE);
+        }
+        if (feedContainer2 != null && feedContainer2 != containerToFocus) {
+            feedContainer2.setVisibility(View.GONE);
+        }
+        if (feedContainer3 != null && feedContainer3 != containerToFocus) {
+            feedContainer3.setVisibility(View.GONE);
+        }
+        if (feedContainer4 != null && feedContainer4 != containerToFocus) {
+            feedContainer4.setVisibility(View.GONE);
+        }
+
+        // Make the focused container fill the entire screen
+        setContainerToFullScreen(containerToFocus);
+
+        // Show the back to grid button
+        if (backToGridButton != null) {
+            backToGridButton.setVisibility(View.VISIBLE);
+            backToGridButton.animate()
+                .alpha(1.0f)
+                .setDuration(300)
+                .start();
+        }
+
+        // Add visual feedback
+        Toast.makeText(this, "Focus mode activated", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Exit focus mode and return to grid layout
+     */
+    private void exitFocusMode() {
+        if (!isInFocusMode) {
+            return;
+        }
+
+        Log.d(TAG, "Exiting focus mode");
+
+        isInFocusMode = false;
+
+        // Hide the back to grid button
+        if (backToGridButton != null) {
+            backToGridButton.animate()
+                .alpha(0.0f)
+                .setDuration(300)
+                .withEndAction(() -> backToGridButton.setVisibility(View.GONE))
+                .start();
+        }
+
+        // Restore all visible containers based on previous active count
+        restoreGridLayout();
+
+        focusedContainer = null;
+
+        // Add visual feedback
+        Toast.makeText(this, "Returned to grid view", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Set a container to fill the entire screen
+     */
+    private void setContainerToFullScreen(View container) {
+        if (gridLayout instanceof ConstraintLayout) {
+            ConstraintLayout constraintLayout = (ConstraintLayout) gridLayout;
+            ConstraintSet set = new ConstraintSet();
+            set.clone(constraintLayout);
+
+            // Clear all constraints for the focused container
+            set.clear(container.getId());
+
+            // Set container to fill parent completely
+            set.connect(container.getId(), ConstraintSet.TOP, constraintLayout.getId(), ConstraintSet.TOP);
+            set.connect(container.getId(), ConstraintSet.BOTTOM, constraintLayout.getId(), ConstraintSet.BOTTOM);
+            set.connect(container.getId(), ConstraintSet.START, constraintLayout.getId(), ConstraintSet.START);
+            set.connect(container.getId(), ConstraintSet.END, constraintLayout.getId(), ConstraintSet.END);
+
+            // Apply the constraints
+            try {
+                set.applyTo(constraintLayout);
+                Log.d(TAG, "Successfully applied full screen constraints");
+            } catch (Exception e) {
+                Log.e(TAG, "Error applying full screen constraints: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Restore the grid layout from focus mode
+     */
+    private void restoreGridLayout() {
+        // Make all previously visible containers visible again
+        View feedContainer1 = findViewById(R.id.feed_container_1);
+        View feedContainer2 = findViewById(R.id.feed_container_2);
+        View feedContainer3 = findViewById(R.id.feed_container_3);
+        View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        // Restore visibility based on previous active count
+        if (feedContainer1 != null) {
+            feedContainer1.setVisibility(View.VISIBLE);
+        }
+        if (feedContainer2 != null) {
+            feedContainer2.setVisibility(previousActiveCount >= 2 ? View.VISIBLE : View.GONE);
+        }
+        if (feedContainer3 != null) {
+            feedContainer3.setVisibility(previousActiveCount >= 3 ? View.VISIBLE : View.GONE);
+        }
+        if (feedContainer4 != null) {
+            feedContainer4.setVisibility(previousActiveCount >= 4 ? View.VISIBLE : View.GONE);
+        }
+
+        // Restore the grid layout constraints
+        adjustContainerConstraints(previousActiveCount);
+    }
+
+    /**
+     * Get the count of currently visible containers
+     */
+    private int getVisibleContainerCount() {
+        int count = 0;
+        View feedContainer1 = findViewById(R.id.feed_container_1);
+        View feedContainer2 = findViewById(R.id.feed_container_2);
+        View feedContainer3 = findViewById(R.id.feed_container_3);
+        View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        if (feedContainer1 != null && feedContainer1.getVisibility() == View.VISIBLE) count++;
+        if (feedContainer2 != null && feedContainer2.getVisibility() == View.VISIBLE) count++;
+        if (feedContainer3 != null && feedContainer3.getVisibility() == View.VISIBLE) count++;
+        if (feedContainer4 != null && feedContainer4.getVisibility() == View.VISIBLE) count++;        return count;
+    }
+
+    /**
+     * Set up click listeners for focus mode functionality
+     */
+    private void setupFocusModeClickListeners() {
+        View feedContainer1 = findViewById(R.id.feed_container_1);
+        View feedContainer2 = findViewById(R.id.feed_container_2);
+        View feedContainer3 = findViewById(R.id.feed_container_3);
+        View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        // Set click listeners for each feed container
+        if (feedContainer1 != null) {
+            feedContainer1.setOnClickListener(v -> {
+                if (!isInFocusMode && feedContainer1.getVisibility() == View.VISIBLE) {
+                    enterFocusMode(feedContainer1);
+                }
+            });
+        }
+
+        if (feedContainer2 != null) {
+            feedContainer2.setOnClickListener(v -> {
+                if (!isInFocusMode && feedContainer2.getVisibility() == View.VISIBLE) {
+                    enterFocusMode(feedContainer2);
+                }
+            });
+        }
+
+        if (feedContainer3 != null) {
+            feedContainer3.setOnClickListener(v -> {
+                if (!isInFocusMode && feedContainer3.getVisibility() == View.VISIBLE) {
+                    enterFocusMode(feedContainer3);
+                }
+            });
+        }
+
+        if (feedContainer4 != null) {
+            feedContainer4.setOnClickListener(v -> {
+                if (!isInFocusMode && feedContainer4.getVisibility() == View.VISIBLE) {
+                    enterFocusMode(feedContainer4);
+                }
+            });
         }
     }
 }

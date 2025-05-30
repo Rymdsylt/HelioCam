@@ -83,13 +83,14 @@ public class RTCHost {
 
     // Add these fields to your RTCHost class
     private Map<String, String> joinerDeviceIds = new HashMap<>();
-    private Map<String, String> joinerDeviceNames = new HashMap<>();
-
-    // Undefined variables
+    private Map<String, String> joinerDeviceNames = new HashMap<>();    // Undefined variables
     private Map<String, String> joinerEmails = new HashMap<>(); // Missing declaration
     private SurfaceViewRenderer[] videoRenderers; // Missing declaration
     private JoinRequestCallback joinRequestCallback; // Missing declaration
     private Map<String, Map<String, String>> joinerInfoMap = new HashMap<>(); // Missing declaration
+    
+    // Disposal state tracking
+    private boolean isDisposed = false;
 
     public RTCHost(Context context, SurfaceViewRenderer mainView, DatabaseReference mDatabase) {
         this.context = context;
@@ -185,22 +186,22 @@ public class RTCHost {
      * @return Session ID created
      */
     public String createSession(String sessionName) {
+        if (isDisposed) {
+            Log.w(TAG, "Cannot create session: RTCHost is disposed");
+            return null;
+        }
+        
         sessionId = UUID.randomUUID().toString();
         
-        // Create a simple session code (last 6 chars of UUID)
-        String simpleSessionCode = sessionId.substring(sessionId.length() - 6);
-        
-        // Create session data
+        // Session data to save
         Map<String, Object> sessionData = new HashMap<>();
-        sessionData.put("session_name", sessionName);
-        sessionData.put("host_email", userEmail);
+        sessionData.put("name", sessionName);
+        sessionData.put("id", sessionId);
         sessionData.put("created_at", System.currentTimeMillis());
         sessionData.put("active", true);
-        sessionData.put("max_joiners", MAX_JOINERS);
         sessionData.put("current_joiners", 0);
-        sessionData.put("session_code", simpleSessionCode);  // Add this line
+        sessionData.put("max_joiners", MAX_JOINERS);
         
-        // Save session to Firebase
         DatabaseReference sessionRef = mDatabase.child("users")
                 .child(formattedEmail)
                 .child("sessions")
@@ -538,37 +539,13 @@ public class RTCHost {
      * @param renderer Surface view renderer to use
      */
     public void assignRendererToJoiner(String joinerId, SurfaceViewRenderer renderer) {
-        Log.d(TAG, "assignRendererToJoiner called for " + joinerId + " with renderer: " + renderer);
-        
-        if (renderer == null) {
-            Log.e(TAG, "Cannot assign null renderer to joiner");
+        if (isDisposed) {
+            Log.w(TAG, "Cannot assign renderer: RTCHost is disposed");
             return;
         }
         
-        // Clear any existing assignments for this renderer
-        clearAssignmentsForRenderer(renderer);
-        
-        // Initialize renderer if needed - THIS IS CRITICAL
-        try {
-            if (rootEglBase != null) {
-                // Always re-initialize to ensure clean state
-                renderer.release();
-                renderer.init(rootEglBase.getEglBaseContext(), null);
-                renderer.setEnableHardwareScaler(true);
-                renderer.setMirror(false);
-                Log.d(TAG, "Renderer initialized with EGL context: " + rootEglBase.getEglBaseContext());
-            } else {
-                Log.e(TAG, "Root EglBase is null, cannot initialize renderer");
-                return;
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error initializing renderer: " + e.getMessage(), e);
-            return;
-        }
-        
-        // Store renderer assignment - this is what matters for onAddStream
+        Log.d(TAG, "Assigning renderer to joiner: " + joinerId);
         joinerRenderers.put(joinerId, renderer);
-        Log.d(TAG, "Stored renderer assignment for joiner: " + joinerId);
         
         // Handle any existing streams for this joiner
         PeerConnection pc = peerConnections.get(joinerId);
@@ -586,6 +563,11 @@ public class RTCHost {
      * Toggle audio on/off
      */
     public void toggleAudio() {
+        if (isDisposed) {
+            Log.w(TAG, "Cannot toggle audio: RTCHost is disposed");
+            return;
+        }
+        
         if (audioTrack != null) {
             boolean enabled = !audioTrack.enabled();
             audioTrack.setEnabled(enabled);
@@ -607,51 +589,116 @@ public class RTCHost {
         Log.d(TAG, "Returning joiners array of length: " + joiners.length);
         return joiners;
     }
+      /**
+     * Check if this RTCHost instance has been disposed
+     * @return true if disposed, false otherwise
+     */
+    public boolean isDisposed() {
+        return isDisposed;
+    }
     
     /**
      * Dispose of all resources
      */
     public void dispose() {
-        // Close all peer connections
-        for (PeerConnection peerConnection : peerConnections.values()) {
-            peerConnection.close();
-        }
-        peerConnections.clear();
-        
-        // Release all renderers
-        for (SurfaceViewRenderer renderer : joinerRenderers.values()) {
-            renderer.release();
-        }
-        joinerRenderers.clear();
-        
-        // Release main view
-        if (mainView != null) {
-            mainView.release();
+        // Check if already disposed to prevent double disposal
+        if (isDisposed) {
+            Log.w(TAG, "RTCHost already disposed, skipping disposal");
+            return;
         }
         
-        // Dispose of audio resources
-        if (audioSource != null) {
-            audioSource.dispose();
-        }
+        Log.d(TAG, "Starting RTCHost disposal");
+        isDisposed = true;
         
-        // Dispose of factory
-        if (peerConnectionFactory != null) {
-            peerConnectionFactory.dispose();
-        }
-        
-        // Release EGL base
-        if (rootEglBase != null) {
-            rootEglBase.release();
-        }
-        
-        // Delete session in Firebase
-        if (sessionId != null) {
-            mDatabase.child("users")
-                    .child(formattedEmail)
-                    .child("sessions")
-                    .child(sessionId)
-                    .child("active")
-                    .setValue(false);
+        try {
+            // Close all peer connections
+            for (PeerConnection peerConnection : peerConnections.values()) {
+                if (peerConnection != null) {
+                    peerConnection.close();
+                }
+            }
+            peerConnections.clear();
+            
+            // Release all renderers
+            for (SurfaceViewRenderer renderer : joinerRenderers.values()) {
+                if (renderer != null) {
+                    try {
+                        renderer.release();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to release joiner renderer", e);
+                    }
+                }
+            }
+            joinerRenderers.clear();
+            
+            // Release main view
+            if (mainView != null) {
+                try {
+                    mainView.release();
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to release main view", e);
+                }
+                mainView = null;
+            }
+            
+            // Dispose of audio resources
+            if (audioSource != null) {
+                try {
+                    audioSource.dispose();
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to dispose audio source", e);
+                }
+                audioSource = null;
+            }
+            
+            // Dispose of audio track
+            if (audioTrack != null) {
+                try {
+                    audioTrack.dispose();
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to dispose audio track", e);
+                }
+                audioTrack = null;
+            }
+            
+            // Dispose of factory
+            if (peerConnectionFactory != null) {
+                try {
+                    peerConnectionFactory.dispose();
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to dispose peer connection factory", e);
+                }
+                peerConnectionFactory = null;
+            }
+            
+            // Release EGL base
+            if (rootEglBase != null) {
+                try {
+                    rootEglBase.release();
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to release EGL base", e);
+                }
+                rootEglBase = null;
+            }
+            
+            // Delete session in Firebase
+            if (sessionId != null && mDatabase != null) {
+                try {
+                    mDatabase.child("users")
+                            .child(formattedEmail)
+                            .child("sessions")
+                            .child(sessionId)
+                            .child("active")
+                            .setValue(false);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to update Firebase session", e);
+                }
+            }
+            
+            Log.d(TAG, "RTCHost disposal completed successfully");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error during RTCHost disposal", e);
         }
     }
 

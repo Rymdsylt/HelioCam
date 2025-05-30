@@ -93,10 +93,11 @@ public class RTCJoiner {
 
 
     private final String meteredApiKey = "4611ab82d5ec3882669178686393394a7ca4";    // Add these fields to the top of the class with other field declarations
-    private com.summersoft.heliocam.detection.PersonDetection personDetection;
-
-    // Add to RTCJoiner class fields
+    private com.summersoft.heliocam.detection.PersonDetection personDetection;    // Add to RTCJoiner class fields
     private int assignedCameraNumber = 1; // Default to 1, but will be set by host
+
+    // Disposal state tracking to prevent double disposal
+    private boolean isDisposed = false;
 
     /**
      * Constructor for RTCJoiner
@@ -590,12 +591,19 @@ public class RTCJoiner {
                         .setPassword("JnsH2+jc2q3/uGon")
                         .createIceServer()
         );
-    }
-
-    /**
+    }    /**
      * Dispose of all resources
      */
     public void dispose() {
+        // Check if already disposed to prevent double disposal
+        if (isDisposed) {
+            Log.w(TAG, "RTCJoiner already disposed, skipping disposal");
+            return;
+        }
+
+        Log.d(TAG, "Disposing RTCJoiner resources");
+        isDisposed = true;
+
         // Remove join request from Firebase
         if (joinerId != null && formattedHostEmail != null && sessionId != null) {
             firebaseDatabase.child("users")
@@ -624,15 +632,23 @@ public class RTCJoiner {
             peerConnection = null;
         }
 
-        // Dispose of video source
+        // Dispose of video source with safety check
         if (videoSource != null) {
-            videoSource.dispose();
+            try {
+                videoSource.dispose();
+            } catch (IllegalStateException e) {
+                Log.w(TAG, "VideoSource already disposed: " + e.getMessage());
+            }
             videoSource = null;
         }
 
-        // Dispose of audio source
+        // Dispose of audio source with safety check
         if (audioSource != null) {
-            audioSource.dispose();
+            try {
+                audioSource.dispose();
+            } catch (IllegalStateException e) {
+                Log.w(TAG, "AudioSource already disposed: " + e.getMessage());
+            }
             audioSource = null;
         }
 
@@ -657,7 +673,15 @@ public class RTCJoiner {
         if (peerConnectionFactory != null) {
             peerConnectionFactory.dispose();
             peerConnectionFactory = null;
-        }
+        }        Log.d(TAG, "RTCJoiner disposal completed");
+    }
+
+    /**
+     * Check if this RTCJoiner has been disposed
+     * @return true if disposed, false otherwise
+     */
+    public boolean isDisposed() {
+        return isDisposed;
     }
 
     /**

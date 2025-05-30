@@ -100,6 +100,7 @@ public class WatchSessionActivity extends AppCompatActivity {
     private View focusedContainer = null;
     private int previousActiveCount = 0;
     private FloatingActionButton backToGridButton;
+    private AlertDialog sessionInfoDialog; // Added for managing session info dialog instance
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -1250,6 +1251,10 @@ public class WatchSessionActivity extends AppCompatActivity {
      * Show session information dialog
      */
     private void showSessionInfoDialog() {
+        if (sessionInfoDialog != null && sessionInfoDialog.isShowing()) {
+            sessionInfoDialog.dismiss(); // Dismiss if already showing
+        }
+
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_session_info, null);
         builder.setView(dialogView);
@@ -1319,36 +1324,39 @@ public class WatchSessionActivity extends AppCompatActivity {
         
         // Fetch session passkey and connected cameras from Firebase
         mDatabase.child("users").child(userEmail).child("sessions").child(sessionId)
-                .get().addOnCompleteListener(task -> {
-                    if (task.isSuccessful() && task.getResult() != null) {
-                        // Get session passkey
-                        String passkey = task.getResult().child("session_code").getValue(String.class);
-                        
-                        // Debug the passkey value
-                        Log.d(TAG, "Retrieved session passkey: " + (passkey != null ? passkey : "null"));
-                        
-                        if (passkey != null && !passkey.isEmpty()) {
-                            sessionPasskeyView.setText(passkey);
-                            passkeySection.setVisibility(View.VISIBLE);
-                            
-                            // Set up copy button
-                            copyPasskeyButton.setOnClickListener(v -> {
-                                // Copy to clipboard
-                                android.content.ClipboardManager clipboard = 
-                                    (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                                android.content.ClipData clip = 
-                                    android.content.ClipData.newPlainText("Session Passkey", passkey);
-                                clipboard.setPrimaryClip(clip);
-                                Toast.makeText(WatchSessionActivity.this, 
-                                    "Session code copied to clipboard", Toast.LENGTH_SHORT).show();
-                            });
-                        } else {
-                            // Hide the entire passkey section if no passkey is available
-                            passkeySection.setVisibility(View.GONE);
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        if (!dataSnapshot.exists()) {
+                            Toast.makeText(WatchSessionActivity.this, "Session data not found.", Toast.LENGTH_SHORT).show();
+                            return;
                         }
                         
-                        // Get connected cameras
-                        DataSnapshot connectedCamerasSnapshot = task.getResult().child("join_requests");
+                        // Handle passkey visibility based on host
+                        String hostEmail = dataSnapshot.child("host_email").getValue(String.class);
+                        boolean isHost = userEmail.equals(hostEmail);
+                        
+                        if (isHost) {
+                            passkeySection.setVisibility(View.VISIBLE);
+                            String passkey = dataSnapshot.child("passkey").getValue(String.class);
+                            if (passkey != null) {
+                                sessionPasskeyView.setText(passkey);
+                                copyPasskeyButton.setOnClickListener(v -> {
+                                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                                    android.content.ClipData clip = android.content.ClipData.newPlainText("Session Passkey", passkey);
+                                    clipboard.setPrimaryClip(clip);
+                                    Toast.makeText(WatchSessionActivity.this, "Passkey copied!", Toast.LENGTH_SHORT).show();
+                                });
+                            } else {
+                                sessionPasskeyView.setText("N/A");
+                                copyPasskeyButton.setEnabled(false);
+                            }
+                        } else {
+                            passkeySection.setVisibility(View.GONE);
+                        }
+
+                        // Handle connected cameras
+                        DataSnapshot connectedCamerasSnapshot = dataSnapshot.child("join_requests");
                         int cameraCount = 0;
                         
                         if (connectedCamerasSnapshot.exists()) {
@@ -1402,15 +1410,24 @@ public class WatchSessionActivity extends AppCompatActivity {
                             connectedCamerasContainer.setVisibility(View.GONE);
                         }
                     }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+                        Log.e(TAG, "Error reading session data", databaseError.toException());
+                        Toast.makeText(WatchSessionActivity.this, "Failed to load session info", Toast.LENGTH_SHORT).show();
+                    }
                 });
-    
-        AlertDialog dialog = builder.create();
-    
+
+        sessionInfoDialog = builder.create(); // Assign the created dialog
+
         // Set up close button
-        closeButton.setOnClickListener(v -> dialog.dismiss());
-    
+        closeButton.setOnClickListener(v -> sessionInfoDialog.dismiss());
+
+        // Clear the reference when the dialog is dismissed
+        sessionInfoDialog.setOnDismissListener(dialogInterface -> sessionInfoDialog = null);
+
         // Show the dialog
-        dialog.show();
+        sessionInfoDialog.show();
     }
 
     /**

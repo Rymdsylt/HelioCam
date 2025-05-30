@@ -397,7 +397,6 @@ public class CameraActivity extends AppCompatActivity {
         });
 
         View settingsButton = findViewById(R.id.settings_button);
-        registerForContextMenu(settingsButton);
         settingsButton.setOnClickListener(v -> {
             // Show context menu on regular click instead of requiring long press
             settingsButton.showContextMenu();

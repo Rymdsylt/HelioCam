@@ -1125,13 +1125,13 @@ public class RTCJoiner {
             String formattedCameraEmail = currentUserEmail.replace(".", "_");
             
             // Create enhanced universal notification with complete metadata
-            Map<String, Object> universalNotificationData = new HashMap<>();
-            universalNotificationData.put("reason", notificationReason + " at " + sessionName);
-            universalNotificationData.put("date", dateString);
-            universalNotificationData.put("time", timeString);
+            Map<String, Object> universalNotificationDataJoiner = new HashMap<>();
+            universalNotificationDataJoiner.put("reason", notificationReason + " at " + sessionName);
+            universalNotificationDataJoiner.put("date", dateString);
+            universalNotificationDataJoiner.put("time", timeString);
             
             // Add the same complete metadata for universal notifications
-            universalNotificationData.put("metadata", completeMetadata);
+            universalNotificationDataJoiner.put("metadata", completeMetadata);
             
             DatabaseReference universalNotifRef = FirebaseDatabase.getInstance()
                     .getReference("users")
@@ -1139,14 +1139,43 @@ public class RTCJoiner {
                     .child("universal_notifications")
                     .child(eventId);
                 
-            universalNotifRef.setValue(universalNotificationData)
+            universalNotifRef.setValue(universalNotificationDataJoiner)
                     .addOnSuccessListener(aVoid -> {
-                        Log.d(TAG, "Enhanced universal notification saved successfully");
+                        Log.d(TAG, "Enhanced universal notification saved successfully for joiner");
                     })
                     .addOnFailureListener(e -> {
-                        Log.e(TAG, "Failed to save enhanced universal notification", e);
+                        Log.e(TAG, "Failed to save enhanced universal notification for joiner", e);
                     });
         }
+
+        // 4. Save to HOST'S universal notifications
+        Map<String, Object> universalNotificationDataHost = new HashMap<>();
+        String hostNotificationReason = String.format(Locale.US, "Detection in '%s': %s by Camera %d",
+                                            sessionName,
+                                            detectionType.equals("person") ? "Person detected" : "Sound detected",
+                                            cameraNumber);
+        universalNotificationDataHost.put("reason", hostNotificationReason);
+        universalNotificationDataHost.put("date", dateString);
+        universalNotificationDataHost.put("time", timeString);
+
+        // Create a copy of completeMetadata to add the host-specific flag
+        Map<String, Object> hostUniversalMetadata = new HashMap<>(completeMetadata);
+        hostUniversalMetadata.put("isHostNotification", true); // Add the flag here
+        universalNotificationDataHost.put("metadata", hostUniversalMetadata); // Use the modified metadata
+
+        DatabaseReference hostUniversalNotifRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(formattedHostEmail) // HOST'S EMAIL
+                .child("universal_notifications")
+                .child(eventId);
+
+        hostUniversalNotifRef.setValue(universalNotificationDataHost)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Enhanced universal notification saved successfully for HOST");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to save enhanced universal notification for HOST", e);
+                });
 
         Log.d(TAG, "Enhanced detection event reported: " + detectionType + " at " + timeString + " for session: " + sessionName);
     }

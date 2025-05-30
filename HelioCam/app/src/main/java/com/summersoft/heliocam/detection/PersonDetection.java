@@ -380,6 +380,20 @@ public class PersonDetection implements VideoSink {
                 
                 // Cast context to CameraActivity to access recording methods
                 CameraActivity cameraActivity = (CameraActivity) context;
+
+                // Check if CameraActivity is already recording
+                if (cameraActivity.isRecording()) {
+                    Log.i(TAG, "Camera is already recording. Not starting new recording. Sending notification only.");
+                    uiHandler.post(() -> {
+                        Toast.makeText(context, 
+                                "Person detected during existing recording!", 
+                                Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, "Person detected during recording toast displayed");
+                    });
+                    // Reset isRecordingVideo as we are not actually starting a new one here.
+                    isRecordingVideo.set(false);
+                    return;
+                }
                 
                 // Start recording using existing CameraActivity method
                 if (cameraActivity.startRecordingFromDetection("Person_Detected")) {
@@ -899,14 +913,21 @@ public class PersonDetection implements VideoSink {
             // Handle UI updates and recording on main thread immediately
             uiHandler.post(() -> {
                 try {
+                    CameraActivity cameraActivity = (CameraActivity) context;
                     // Show toast notification immediately
-                    Toast.makeText(context, "Person detected! (" + personCount + ")", Toast.LENGTH_SHORT).show();
+                    if (cameraActivity.isRecording()) {
+                         Toast.makeText(context, "Person detected during ongoing recording! (" + personCount + ")", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(context, "Person detected! (" + personCount + ")", Toast.LENGTH_SHORT).show();
+                    }
                     Log.d(TAG, "Toast notification displayed");
                     
-                    // Start recording immediately if auto recording is enabled
-                    if (autoRecordingEnabled) {
+                    // Start recording immediately if auto recording is enabled AND NOT ALREADY RECORDING
+                    if (autoRecordingEnabled && !cameraActivity.isRecording()) {
                         Log.d(TAG, "Starting automatic recording...");
                         startTimedVideoRecording();
+                    } else if (autoRecordingEnabled && cameraActivity.isRecording()) {
+                        Log.d(TAG, "Auto recording enabled, but already recording. Not starting new recording.");
                     } else {
                         Log.d(TAG, "Auto recording disabled - skipping video recording");
                     }
@@ -999,12 +1020,15 @@ public class PersonDetection implements VideoSink {
             } else {
                 Log.w(TAG, "WebRTC client is null, cannot report detection");
             }
-
-            // Start video recording only if auto recording is enabled
-            if (autoRecordingEnabled) {
+            
+            CameraActivity cameraActivity = (CameraActivity) context;
+            // Start video recording only if auto recording is enabled AND NOT ALREADY RECORDING
+            if (autoRecordingEnabled && !cameraActivity.isRecording()) {
                 startTimedVideoRecording();
                 Log.d(TAG, "Auto recording enabled - starting video recording");
-            } else {
+            } else if (autoRecordingEnabled && cameraActivity.isRecording()){
+                 Log.d(TAG, "Auto recording enabled, but already recording. Not starting new recording, just notifying.");
+            }else {
                 Log.d(TAG, "Auto recording disabled - skipping video recording");
             }
             
@@ -1140,5 +1164,13 @@ public class PersonDetection implements VideoSink {
                 Log.e(TAG, "Error in test detection: " + e.getMessage());
             }
         });
+    }
+
+    /**
+     * Check if the detection process is currently running.
+     * @return true if running, false otherwise.
+     */
+    public boolean isRunning() {
+        return isRunning.get();
     }
 }

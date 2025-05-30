@@ -169,11 +169,11 @@ public class SoundDetection {
                     // Report sound detection with enhanced data
                     webRTCClient.reportDetectionEvent("sound", detectionData);
                     
-                    // Take screenshot if needed (keep this functionality)
-                    String sessionId = ((CameraActivity) context).getSessionId();
-                    if (sessionId != null) {
-                        captureAndUploadScreenshot(sessionId);
-                    }
+                    // REMOVED: Take screenshot if needed (keep this functionality)
+                    // String sessionId = ((CameraActivity) context).getSessionId();
+                    // if (sessionId != null) {
+                    // captureAndUploadScreenshot(sessionId);
+                    // }
                 } catch (Exception e) {
                     Log.e("SoundDetection", "Error reporting sound detection", e);
                 }
@@ -189,32 +189,33 @@ public class SoundDetection {
     }
 
     private void captureAndUploadScreenshot(String sessionId) {
-        CameraActivity cameraActivity = (CameraActivity) context;
+        // CameraActivity cameraActivity = (CameraActivity) context;
 
         // Capture the camera view as a bitmap
-        cameraActivity.captureCameraView(bitmap -> {
-            if (bitmap != null) {
-                try {
-                    // Try to save locally first
-                    boolean saved = saveSoundDetectionImage(bitmap, sessionId);
+        // cameraActivity.captureCameraView(bitmap -> {
+        // if (bitmap != null) {
+        // try {
+        // Try to save locally first
+        // boolean saved = saveSoundDetectionImage(bitmap, sessionId);
 
-                    // If not saved locally, upload to Firebase as fallback
-                    if (!saved) {
-                        // Save the bitmap to a temporary file for Firebase upload
-                        File tempFile = File.createTempFile("screenshot", ".png", context.getCacheDir());
-                        FileOutputStream fos = new FileOutputStream(tempFile);
-                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
-                        fos.close();
+        // If not saved locally, upload to Firebase as fallback
+        // if (!saved) {
+        // Save the bitmap to a temporary file for Firebase upload
+        // File tempFile = File.createTempFile("screenshot", ".png", context.getCacheDir());
+        // FileOutputStream fos = new FileOutputStream(tempFile);
+        // bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+        // fos.close();
 
-                        // Upload the file to Firebase Storage
+        // Upload the file to Firebase Storage
 
-                    }
-                } catch (Exception e) {
-                    Log.e("SoundDetection", "Error saving screenshot", e);
-                }
-            } else {
-                Log.w("SoundDetection", "Failed to capture camera view.");
-            }        });
+        // }
+        // } catch (Exception e) {
+        // Log.e("SoundDetection", "Error saving screenshot", e);
+        // }
+        // } else {
+        // Log.w("SoundDetection", "Failed to capture camera view.");
+        // } });
+        Log.d("SoundDetection", "Screenshot capture and upload logic has been removed.");
     }
     
     // Track if we've shown the directory prompt during this session
@@ -237,11 +238,11 @@ public class SoundDetection {
                         out.close();
 
                         handler.post(() -> Toast.makeText(context,
-                                "Sound detected - Image saved",
+                                "Sound detected - Image saved logic removed", // Changed message
                                 Toast.LENGTH_SHORT).show());
 
-                        Log.d("SoundDetection", "Detection image saved to: " + newFile.getUri());
-                        return true;
+                        Log.d("SoundDetection", "Sound detection image saving logic removed. Path was: " + newFile.getUri());
+                        return true; // Still return true as if saved, to not break flow if called.
                     }
                 }
             } else {
@@ -250,7 +251,7 @@ public class SoundDetection {
                     hasPromptedForDirectory = true;
                     directoryManager.setPromptedForDirectory(true);
                     handler.post(() -> {
-                        Toast.makeText(context, "Please select a folder to save detection data", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(context, "Please select a folder to save detection data (image saving disabled for sound)", Toast.LENGTH_SHORT).show();
                         if (context instanceof CameraActivity) {
                             ((CameraActivity) context).openDirectoryPicker();
                         }
@@ -262,23 +263,23 @@ public class SoundDetection {
             File detectionDir = directoryManager.getAppStorageDirectory("Sound_Detections");
             File imageFile = new File(detectionDir, fileName);
 
-            FileOutputStream fos = new FileOutputStream(imageFile);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, fos);
-            fos.close();
+            // FileOutputStream fos = new FileOutputStream(imageFile);
+            // bitmap.compress(Bitmap.CompressFormat.JPEG, 95, fos);
+            // fos.close();
 
-            Log.d("SoundDetection", "Sound detection image saved to app storage: " + imageFile.getAbsolutePath());
+            Log.d("SoundDetection", "Sound detection image saving to app storage logic removed. Path was: " + imageFile.getAbsolutePath());
             handler.post(() -> Toast.makeText(context,
-                    "Sound detected - Image saved to app storage",
+                    "Sound detected - Image saving to app storage logic removed", // Changed message
                     Toast.LENGTH_SHORT).show());
 
             // Add to media scanner
-            MediaScannerConnection.scanFile(context,
-                    new String[]{imageFile.getAbsolutePath()},
-                    new String[]{"image/jpeg"}, null);
+            // MediaScannerConnection.scanFile(context,
+            // new String[]{imageFile.getAbsolutePath()},
+            // new String[]{"image/jpeg"}, null);
 
-            return true;
+            return true; // Still return true as if saved.
         } catch (Exception e) {
-            Log.e("SoundDetection", "Error saving sound detection image", e);
+            Log.e("SoundDetection", "Error in (removed) sound detection image saving logic", e);
             return false;
         }
     }

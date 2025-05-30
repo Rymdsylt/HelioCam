@@ -346,7 +346,9 @@ public class WatchSessionActivity extends AppCompatActivity {
         }
 
         // Start the timestamp update scheduler
-        startTimestampUpdates();        participantsCount.setOnClickListener(v -> {
+        startTimestampUpdates();
+        
+        participantsCount.setOnClickListener(v -> {
             // Show detailed participant list when count is clicked
             showParticipantListDialog();
         });
@@ -1734,7 +1736,9 @@ public class WatchSessionActivity extends AppCompatActivity {
         if (feedContainer2 != null && feedContainer2.getVisibility() == View.VISIBLE) count++;
         if (feedContainer3 != null && feedContainer3.getVisibility() == View.VISIBLE) count++;
         if (feedContainer4 != null && feedContainer4.getVisibility() == View.VISIBLE) count++;        return count;
-    }    /**
+    }
+
+    /**
      * Set up click listeners for focus mode functionality
      */
     private void setupFocusModeClickListeners() {
@@ -1743,83 +1747,39 @@ public class WatchSessionActivity extends AppCompatActivity {
         View feedContainer3 = findViewById(R.id.feed_container_3);
         View feedContainer4 = findViewById(R.id.feed_container_4);
 
-        // Set up gesture detector for double tap to exit focus mode
-        GestureDetector gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
-            @Override
-            public boolean onDoubleTap(MotionEvent e) {
-                if (isInFocusMode) {
-                    exitFocusMode();
-                    return true;
-                }
-                return false;
+        View[] containers = {feedContainer1, feedContainer2, feedContainer3, feedContainer4};
+
+        for (View container : containers) {
+            if (container != null) {
+                final View currentFocusableView = container; // Make effectively final for use in listener
+
+                GestureDetector detector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+                    @Override
+                    public boolean onDoubleTap(MotionEvent e) {
+                        if (isInFocusMode) {
+                            // Any double tap when in focus mode will exit.
+                            exitFocusMode();
+                            return true;
+                        }
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onSingleTapConfirmed(MotionEvent e) {
+                        // Single tap on 'currentFocusableView'
+                        if (!isInFocusMode && currentFocusableView.getVisibility() == View.VISIBLE) {
+                            enterFocusMode(currentFocusableView);
+                            return true;
+                        }
+                        return false;
+                    }
+                });
+
+                // Set the OnTouchListener for the container to use the GestureDetector
+                // The return value of detector.onTouchEvent(event) is important for gesture handling.
+                container.setOnTouchListener((v, event) -> detector.onTouchEvent(event));
             }
-
-            @Override
-            public boolean onSingleTapConfirmed(MotionEvent e) {
-                // Handle single tap for entering focus mode
-                View tappedView = null;
-                
-                // Find which container was tapped based on coordinates
-                float x = e.getX();
-                float y = e.getY();
-                
-                if (feedContainer1 != null && feedContainer1.getVisibility() == View.VISIBLE && 
-                    isPointInsideView(x, y, feedContainer1)) {
-                    tappedView = feedContainer1;
-                } else if (feedContainer2 != null && feedContainer2.getVisibility() == View.VISIBLE && 
-                    isPointInsideView(x, y, feedContainer2)) {
-                    tappedView = feedContainer2;
-                } else if (feedContainer3 != null && feedContainer3.getVisibility() == View.VISIBLE && 
-                    isPointInsideView(x, y, feedContainer3)) {
-                    tappedView = feedContainer3;
-                } else if (feedContainer4 != null && feedContainer4.getVisibility() == View.VISIBLE && 
-                    isPointInsideView(x, y, feedContainer4)) {
-                    tappedView = feedContainer4;
-                }
-                
-                if (tappedView != null && !isInFocusMode) {
-                    enterFocusMode(tappedView);
-                    return true;
-                }
-                
-                return false;
-            }
-        });
-
-        // Set touch listeners for each feed container
-        View.OnTouchListener touchListener = (v, event) -> {
-            gestureDetector.onTouchEvent(event);
-            return true;
-        };
-
-        if (feedContainer1 != null) {
-            feedContainer1.setOnTouchListener(touchListener);
         }
-
-        if (feedContainer2 != null) {
-            feedContainer2.setOnTouchListener(touchListener);
-        }
-
-        if (feedContainer3 != null) {
-            feedContainer3.setOnTouchListener(touchListener);
-        }
-
-        if (feedContainer4 != null) {
-            feedContainer4.setOnTouchListener(touchListener);
-        }
-    }
-
-    /**
-     * Helper method to check if a point is inside a view
-     */
-    private boolean isPointInsideView(float x, float y, View view) {
-        int[] location = new int[2];
-        view.getLocationOnScreen(location);
-        int viewX = location[0];
-        int viewY = location[1];
-        
-        return (x >= viewX && x <= (viewX + view.getWidth()) &&
-                y >= viewY && y <= (viewY + view.getHeight()));
     }
 
     /**

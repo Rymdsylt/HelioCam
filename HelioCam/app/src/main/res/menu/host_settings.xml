@@ -4,14 +4,14 @@
     <item
         android:id="@+id/option_1"
         android:title="Detection Settings" />
-    <item
+    <!-- <item
         android:id="@+id/option_2"
-        android:title="Replay Buffer Settings" />
+        android:title="Replay Buffer Settings" /> -->
     <item
         android:id="@+id/option_3"
         android:title="Record" />
-    <item
+    <!-- <item
         android:id="@+id/option_4"
-        android:title="Replay Buffer" />
+        android:title="Replay Buffer" /> -->
 
 </menu>

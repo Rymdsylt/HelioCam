@@ -150,11 +150,11 @@ public class HistoryFragment extends Fragment {
      */
     private void clearAllSessions() {
         if (mAuth.getCurrentUser() != null) {
-            String userId = mAuth.getCurrentUser().getUid();
+            String userEmail = mAuth.getCurrentUser().getEmail().replace(".", "_");
             DatabaseReference userSessionsRef = FirebaseDatabase.getInstance()
                 .getReference("users")
-                .child(userId)
-                .child("sessions");
+                .child(userEmail)
+                .child("session_history");
                 
             // Remove all sessions
             userSessionsRef.removeValue()

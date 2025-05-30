@@ -167,7 +167,6 @@ public class CameraActivity extends AppCompatActivity {
     }    @Override
     public void onBackPressed() {
         // Create a confirmation dialog
-        super.onBackPressed();
         new AlertDialog.Builder(this)
                 .setTitle("Leave Session")
                 .setMessage("Are you sure you want to leave this session?")
@@ -398,7 +397,6 @@ public class CameraActivity extends AppCompatActivity {
         });
 
         View settingsButton = findViewById(R.id.settings_button);
-        registerForContextMenu(settingsButton);
         settingsButton.setOnClickListener(v -> {
             // Show context menu on regular click instead of requiring long press
             settingsButton.showContextMenu();

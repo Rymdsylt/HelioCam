@@ -167,7 +167,6 @@ public class CameraActivity extends AppCompatActivity {
     }    @Override
     public void onBackPressed() {
         // Create a confirmation dialog
-        super.onBackPressed();
         new AlertDialog.Builder(this)
                 .setTitle("Leave Session")
                 .setMessage("Are you sure you want to leave this session?")

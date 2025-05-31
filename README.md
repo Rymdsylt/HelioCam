@@ -5,7 +5,7 @@
 [![Firebase](https://img.shields.io/badge/Backend-Firebase-orange.svg)](https://firebase.google.com/)
 [![Java](https://img.shields.io/badge/Language-Java-red.svg)](https://www.java.com/)
 
-> A native Android surveillance application that enables real-time multi-camera monitoring with AI-powered detection capabilities using WebRTC technology.
+A native Android surveillance application that enables real-time multi-camera monitoring with AI-powered detection capabilities using WebRTC technology.
 
 ## 🌟 Features
 

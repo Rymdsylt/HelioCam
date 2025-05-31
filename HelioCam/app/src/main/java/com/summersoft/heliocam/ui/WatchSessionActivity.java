@@ -1334,7 +1334,9 @@ public class WatchSessionActivity extends AppCompatActivity {
                         
                         // Handle passkey visibility based on host
                         String hostEmail = dataSnapshot.child("host_email").getValue(String.class);
-                        boolean isHost = userEmail.equals(hostEmail);
+                        // Get the current user's email without modification for comparison
+                        String currentUserEmail = mAuth.getCurrentUser().getEmail(); 
+                        boolean isHost = currentUserEmail != null && currentUserEmail.equals(hostEmail);
                         
                         if (isHost) {
                             passkeySection.setVisibility(View.VISIBLE);

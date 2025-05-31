@@ -90,10 +90,11 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:background="#262626"
+                    android:background="#2C2C2C"
                     android:padding="16dp"
                     android:layout_marginBottom="16dp"
-                    android:gravity="center">
+                    android:gravity="center"
+                    android:visibility="gone">
 
                     <TextView
                         android:layout_width="match_parent"
@@ -109,27 +110,29 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="16dp"
-                        android:background="#FF9800"
+                        android:background="@drawable/passkey_background"
                         android:letterSpacing="0.15"
-                        android:paddingStart="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingEnd="16dp"
-                        android:paddingBottom="8dp"
+                        android:paddingStart="20dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="20dp"
+                        android:paddingBottom="10dp"
                         android:text="ABCDEF"
                         android:textAlignment="center"
-                        android:textColor="#795548"
-                        android:textSize="26sp"
+                        android:textColor="#FFFFFF"
+                        android:textSize="28sp"
                         android:textStyle="bold" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/copy_passkey_button"
-                        android:layout_width="match_parent"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Copy Session Code"
-                        app:icon="@android:drawable/ic_menu_share"
+                        android:text="Copy Code"
+                        app:icon="@drawable/baseline_content_copy_24"
+                        app:iconTint="#FFFFFF"
                         app:cornerRadius="8dp"
                         app:backgroundTint="#FF9800"
-                        android:textColor="#FFFFFF" />
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="24dp"/>
                 </LinearLayout>
 
                 <!-- Session Stats Section -->

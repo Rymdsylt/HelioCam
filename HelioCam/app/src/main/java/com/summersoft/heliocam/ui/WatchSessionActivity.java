@@ -74,7 +74,6 @@ public class WatchSessionActivity extends AppCompatActivity {
 
     // UI state
     private boolean isAudioEnabled = true;
-    private boolean ignoreJoinRequests = false;
     private ValueEventListener joinRequestsListener;
 
     // Camera status views
@@ -477,7 +476,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                 
                 // Update UI based on whether we have pending join requests
                 if (joinRequestNotification != null) {
-                    joinRequestNotification.setVisibility(hasJoinRequests && !ignoreJoinRequests ? 
+                    joinRequestNotification.setVisibility(hasJoinRequests ? 
                             View.VISIBLE : View.GONE);
                 }
                 
@@ -835,11 +834,6 @@ public class WatchSessionActivity extends AppCompatActivity {
                             // Create custom view
                             View customView = LayoutInflater.from(this).inflate(R.layout.dialog_join_requests, null);
                             GridLayout requestsGrid = customView.findViewById(R.id.requests_grid);
-                            CheckBox ignoreCheckbox = customView.findViewById(R.id.ignore_checkbox);
-
-                            if (ignoreCheckbox != null) {
-                                ignoreCheckbox.setChecked(ignoreJoinRequests);
-                            }
 
                             // Add join requests to the grid
                             if (requestsGrid != null) {
@@ -887,11 +881,6 @@ public class WatchSessionActivity extends AppCompatActivity {
 
                             // Add close button
                             builder.setPositiveButton("Close", (dialog, which) -> {
-                                // Update ignore preference
-                                if (ignoreCheckbox != null) {
-                                    ignoreJoinRequests = ignoreCheckbox.isChecked();
-                                }
-
                                 dialog.dismiss();
                                 joinRequestDialog = null;
                             });
@@ -1204,6 +1193,7 @@ public class WatchSessionActivity extends AppCompatActivity {
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         Toast.makeText(this, "Request rejected", Toast.LENGTH_SHORT).show();
+                        dismissJoinRequestDialog();
                     } else {
                         Toast.makeText(this, "Failed to reject request", Toast.LENGTH_SHORT).show();
                     }

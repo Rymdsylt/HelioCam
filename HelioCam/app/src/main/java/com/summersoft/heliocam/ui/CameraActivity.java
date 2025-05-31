@@ -204,30 +204,67 @@ public class CameraActivity extends AppCompatActivity {
         finish();
     }// Dispose resources properly
     private void disposeResources() {
-        if (videoCapturer != null) {
-            try {
-                videoCapturer.stopCapture();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            videoCapturer.dispose();
+        Log.d(TAG, "Disposing CameraActivity resources...");
+
+        // Stop timestamp updates
+        if (timestampRunnable != null) {
+            timestampHandler.removeCallbacks(timestampRunnable);
+            timestampRunnable = null;
         }
-        if (peerConnectionFactory != null) {
-            peerConnectionFactory.dispose();
+
+        // Stop recording if active
+        if (isRecording) {
+            stopRecording();
         }
-        if (rootEglBase != null) {
-            rootEglBase.release();
+        if (isReplayBufferRunning) {
+            stopReplayBuffer();
         }
-          // Ensure proper bitmap cleanup
+
+        // Stop sound detection
+        if (soundDetection != null) {
+            soundDetection.stopDetection();
+            soundDetection = null;
+        }
+
+        // Shutdown person detection
         if (personDetection != null) {
             personDetection.shutdown();
+            personDetection = null;
         } else {
             // If personDetection is null but we still need to clean up bitmap resources
             com.summersoft.heliocam.utils.ImageUtils.clearBitmapPool();
             com.summersoft.heliocam.utils.ImageUtils.clearDetectionBitmapPool();
         }
-        
-        Log.d("CameraActivity", "Resources disposed successfully.");
+
+        // Dispose RTCJoiner (handles camera, audio, WebRTC)
+        if (rtcJoiner != null) {
+            if (!rtcJoiner.isDisposed()) { // Check if not already disposed
+                rtcJoiner.dispose();
+            }
+            rtcJoiner = null;
+        }
+
+        // Release WebRTC factory and EGL base (these are often managed by RTCJoiner, but good to double-check)
+        // However, RTCJoiner's dispose should handle these. Direct disposal here might be redundant or cause errors if RTCJoiner already did it.
+        // Let's rely on rtcJoiner.dispose() for these for now.
+        /*
+        if (peerConnectionFactory != null) {
+            peerConnectionFactory.dispose();
+            peerConnectionFactory = null;
+        }
+        if (rootEglBase != null) {
+            rootEglBase.release();
+            rootEglBase = null;
+        }
+        */
+        // videoCapturer, videoTrack, peerConnectionFactory, rootEglBase are part of RTCJoiner
+        // and should be cleaned up by rtcJoiner.dispose(). Avoid double disposal.
+        videoCapturer = null;
+        videoTrack = null;
+        peerConnectionFactory = null;
+        rootEglBase = null;
+
+        Log.d("CameraActivity", "CameraActivity resources disposed.");
     }@Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -364,6 +401,12 @@ public class CameraActivity extends AppCompatActivity {
 
         // Set up button click listeners
         setupButtonListeners();
+
+        // Register the settings button for the context menu
+        View settingsButton = findViewById(R.id.settings_button);
+        if (settingsButton != null) {
+            registerForContextMenu(settingsButton);
+        }
         
         // Fetch and display session information
         fetchSessionName();

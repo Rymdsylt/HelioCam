@@ -5,6 +5,11 @@
       <config />
     </shared>
     <layouts>
+      <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/drawable/baseline_content_copy_24.xml">
+        <config>
+          <theme>@style/Theme.HelioCam</theme>
+        </config>
+      </layout>
       <layout url="file://$PROJECT_DIR$/HelioCam/app/src/main/res/drawable/circle_background.xml">
         <config>
           <theme>@style/Theme.HelioCam</theme>
@@ -302,8 +307,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d86d46c7-c8e5-45c8-b79d-617f6e354eab" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/drawable/baseline_content_copy_24.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/assetWizardSettings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/assetWizardSettings.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/detection/SoundDetection.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/detection/SoundDetection.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/CameraActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/CameraActivity.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/WatchSessionActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/java/com/summersoft/heliocam/ui/WatchSessionActivity.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/dialog_session_info.xml" beforeDir="false" afterPath="$PROJECT_DIR$/HelioCam/app/src/main/res/layout/dialog_session_info.xml" afterDir="false" />
     </list>
@@ -315,7 +321,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\david\.android\avd\Pixel_6_Pro.avd)]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\david\.android\avd\Pixel_6_Pro.avd), DeviceId(pluginId=PhysicalDevice, isTemplate=false, identifier=serial=R5CRB2GF6DZ)]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$/HelioCam">
       <ProjectState />

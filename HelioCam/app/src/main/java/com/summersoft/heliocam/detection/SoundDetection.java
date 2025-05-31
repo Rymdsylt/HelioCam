@@ -84,6 +84,7 @@ public class SoundDetection {
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(context, "Microphone permission is not granted", Toast.LENGTH_SHORT).show();
+            Log.e("SoundDetection", "Microphone permission not granted. Cannot start detection.");
             return;
         }
 
@@ -92,11 +93,28 @@ public class SoundDetection {
                 android.media.AudioFormat.CHANNEL_IN_MONO,
                 android.media.AudioFormat.ENCODING_PCM_16BIT);
 
+        if (bufferSize == AudioRecord.ERROR_BAD_VALUE || bufferSize == AudioRecord.ERROR) {
+            Log.e("SoundDetection", "Invalid buffer size for AudioRecord: " + bufferSize);
+            Toast.makeText(context, "Failed to initialize audio recorder.", Toast.LENGTH_SHORT).show();
+            isRunning = false;
+            return;
+        }
+
         audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE,
                 android.media.AudioFormat.CHANNEL_IN_MONO,
                 android.media.AudioFormat.ENCODING_PCM_16BIT, bufferSize);
 
+        if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
+            Log.e("SoundDetection", "AudioRecord failed to initialize.");
+            Toast.makeText(context, "AudioRecord failed to initialize.", Toast.LENGTH_SHORT).show();
+            isRunning = false;
+            audioRecord.release();
+            audioRecord = null;
+            return;
+        }
+
         audioRecord.startRecording();
+        Log.d("SoundDetection", "AudioRecord started. Threshold: " + soundThreshold + ", Latency: " + detectionLatency + "ms");
 
         detectionThread = new Thread(() -> {
             short[] buffer = new short[bufferSize];
@@ -104,15 +122,34 @@ public class SoundDetection {
                 int read = audioRecord.read(buffer, 0, bufferSize);
                 if (read > 0) {
                     int amplitude = calculateAmplitude(buffer, read);
+                    // Log.v("SoundDetection", "Calculated Amplitude: " + amplitude); // Verbose logging, uncomment if needed
                     if (amplitude > soundThreshold) {
+                        Log.d("SoundDetection", "Amplitude " + amplitude + " exceeded threshold " + soundThreshold);
                         long currentTime = System.currentTimeMillis();
                         if (currentTime - lastDetectionTime > detectionLatency) {
                             lastDetectionTime = currentTime;
-                            triggerSoundDetected();
-                            onSoundDetected(amplitude);
+                            Log.i("SoundDetection", "Sound detected! Amplitude: " + amplitude + ". Triggering event.");
+                            triggerSoundDetected(amplitude); // Pass the actual amplitude
+                        } else {
+                            // Log.d("SoundDetection", "Sound detected but within latency period. Amplitude: " + amplitude);
                         }
                     }
+                } else if (read == AudioRecord.ERROR_INVALID_OPERATION) {
+                    Log.e("SoundDetection", "AudioRecord read error: ERROR_INVALID_OPERATION");
+                } else if (read == AudioRecord.ERROR_BAD_VALUE) {
+                    Log.e("SoundDetection", "AudioRecord read error: ERROR_BAD_VALUE");
+                } else if (read == AudioRecord.ERROR_DEAD_OBJECT) {
+                    Log.e("SoundDetection", "AudioRecord read error: ERROR_DEAD_OBJECT. Stopping detection.");
+                    isRunning = false; // Stop the loop if the recorder is dead
+                } else if (read == AudioRecord.ERROR) {
+                    Log.e("SoundDetection", "AudioRecord read error: ERROR");
                 }
+            }
+            Log.d("SoundDetection", "Detection thread finishing.");
+            if (audioRecord != null) {
+                audioRecord.stop();
+                audioRecord.release();
+                audioRecord = null;
             }
         });
         detectionThread.start();
@@ -122,19 +159,27 @@ public class SoundDetection {
      * Stops the sound detection.
      */
     public void stopDetection() {
-        if (!isRunning) return;
+        Log.d("SoundDetection", "Stopping sound detection...");
+        if (!isRunning) {
+            Log.d("SoundDetection", "Detection not running.");
+            return;
+        }
 
         isRunning = false;
-        if (audioRecord != null) {
-            audioRecord.stop();
-            audioRecord.release();
-            audioRecord = null;
-        }
-
         if (detectionThread != null) {
             detectionThread.interrupt();
+            try {
+                detectionThread.join(500); // Wait for thread to finish
+            } catch (InterruptedException e) {
+                Log.e("SoundDetection", "Interrupted while joining detection thread", e);
+                Thread.currentThread().interrupt();
+            }
             detectionThread = null;
         }
+
+        // audioRecord is now released inside the detectionThread loop when isRunning is false
+        // or if it was never started due to an error.
+        Log.d("SoundDetection", "Sound detection stopped.");
     }
 
     private int calculateAmplitude(short[] buffer, int length) {
@@ -143,23 +188,24 @@ public class SoundDetection {
             sum += Math.abs(buffer[i]);
         }
         return sum / length;
-    }    // In SoundDetection.java, modify triggerSoundDetected() method:
-    private void triggerSoundDetected() {
+    }
+
+    private void triggerSoundDetected(int actualAmplitude) {
         handler.post(() -> {
             // Always show toast regardless of notification settings
-            Toast.makeText(context, "Sound Detected!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, "Sound Detected! (Amplitude: " + actualAmplitude + ")", Toast.LENGTH_SHORT).show();
 
             // Always report detection to host first (for live monitoring)
             if (webRTCClient != null) {
                 try {
                     // Get amplitude for reporting (use actual calculated value)
-                    double amplitude = soundThreshold * 1.5; // Estimate based on threshold exceeded
+                    // double amplitude = soundThreshold * 1.5; // Estimate based on threshold exceeded // REMOVED
                     
-                    Log.d("SoundDetection", "Reporting sound detection to host with amplitude: " + amplitude);
+                    Log.d("SoundDetection", "Reporting sound detection to host with actual amplitude: " + actualAmplitude);
 
                     // Create enhanced detection data with all details needed for notification card
                     Map<String, Object> detectionData = new HashMap<>();
-                    detectionData.put("amplitude", amplitude);
+                    detectionData.put("amplitude", actualAmplitude); // USE ACTUAL AMPLITUDE
                     detectionData.put("threshold", soundThreshold);
                     detectionData.put("confidence", "high");
                     detectionData.put("detectionMethod", "audioRecord");
@@ -292,13 +338,22 @@ public class SoundDetection {
      */
     public int getSoundThreshold() {
         return soundThreshold;
-    }    /**
+    }
+
+    /**
      * Get the current detection latency.
      *
-     * @return the latency in seconds
+     * @return the latency in milliseconds
      */
     public long getDetectionLatency() {
-        return detectionLatency/1000;
+        return detectionLatency; // Return raw milliseconds for internal consistency if needed elsewhere
+    }
+
+    /**
+     * Get the current detection latency in seconds for display or user input.
+     */
+    public long getDetectionLatencySeconds() {
+        return detectionLatency / 1000;
     }
 
     /**
@@ -316,7 +371,8 @@ public class SoundDetection {
         
         // Report using the method in RTCJoiner
         if (webRTCClient != null) {
-            webRTCClient.reportSoundDetection(amplitude);
+            // webRTCClient.reportSoundDetection(amplitude); // This call is now effectively handled by triggerSoundDetected
+            Log.d("SoundDetection", "onSoundDetected: Reporting logic is now within triggerSoundDetected.");
         } else {
             Log.w("SoundDetection", "Cannot report sound detection - webRTCClient is null");
         }

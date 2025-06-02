@@ -48,6 +48,9 @@ public class PopulateNotifs {
     private final Map<String, NotificationData> notificationMap = new HashMap<>();
     private static PopulateNotifs activeInstance;
     
+    // Add a context field to store it reliably
+    private Context instanceContext;
+    
     // Add a flag to prevent multiple simultaneous fetches
     private volatile boolean isCurrentlyFetching = false;
     
@@ -59,6 +62,9 @@ public class PopulateNotifs {
             return;
         }
         
+        // Store the passed context
+        this.instanceContext = context;
+
         // Prevent multiple simultaneous fetches with synchronized block
         synchronized (this) {
             if (isCurrentlyFetching) {
@@ -252,26 +258,75 @@ public class PopulateNotifs {
                             String time = notificationSnapshot.child("time").getValue(String.class);
                             String date = notificationSnapshot.child("date").getValue(String.class);
 
+                            Map<String, Object> metadata = new HashMap<>();
+                            DataSnapshot metadataSnapshot = notificationSnapshot.child("metadata");
+                            if (metadataSnapshot.exists()) {
+                                for (DataSnapshot metaChild : metadataSnapshot.getChildren()) {
+                                    String key = metaChild.getKey();
+                                    Object value = metaChild.getValue();
+                                    if (key != null && value != null) {
+                                        metadata.put(key, value);
+                                    }
+                                }
+                            }
+
                             if (reason != null && time != null && date != null) {
-                                NotificationData notification = new NotificationData(
-                                        notificationId,
-                                        reason,  // No session name needed
-                                        date,
-                                        time
-                                );
-                                notificationMap.put(notificationId, notification);
-                                count++;
+                                String detectionType = "unknown";
+                                if (metadata.containsKey("detectionType")) {
+                                    detectionType = (String) metadata.get("detectionType");
+                                } else if (reason.toLowerCase().contains("sound")) {
+                                    detectionType = "sound";
+                                } else if (reason.toLowerCase().contains("person")) {
+                                    detectionType = "person";
+                                }
+
+                                boolean isHostSessionNotification = metadata.containsKey("isHostNotification") &&
+                                                                  metadata.get("isHostNotification") instanceof Boolean &&
+                                                                  (Boolean) metadata.get("isHostNotification");
+
+                                Context currentContext = instanceContext;
+                                boolean shouldDisplay = true;
+
+                                if (!isHostSessionNotification) {
+                                    if (currentContext != null) {
+                                        if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(currentContext)) {
+                                            Log.d(TAG, "Skipping universal sound notification (user setting - fetch): " + notificationId);
+                                            shouldDisplay = false;
+                                        }
+                                        if (shouldDisplay && "person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(currentContext)) {
+                                            Log.d(TAG, "Skipping universal person notification (user setting - fetch): " + notificationId);
+                                            shouldDisplay = false;
+                                        }
+                                    } else {
+                                        Log.w(TAG, "Context is null in universal fetch, cannot check notification settings for: " + notificationId + ". Skipping.");
+                                        shouldDisplay = false; 
+                                    }
+                                } else {
+                                    Log.d(TAG, "Processing host session universal notification, bypassing general filters: " + notificationId);
+                                }
+                                
+                                if (shouldDisplay) {
+                                    NotificationData notification = new NotificationData(
+                                            notificationId,
+                                            reason,
+                                            date,
+                                            time,
+                                            metadata.isEmpty() ? null : metadata
+                                    );
+                                    notificationMap.put(notificationId, notification);
+                                    count++;
+                                }
                             }
                         }
                     }
-                    Log.d(TAG, "Found " + count + " universal notifications");
+                    Log.d(TAG, "Found and processed " + count + " universal notifications");
                 } else {
                     Log.d(TAG, "No universal notifications found");
                 }
 
                 pendingRequests[0]--;
                 if (pendingRequests[0] == 0) {
-                    displayNotifications(context, notificationContainer);
+                    displayNotifications(instanceContext, notificationContainer);
                 }
             }
 
@@ -280,7 +335,7 @@ public class PopulateNotifs {
                 Log.e(TAG, "Error fetching universal notifications: " + error.getMessage());
                 pendingRequests[0]--;
                 if (pendingRequests[0] == 0) {
-                    displayNotifications(context, notificationContainer);
+                    displayNotifications(instanceContext, notificationContainer);
                 }
             }
         });
@@ -309,7 +364,7 @@ public class PopulateNotifs {
                                 } else {
                                     Log.d(TAG, "Fallback session name found: " + finalSessionName + " for session: " + sessionKey);
                                 }
-                                processSessionNotificationsWithName(sessionSnapshot, sessionKey, finalSessionName, formattedEmail, deletedNotifs, pendingRequests, context, notificationContainer);
+                                processSessionNotificationsWithName(sessionSnapshot, sessionKey, finalSessionName, formattedEmail, deletedNotifs, pendingRequests, instanceContext, notificationContainer);
                             });
                             return;
                         }
@@ -325,7 +380,7 @@ public class PopulateNotifs {
                                 } else {
                                     Log.d(TAG, "Fallback session name found: " + finalSessionName + " for session: " + sessionKey);
                                 }
-                                processSessionNotificationsWithName(sessionSnapshot, sessionKey, finalSessionName, formattedEmail, deletedNotifs, pendingRequests, context, notificationContainer);
+                                processSessionNotificationsWithName(sessionSnapshot, sessionKey, finalSessionName, formattedEmail, deletedNotifs, pendingRequests, instanceContext, notificationContainer);
                             });
                             return;
                         }
@@ -361,7 +416,7 @@ public class PopulateNotifs {
 
                         pendingRequests[0]--;
                         if (pendingRequests[0] == 0) {
-                            displayNotifications(context, notificationContainer);
+                            displayNotifications(instanceContext, notificationContainer);
                         }
                     }
 
@@ -370,7 +425,7 @@ public class PopulateNotifs {
                         Log.e(TAG, "Error fetching session details: " + databaseError.getMessage());
                         pendingRequests[0]--;
                         if (pendingRequests[0] == 0) {
-                            displayNotifications(context, notificationContainer);
+                            displayNotifications(instanceContext, notificationContainer);
                         }
                     }
                 });
@@ -994,7 +1049,7 @@ public class PopulateNotifs {
         
         pendingRequests[0]--;
         if (pendingRequests[0] == 0) {
-            displayNotifications(context, notificationContainer);
+            displayNotifications(this.instanceContext, notificationContainer);
         }
     }
     
@@ -1064,13 +1119,13 @@ public class PopulateNotifs {
 
             // Check if notifications of this type are enabled, UNLESS it's a host session notification
             if (!isHostSessionNotification) {
-                Context context = getContext();
-                if (context != null) {
-                    if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(context)) {
+                Context currentContext = this.instanceContext; // Use stored instanceContext
+                if (currentContext != null) {
+                    if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(currentContext)) {
                         Log.d(TAG, "Skipping universal sound notification (user setting): " + notificationId);
                         return;
                     }
-                    if ("person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(context)) {
+                    if ("person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(currentContext)) {
                         Log.d(TAG, "Skipping universal person notification (user setting): " + notificationId);
                         return;
                     }
@@ -1153,13 +1208,13 @@ public class PopulateNotifs {
 
                     // Check if notifications of this type are enabled, UNLESS it's a host session notification
                     if (!isHostSessionNotification) {
-                        Context context = getContext();
-                        if (context != null) {
-                            if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(context)) {
+                        Context currentContext = this.instanceContext; // Use stored instanceContext
+                        if (currentContext != null) {
+                            if ("sound".equals(detectionType) && !NotificationSettings.isSoundNotificationsEnabled(currentContext)) {
                                 Log.d(TAG, "Skipping universal sound notification (user setting): " + notificationId);
                                 continue;
                             }
-                            if ("person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(context)) {
+                            if ("person".equals(detectionType) && !NotificationSettings.isPersonNotificationsEnabled(currentContext)) {
                                 Log.d(TAG, "Skipping universal person notification (user setting): " + notificationId);
                                 continue;
                             }
@@ -1189,6 +1244,12 @@ public class PopulateNotifs {
 
     // Helper method to get context safely
     private Context getContext() {
+        // Return the stored instance context if available
+        if (this.instanceContext != null) {
+            return this.instanceContext;
+        }
+        // Fallback to original logic if instanceContext is null, but log this as an issue
+        Log.w(TAG, "instanceContext is null in getContext(), falling back to NotificationFragment.activeInstance. This might indicate an issue.");
         return activeInstance != null && NotificationFragment.activeInstance != null ? 
                NotificationFragment.activeInstance.getContext() : null;
     }

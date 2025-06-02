@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -97,7 +98,6 @@ public class WatchSessionActivity extends AppCompatActivity {
     // Focus mode variables
     private boolean isInFocusMode = false;
     private View focusedContainer = null;
-    private int previousActiveCount = 0;
     private FloatingActionButton backToGridButton;
     private AlertDialog sessionInfoDialog; // Added for managing session info dialog instance
 
@@ -222,6 +222,12 @@ public class WatchSessionActivity extends AppCompatActivity {
         View feedContainer2 = findViewById(R.id.feed_container_2);
         View feedContainer3 = findViewById(R.id.feed_container_3);
         View feedContainer4 = findViewById(R.id.feed_container_4);
+
+        // Make feed containers clickable
+        if (feedContainer1 != null) feedContainer1.setClickable(true);
+        if (feedContainer2 != null) feedContainer2.setClickable(true);
+        if (feedContainer3 != null) feedContainer3.setClickable(true);
+        if (feedContainer4 != null) feedContainer4.setClickable(true);
 
         // End session button
         if (endSessionButton != null) {
@@ -1144,6 +1150,19 @@ public class WatchSessionActivity extends AppCompatActivity {
                     rendererToUse.setEnableHardwareScaler(true);
                     rendererToUse.setMirror(false);
                     rendererToUse.setZOrderMediaOverlay(true); // Ensure renderer is on top
+                    
+                    // IMPORTANT: Make the SurfaceViewRenderer pass touch events to its parent
+                    final int finalPosition = position; // Create a final copy for use in the lambda
+                    View finalContainer = container;
+                    rendererToUse.setOnTouchListener((v, event) -> {
+                        Log.d(TAG, "Touch on SurfaceViewRenderer at position " + finalPosition + ", passing to parent");
+                        // Pass the event to the parent container
+                        if (finalContainer.getParent() != null && finalContainer.getParent() instanceof View) {
+                            return ((View) finalContainer.getParent()).onTouchEvent(event);
+                        }
+                        return false;
+                    });
+                    
                     Log.d(TAG, "Renderer initialized successfully for position " + position);
 
                     // Also register the renderer at its position in the RTCHost
@@ -1426,6 +1445,10 @@ public class WatchSessionActivity extends AppCompatActivity {
      * Update the grid layout based on number of active cameras
      */
     private void updateGridLayout(int activeCount) {
+        if (isInFocusMode) {
+            Log.d(TAG, "In focus mode, deferring grid layout update for " + activeCount + " active cameras. Layout will update on exiting focus mode.");
+            return;
+        }
         Log.d(TAG, "Updating grid layout for " + activeCount + " active cameras");
         
         View feedContainer1 = findViewById(R.id.feed_container_1);
@@ -1433,20 +1456,16 @@ public class WatchSessionActivity extends AppCompatActivity {
         View feedContainer3 = findViewById(R.id.feed_container_3);
         View feedContainer4 = findViewById(R.id.feed_container_4);
         
-        // Always show at least one container
+        // Set visibility based on activeCount
         if (feedContainer1 != null) {
-            feedContainer1.setVisibility(View.VISIBLE);
+            feedContainer1.setVisibility(activeCount >= 1 ? View.VISIBLE : View.GONE);
         }
-        
-        // Show/hide containers based on active count
         if (feedContainer2 != null) {
             feedContainer2.setVisibility(activeCount >= 2 ? View.VISIBLE : View.GONE);
         }
-        
         if (feedContainer3 != null) {
             feedContainer3.setVisibility(activeCount >= 3 ? View.VISIBLE : View.GONE);
         }
-        
         if (feedContainer4 != null) {
             feedContainer4.setVisibility(activeCount >= 4 ? View.VISIBLE : View.GONE);
         }
@@ -1460,6 +1479,11 @@ public class WatchSessionActivity extends AppCompatActivity {
      * Adjust the constraints for feed containers based on active count
      */
     private void adjustContainerConstraints(int activeCount) {
+        if (isInFocusMode) {
+            Log.d(TAG, "adjustContainerConstraints: In focus mode, skipping constraint adjustment. Focused container should remain fullscreen.");
+            return;
+        }
+
         if (gridLayout == null) {
             Log.e(TAG, "gridLayout is null, cannot adjust constraints");
             return;
@@ -1496,6 +1520,8 @@ public class WatchSessionActivity extends AppCompatActivity {
                 set.connect(container1.getId(), ConstraintSet.BOTTOM, constraintLayout.getId(), ConstraintSet.BOTTOM);
                 set.connect(container1.getId(), ConstraintSet.START, constraintLayout.getId(), ConstraintSet.START);
                 set.connect(container1.getId(), ConstraintSet.END, constraintLayout.getId(), ConstraintSet.END);
+                set.constrainWidth(container1.getId(), ConstraintSet.MATCH_CONSTRAINT);
+                set.constrainHeight(container1.getId(), ConstraintSet.MATCH_CONSTRAINT);
             } 
             else if (activeCount == 2) {
                 // Two cameras - stacked vertically
@@ -1510,19 +1536,24 @@ public class WatchSessionActivity extends AppCompatActivity {
                 set.connect(container1.getId(), ConstraintSet.START, constraintLayout.getId(), ConstraintSet.START);
                 set.connect(container1.getId(), ConstraintSet.END, constraintLayout.getId(), ConstraintSet.END);
                 set.connect(container1.getId(), ConstraintSet.BOTTOM, container2.getId(), ConstraintSet.TOP);
+                set.constrainWidth(container1.getId(), ConstraintSet.MATCH_CONSTRAINT); // Full width
+                set.constrainHeight(container1.getId(), 0); // 0dp for chain
                 
                 // Container2 at bottom half
                 set.connect(container2.getId(), ConstraintSet.TOP, container1.getId(), ConstraintSet.BOTTOM);
                 set.connect(container2.getId(), ConstraintSet.START, constraintLayout.getId(), ConstraintSet.START);
                 set.connect(container2.getId(), ConstraintSet.END, constraintLayout.getId(), ConstraintSet.END);
                 set.connect(container2.getId(), ConstraintSet.BOTTOM, constraintLayout.getId(), ConstraintSet.BOTTOM);
+                set.constrainWidth(container2.getId(), ConstraintSet.MATCH_CONSTRAINT); // Full width
+                set.constrainHeight(container2.getId(), 0); // 0dp for chain
                 
-                // Make them equal height
+                // Make them equal height using a spread chain
                 set.createVerticalChain(
-                constraintLayout.getId(), ConstraintSet.TOP,
-                constraintLayout.getId(), ConstraintSet.BOTTOM,
-                new int[]{container1.getId(), container2.getId()},
-                null, ConstraintSet.CHAIN_PACKED);
+                    constraintLayout.getId(), ConstraintSet.TOP,
+                    constraintLayout.getId(), ConstraintSet.BOTTOM,
+                    new int[]{container1.getId(), container2.getId()},
+                    null, // No weights needed for CHAIN_SPREAD with 0dp heights, they will split space
+                    ConstraintSet.CHAIN_SPREAD); // Changed from CHAIN_PACKED
             } 
             else if (activeCount >= 3) {
                 // 3-4 cameras - grid layout (2x2)
@@ -1539,55 +1570,69 @@ public class WatchSessionActivity extends AppCompatActivity {
                 set.connect(container1.getId(), ConstraintSet.START, constraintLayout.getId(), ConstraintSet.START);
                 set.connect(container1.getId(), ConstraintSet.END, container2.getId(), ConstraintSet.START);
                 set.connect(container1.getId(), ConstraintSet.BOTTOM, container3.getId(), ConstraintSet.TOP);
+                set.constrainWidth(container1.getId(), 0); // 0dp for chain
+                set.constrainHeight(container1.getId(), 0); // 0dp for chain
                 
                 // Container2 at top-right quadrant
                 set.connect(container2.getId(), ConstraintSet.TOP, constraintLayout.getId(), ConstraintSet.TOP);
                 set.connect(container2.getId(), ConstraintSet.START, container1.getId(), ConstraintSet.END);
                 set.connect(container2.getId(), ConstraintSet.END, constraintLayout.getId(), ConstraintSet.END);
                 set.connect(container2.getId(), ConstraintSet.BOTTOM, container4.getId(), ConstraintSet.TOP);
+                set.constrainWidth(container2.getId(), 0); // 0dp for chain
+                set.constrainHeight(container2.getId(), 0); // 0dp for chain
                 
                 // Container3 at bottom-left quadrant
                 set.connect(container3.getId(), ConstraintSet.TOP, container1.getId(), ConstraintSet.BOTTOM);
                 set.connect(container3.getId(), ConstraintSet.START, constraintLayout.getId(), ConstraintSet.START);
                 set.connect(container3.getId(), ConstraintSet.END, container4.getId(), ConstraintSet.START);
                 set.connect(container3.getId(), ConstraintSet.BOTTOM, constraintLayout.getId(), ConstraintSet.BOTTOM);
+                set.constrainWidth(container3.getId(), 0); // 0dp for chain
+                set.constrainHeight(container3.getId(), 0); // 0dp for chain
                 
                 // Container4 at bottom-right quadrant
                 set.connect(container4.getId(), ConstraintSet.TOP, container2.getId(), ConstraintSet.BOTTOM);
                 set.connect(container4.getId(), ConstraintSet.START, container3.getId(), ConstraintSet.END);
                 set.connect(container4.getId(), ConstraintSet.END, constraintLayout.getId(), ConstraintSet.END);
                 set.connect(container4.getId(), ConstraintSet.BOTTOM, constraintLayout.getId(), ConstraintSet.BOTTOM);
+                set.constrainWidth(container4.getId(), 0); // 0dp for chain
+                set.constrainHeight(container4.getId(), 0); // 0dp for chain
                 
                 // Create horizontal and vertical chains for equal distribution
                 set.createHorizontalChain(
                     constraintLayout.getId(), ConstraintSet.LEFT,
                     constraintLayout.getId(), ConstraintSet.RIGHT,
                     new int[]{container1.getId(), container2.getId()},
-                    null, ConstraintSet.CHAIN_PACKED);
+                    null, // No weights needed for CHAIN_SPREAD with 0dp widths
+                    ConstraintSet.CHAIN_SPREAD); // Changed from CHAIN_PACKED
                     
                 set.createHorizontalChain(
                     constraintLayout.getId(), ConstraintSet.LEFT,
                     constraintLayout.getId(), ConstraintSet.RIGHT,
                     new int[]{container3.getId(), container4.getId()},
-                    null, ConstraintSet.CHAIN_PACKED);
+                    null, // No weights needed for CHAIN_SPREAD with 0dp widths
+                    ConstraintSet.CHAIN_SPREAD); // Changed from CHAIN_PACKED
                     
                 set.createVerticalChain(
                     constraintLayout.getId(), ConstraintSet.TOP,
                     constraintLayout.getId(), ConstraintSet.BOTTOM,
                     new int[]{container1.getId(), container3.getId()},
-                    null, ConstraintSet.CHAIN_PACKED);
+                    null, // No weights needed for CHAIN_SPREAD with 0dp heights
+                    ConstraintSet.CHAIN_SPREAD); // Changed from CHAIN_PACKED
                     
                 set.createVerticalChain(
                     constraintLayout.getId(), ConstraintSet.TOP,
                     constraintLayout.getId(), ConstraintSet.BOTTOM,
                     new int[]{container2.getId(), container4.getId()},
-                    null, ConstraintSet.CHAIN_PACKED);
+                    null, // No weights needed for CHAIN_SPREAD with 0dp heights
+                    ConstraintSet.CHAIN_SPREAD); // Changed from CHAIN_PACKED
             }
             
             // Apply the updated constraints
             try {
+                Log.d(TAG, "adjustContainerConstraints: Attempting to apply ConstraintSet for " + activeCount + " cameras.");
                 set.applyTo(constraintLayout);
-                Log.d(TAG, "Successfully applied constraints for " + activeCount + " cameras");            } catch (Exception e) {
+                Log.d(TAG, "Successfully applied constraints for " + activeCount + " cameras");
+            } catch (Exception e) {
                 Log.e(TAG, "Error applying constraints: " + e.getMessage());
             }
         } else {
@@ -1601,16 +1646,19 @@ public class WatchSessionActivity extends AppCompatActivity {
      */
     private void enterFocusMode(View containerToFocus) {
         if (isInFocusMode || containerToFocus == null) {
+            Log.d(TAG, "enterFocusMode: Already in focus mode or containerToFocus is null. isInFocusMode: " + isInFocusMode + ", containerToFocus: " + containerToFocus);
             return;
         }
 
-        Log.d(TAG, "Entering focus mode for container: " + containerToFocus.getId());
+        String containerName = "unknown";
+        try {
+            containerName = containerToFocus.getResources().getResourceEntryName(containerToFocus.getId());
+        } catch (Exception e) { /* ignore */ }
+
+        Log.d(TAG, "Entering focus mode for container: " + containerName + ", activeCamerasCount: " + activeCamerasCount);
 
         isInFocusMode = true;
         focusedContainer = containerToFocus;
-
-        // Store the current active count to restore later
-        previousActiveCount = getVisibleContainerCount();
 
         // Hide all other containers
         View feedContainer1 = findViewById(R.id.feed_container_1);
@@ -1618,17 +1666,22 @@ public class WatchSessionActivity extends AppCompatActivity {
         View feedContainer3 = findViewById(R.id.feed_container_3);
         View feedContainer4 = findViewById(R.id.feed_container_4);
 
+        Log.d(TAG, "enterFocusMode: Hiding other containers.");
         if (feedContainer1 != null && feedContainer1 != containerToFocus) {
             feedContainer1.setVisibility(View.GONE);
+            Log.d(TAG, "enterFocusMode: Hid feedContainer1");
         }
         if (feedContainer2 != null && feedContainer2 != containerToFocus) {
             feedContainer2.setVisibility(View.GONE);
+            Log.d(TAG, "enterFocusMode: Hid feedContainer2");
         }
         if (feedContainer3 != null && feedContainer3 != containerToFocus) {
             feedContainer3.setVisibility(View.GONE);
+            Log.d(TAG, "enterFocusMode: Hid feedContainer3");
         }
         if (feedContainer4 != null && feedContainer4 != containerToFocus) {
             feedContainer4.setVisibility(View.GONE);
+            Log.d(TAG, "enterFocusMode: Hid feedContainer4");
         }
 
         // Make the focused container fill the entire screen
@@ -1641,14 +1694,17 @@ public class WatchSessionActivity extends AppCompatActivity {
                 .alpha(1.0f)
                 .setDuration(300)
                 .start();
+            Log.d(TAG, "enterFocusMode: backToGridButton made visible and animated.");
         }        // Add visual feedback
         Toast.makeText(this, "Focus mode activated - Double tap to exit", Toast.LENGTH_LONG).show();
+        Log.d(TAG, "enterFocusMode: Focus mode activated toast shown.");
     }
 
     /**
      * Exit focus mode and return to grid layout
      */
     private void exitFocusMode() {
+        Log.d(TAG, "exitFocusMode: Attempting to exit focus mode. isInFocusMode: " + isInFocusMode);
         if (!isInFocusMode) {
             return;
         }
@@ -1662,23 +1718,28 @@ public class WatchSessionActivity extends AppCompatActivity {
             backToGridButton.animate()
                 .alpha(0.0f)
                 .setDuration(300)
-                .withEndAction(() -> backToGridButton.setVisibility(View.GONE))
+                .withEndAction(() -> {
+                    backToGridButton.setVisibility(View.GONE);
+                    Log.d(TAG, "exitFocusMode: backToGridButton animation ended, set to GONE.");
+                })
                 .start();
         }
 
-        // Restore all visible containers based on previous active count
-        restoreGridLayout();
+        // Restore all visible containers based on current active camera count
+        restoreGridLayout(activeCamerasCount);
 
         focusedContainer = null;
 
         // Add visual feedback
         Toast.makeText(this, "Returned to grid view", Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "exitFocusMode: Returned to grid view toast shown.");
     }
 
     /**
      * Set a container to fill the entire screen
      */
     private void setContainerToFullScreen(View container) {
+        Log.d(TAG, "setContainerToFullScreen: Attempting to set container to full screen: " + container.getResources().getResourceEntryName(container.getId()));
         if (gridLayout instanceof ConstraintLayout) {
             ConstraintLayout constraintLayout = (ConstraintLayout) gridLayout;
             ConstraintSet set = new ConstraintSet();
@@ -1696,17 +1757,20 @@ public class WatchSessionActivity extends AppCompatActivity {
             // Apply the constraints
             try {
                 set.applyTo(constraintLayout);
-                Log.d(TAG, "Successfully applied full screen constraints");
+                Log.d(TAG, "setContainerToFullScreen: Successfully applied full screen constraints to " + container.getResources().getResourceEntryName(container.getId()));
             } catch (Exception e) {
-                Log.e(TAG, "Error applying full screen constraints: " + e.getMessage());
+                Log.e(TAG, "setContainerToFullScreen: Error applying full screen constraints: " + e.getMessage(), e);
             }
+        } else {
+            Log.e(TAG, "setContainerToFullScreen: gridLayout is not a ConstraintLayout. It is: " + (gridLayout != null ? gridLayout.getClass().getName() : "null"));
         }
     }
 
     /**
      * Restore the grid layout from focus mode
      */
-    private void restoreGridLayout() {
+    private void restoreGridLayout(int currentActiveCameraCount) {
+        Log.d(TAG, "Restoring grid layout for " + currentActiveCameraCount + " cameras.");
         // Make all previously visible containers visible again
         View feedContainer1 = findViewById(R.id.feed_container_1);
         View feedContainer2 = findViewById(R.id.feed_container_2);
@@ -1715,36 +1779,20 @@ public class WatchSessionActivity extends AppCompatActivity {
 
         // Restore visibility based on previous active count
         if (feedContainer1 != null) {
-            feedContainer1.setVisibility(View.VISIBLE);
+            feedContainer1.setVisibility(View.VISIBLE); // Container 1 is base for 1 or more cameras
         }
         if (feedContainer2 != null) {
-            feedContainer2.setVisibility(previousActiveCount >= 2 ? View.VISIBLE : View.GONE);
+            feedContainer2.setVisibility(currentActiveCameraCount >= 2 ? View.VISIBLE : View.GONE);
         }
         if (feedContainer3 != null) {
-            feedContainer3.setVisibility(previousActiveCount >= 3 ? View.VISIBLE : View.GONE);
+            feedContainer3.setVisibility(currentActiveCameraCount >= 3 ? View.VISIBLE : View.GONE);
         }
         if (feedContainer4 != null) {
-            feedContainer4.setVisibility(previousActiveCount >= 4 ? View.VISIBLE : View.GONE);
+            feedContainer4.setVisibility(currentActiveCameraCount >= 4 ? View.VISIBLE : View.GONE);
         }
 
         // Restore the grid layout constraints
-        adjustContainerConstraints(previousActiveCount);
-    }
-
-    /**
-     * Get the count of currently visible containers
-     */
-    private int getVisibleContainerCount() {
-        int count = 0;
-        View feedContainer1 = findViewById(R.id.feed_container_1);
-        View feedContainer2 = findViewById(R.id.feed_container_2);
-        View feedContainer3 = findViewById(R.id.feed_container_3);
-        View feedContainer4 = findViewById(R.id.feed_container_4);
-
-        if (feedContainer1 != null && feedContainer1.getVisibility() == View.VISIBLE) count++;
-        if (feedContainer2 != null && feedContainer2.getVisibility() == View.VISIBLE) count++;
-        if (feedContainer3 != null && feedContainer3.getVisibility() == View.VISIBLE) count++;
-        if (feedContainer4 != null && feedContainer4.getVisibility() == View.VISIBLE) count++;        return count;
+        adjustContainerConstraints(currentActiveCameraCount);
     }
 
     /**
@@ -1756,38 +1804,155 @@ public class WatchSessionActivity extends AppCompatActivity {
         View feedContainer3 = findViewById(R.id.feed_container_3);
         View feedContainer4 = findViewById(R.id.feed_container_4);
 
-        View[] containers = {feedContainer1, feedContainer2, feedContainer3, feedContainer4};
+        if (gridLayout == null) {
+            Log.e(TAG, "setupFocusModeClickListeners: gridLayout is null, cannot set up listeners.");
+            return;
+        }
 
-        for (View container : containers) {
-            if (container != null) {
-                final View currentFocusableView = container; // Make effectively final for use in listener
+        final View[] containers = {feedContainer1, feedContainer2, feedContainer3, feedContainer4};
 
-                GestureDetector detector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
-                    @Override
-                    public boolean onDoubleTap(MotionEvent e) {
-                        if (isInFocusMode) {
-                            // Any double tap when in focus mode will exit.
-                            exitFocusMode();
-                            return true;
-                        }
-                        return false;
-                    }
-
-                    @Override
-                    public boolean onSingleTapConfirmed(MotionEvent e) {
-                        // Single tap on 'currentFocusableView'
-                        if (!isInFocusMode && currentFocusableView.getVisibility() == View.VISIBLE) {
-                            enterFocusMode(currentFocusableView);
-                            return true;
-                        }
-                        return false;
+        // Add direct click listeners to each container as a backup approach
+        for (int i = 0; i < containers.length; i++) {
+            final int containerIndex = i;
+            if (containers[i] != null) {
+                containers[i].setOnClickListener(v -> {
+                    Log.d(TAG, "Direct onClick detected on container " + containerIndex);
+                    if (!isInFocusMode && activeCamerasCount >= 2) {
+                        enterFocusMode(containers[containerIndex]);
+                    } else if (isInFocusMode) {
+                        // Double tap is handled by GestureDetector, but add a click handler too
+                        exitFocusMode();
                     }
                 });
-
-                // Set the OnTouchListener for the container to use the GestureDetector
-                // The return value of detector.onTouchEvent(event) is important for gesture handling.
-                container.setOnTouchListener((v, event) -> detector.onTouchEvent(event));
             }
+        }
+
+        GestureDetector gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                Log.d(TAG, "onSingleTapConfirmed: Received single tap event.");
+                Log.d(TAG, "onSingleTapConfirmed on gridLayout. isInFocusMode: " + isInFocusMode + ". Tap at (rawX,rawY): " + e.getRawX() + "," + e.getRawY() + " activeCamerasCount: " + activeCamerasCount);
+                
+                // Add a check for activeCamerasCount and log it
+                if (activeCamerasCount < 2) {
+                    Log.d(TAG, "onSingleTapConfirmed: Not entering focus mode because activeCamerasCount is " + activeCamerasCount + " (needs to be >= 2)");
+                    return false;
+                }
+                
+                if (!isInFocusMode && activeCamerasCount >= 2) { // Condition changed here
+                    for (View container : containers) {
+                        if (container != null && container.getVisibility() == View.VISIBLE && container.isShown()) {
+                            String containerName = "UnknownContainer";
+                            try {
+                                containerName = container.getResources().getResourceEntryName(container.getId());
+                            } catch (Exception ex) { /* ignore */ }
+                            Log.d(TAG, "onSingleTapConfirmed: Checking container " + containerName +
+                                    " visibility: " + container.getVisibility() +
+                                    " isShown: " + container.isShown() +
+                                    " clickable: " + container.isClickable() +
+                                    " width: " + container.getWidth() +
+                                    " height: " + container.getHeight());
+                            if (isTapInsideView(container, e)) {
+                                Log.d(TAG, "onSingleTapConfirmed: Tap inside " + containerName + ". Entering focus mode.");
+                                enterFocusMode(container);
+                                return true; // Consumed
+                            }
+                        } else if (container != null) {
+                            String containerName = "UnknownContainer";
+                            try {
+                                containerName = container.getResources().getResourceEntryName(container.getId());
+                            } catch (Exception ex) { /* ignore */ }
+                            Log.d(TAG, "onSingleTapConfirmed: Skipping container " + containerName +
+                                    " due to visibility/shown state. Visibility: " + container.getVisibility() +
+                                    " isShown: " + container.isShown());
+                        }
+                    }
+                    Log.d(TAG, "onSingleTapConfirmed: Tap was not inside any visible/shown container or conditions not met for focus mode.");
+                } else {
+                    Log.d(TAG, "onSingleTapConfirmed: Conditions for focus mode not met (isInFocusMode: " + isInFocusMode + " or activeCamerasCount < 2: " + activeCamerasCount + "). Doing nothing.");
+                }
+                return false; // Not consumed or conditions not met
+            }
+
+            @Override
+            public boolean onDoubleTap(MotionEvent e) {
+                Log.d(TAG, "onDoubleTap on gridLayout. isInFocusMode: " + isInFocusMode);
+                if (isInFocusMode) {
+                    Log.d(TAG, "onDoubleTap: Exiting focus mode.");
+                    exitFocusMode();
+                    return true; // Consumed
+                }
+                return false; // Not consumed or not in focus mode
+            }
+        });
+
+        gridLayout.setOnTouchListener((v, event) -> {
+            // Log raw touch event for the gridLayout
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                Log.d(TAG, "onTouch: ACTION_DOWN on gridLayout at coordinates: (" + event.getX() + ", " + event.getY() + ") raw: (" + event.getRawX() + ", " + event.getRawY() + ")");
+            }
+            boolean handled = gestureDetector.onTouchEvent(event);
+            Log.d(TAG, "onTouch: gridLayout - gestureDetector.onTouchEvent(event) returned: " + handled + " for action: " + event.getAction());
+            return handled;
+        });
+
+        Log.d(TAG, "setupFocusModeClickListeners: GestureDetector and OnTouchListener set for gridLayout.");
+    }
+
+    private boolean isTapInsideView(View view, MotionEvent event) {
+        if (view == null || view.getVisibility() != View.VISIBLE || !view.isShown()) {
+            String viewName = "UnknownView";
+            int vis = -1;
+            boolean shown = false;
+            int w = -1, h = -1;
+            if (view != null) {
+                try { viewName = view.getResources().getResourceEntryName(view.getId()); } catch (Exception ex) { /* ignore */ }
+                vis = view.getVisibility();
+                shown = view.isShown();
+                w = view.getWidth();
+                h = view.getHeight();
+            }
+            Log.d(TAG, "isTapInsideView: Skipping view " + viewName +
+                    ". Null: " + (view == null) +
+                    ", Visibility: " + viewVisibilityToString(vis) + " (raw: " + vis + ")" +
+                    ", isShown: " + shown +
+                    ", Width: " + w + ", Height: " + h);
+            return false;
+        }
+
+        int[] location = new int[2];
+        view.getLocationOnScreen(location); // Gets top-left corner in screen coordinates
+        int viewX = location[0];
+        int viewY = location[1];
+
+        // Create a rect representing the view's bounds on screen
+        Rect viewRectOnScreen = new Rect(viewX, viewY, viewX + view.getWidth(), viewY + view.getHeight());
+
+        // MotionEvent rawX/rawY are also screen coordinates
+        boolean isInView = viewRectOnScreen.contains((int) event.getRawX(), (int) event.getRawY());
+
+        String containerName = "UnknownView";
+        try {
+            containerName = view.getResources().getResourceEntryName(view.getId());
+        } catch (Exception e) { /* ignore */ }
+
+        Log.d(TAG, "isTapInsideView: Checking tap for " + containerName
+                + ". isShown(): " + view.isShown()
+                + ", Tap (rawX,rawY): (" + event.getRawX() + "," + event.getRawY() + ")"
+                + ", View Coords (x,y): (" + viewX + "," + viewY + ")"
+                + ", View Dims (w,h): (" + view.getWidth() + "," + view.getHeight() + ")"
+                + ", ViewRectOnScreen: " + viewRectOnScreen
+                + ". IsInside: " + isInView);
+        return isInView;
+    }
+
+    // Helper function for logging view visibility
+    private String viewVisibilityToString(int visibility) {
+        switch (visibility) {
+            case View.VISIBLE: return "VISIBLE";
+            case View.INVISIBLE: return "INVISIBLE";
+            case View.GONE: return "GONE";
+            default: return "UNKNOWN (" + visibility + ")";
         }
     }
 
